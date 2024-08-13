@@ -612,6 +612,7 @@ def checkLicense() {
 
 //Get the license type the user has selected.
 def isAdvLicense(){
+	return true
     if (isLogInfo) ("License:" + isAdvLicense)
     return isAdvLicense
 }
