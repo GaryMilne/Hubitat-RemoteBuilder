@@ -229,7 +229,7 @@ def getProfile(){
 			def fixedButtonCount = fixedButtonCommands.size()
 			def customButtonCommands = ["off", "channelList", "appRunNetflix", "appRunPrimeVideo","*appRunDisney+", "*appRunHBOMAX", "exit", "exit", "exit", "exit" ]
 			def customButtonColor = ["#555555", "#555555", "#FFFFFF", "#1294F7","#142156", "#000000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
-			def customButtonText = ["A", "B", "N", "A", "𝒟", "H", "1", "2", "3", "4" ]
+			def customButtonText = ["◆︎", "◧", "N", "A", "𝒟", "H", "1", "2", "3", "4" ]
 			def customButtonTextColor = ["#FFFFFF", "#FFFFFF","#FF0000", "#FFFFFF","#F3ECFE", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF" ]		
 			def customButtonCount = customButtonCommands.size()
 			
@@ -516,6 +516,7 @@ def HTML =
 		.button-text-large { font-size:24px;}		
         .control { cursor:pointer; }
         .no-cursor { font-size:18px; font-weight:bold; pointer-events:none; text-anchor:middle; }
+		.force-font {font-family: "Courier New"; }  /* This class is used to force the use of non-eMojoi characters as these get presented on an iPad at times */
 		
         /* Animation */
         .flicker {animation:flickerOrange 0.25s linear forwards}  
@@ -553,15 +554,15 @@ def HTML =
             
             <!-- Source Button -->
             <circle cx="140" cy="40" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text2" class="button-text control numeric-button no-select" x="140" y="42" style="font-size:30px">❖</text>
+            <text id="text2" class="button-text control numeric-button" x="140" y="42" style="font-size:30px">❖</text>
             
             <!-- Navigation buttons -->
             <circle cx="90" cy="120" r="50" fill="#555" stroke="url(#shadow-effect)" />
             <text id="text3" class="button-text control numeric-button" x="90" y="85" >▲</text>
             <text id="text4" class="button-text control numeric-button" x="90" y="155" >▼</text>
             <!-- The rotations on the following lines are required for these left right arrows to display properly on an iPad -->
-            <text id="text5" class="button-text control numeric-button" x="55" y="120" transform="rotate(-90, 55, 120)">▲</text>
-            <text id="text6" class="button-text control numeric-button" x="125" y="120" transform="rotate(90, 125, 120)">▲</text>
+            <text id="text5" class="button-text control numeric-button" x="52" y="120" transform="rotate(-90, 52, 120)">▲</text>
+            <text id="text6" class="button-text control numeric-button" x="128" y="120" transform="rotate(90, 128, 120)">▲</text>
             
             <!-- OK button -->
             <circle cx="90" cy="120" r="15" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" />
@@ -589,7 +590,7 @@ def HTML =
 
             <!-- Back button -->
             <circle cx="40" cy="267" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text14"  x="40" y="270" class="control numeric-button button-text button-text-large" >↩</text>
+            <text id="text14"  x="40" y="270" class="control numeric-button button-text button-text-large force-font" >↩</text>
 
             <!-- Home button -->
             <circle cx="90" cy="267" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
@@ -601,27 +602,27 @@ def HTML =
 
             <!-- Rewind - Play\\Pause - Fast Forward -->
             <rect x="25" y="300" width="32.5" height="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text17" x="41" y="310" class="control numeric-button button-text" style="font-size:12px">◀◀</text>
-                
+            <text id="text17" x="41" y="311" class="control numeric-button button-text force-font" style="font-size:12px">◀◀</text>
+			    
             <rect x="70" y="300" width="45" height="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text18" x="92" y="310" class="control numeric-button button-text" style="font-size:12px">▶ \\ ❚❚</text>
-                
+			<text id="text18" x="92" y="311" class="control numeric-button button-text force-font" style="font-size:12px">▶\\❚❚</text>
+			    
             <rect x="125" y="300" width="32.5" height="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text19" x="141" y="310" class="control numeric-button button-text" style="font-size:12px">▶▶</text>
+            <text id="text19" x="141" y="311" class="control numeric-button button-text force-font" style="font-size:12px;">▶▶</text>
                 
             <!-- Custom Buttons - Group A -->
             <circle id="object51" cx="30" cy="80" r="12.5" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text51" class="control numeric-button button-text no-select" x="30" y="82" style="fill:white; font-size:18px">A</text>
+            <text id="text51" class="control numeric-button button-text" x="30" y="82" style="fill:white; font-size:18px">A</text>
 
             <circle id="object52" cx="150" cy="80" r="12.5" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text52" class="control numeric-button button-text no-select" x="150" y="82" style="fill:white; font-size:18px">B</text>
+            <text id="text52" class="control numeric-button button-text" x="150" y="82" style="fill:white; font-size:18px">B</text>
 
             <!-- Custom Buttons - Group B -->
             <circle id="object53" cx="35" cy="350" r="12" fill="red" stroke="gray" stroke-width="1"/>
-            <text id="text53" class="control numeric-button button-text no-select" x="35" y="351" >A</text>
+            <text id="text53" class="control numeric-button button-text" x="35" y="351" >◈</text>
             
             <circle id="object54" cx="75" cy="350" r="12" fill="green" stroke="gray" stroke-width="1"/>
-            <text id="text54" class="control numeric-button button-text" x="75" y="351" >B</text>
+            <text id="text54" class="control numeric-button button-text" x="75" y="351" >◉</text>
             
             <circle id="object55" cx="110" cy="350" r="12" fill="purple" stroke="gray" stroke-width="1"/>
             <text id="text55" class="control numeric-button button-text" x="110" y="351" >C</text>
