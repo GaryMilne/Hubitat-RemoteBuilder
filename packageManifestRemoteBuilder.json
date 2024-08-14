@@ -1,0 +1,59 @@
+{
+  "packageName": "Remote Builder",
+  "author": "Gary J. Milne",
+  "version": "1.0.0",
+  "minimumHEVersion": "0.0",
+  "dateReleased": "2024-08-14",
+  "apps": [
+    {
+      "id": "ba72af2b-020d-445e-858d-58dfdd542e73",
+      "name": "",
+      "namespace": "",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Parent.groovy",
+      "required": true,
+      "oauth": false,
+      "primary": false,
+      "version": "1.0.0"
+    },
+    {
+      "id": "c3d1eb91-bbe4-4a9e-b938-db4b1b18f20b",
+      "name": "Remote Builder - Custom 6 Button",
+      "namespace": "garyjmilne",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Fixed_6_Button.groovy",
+      "required": false,
+      "oauth": false,
+      "primary": false,
+      "version": "1.0.0"
+    },
+    {
+      "id": "45ffa616-8a0b-477e-9952-c49f8bb0b4d6",
+      "name": "Remote Builder - Custom 6 Button",
+      "namespace": "garyjmilne",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Custom_6_Button.groovy",
+      "required": false,
+      "oauth": false,
+      "primary": false,
+      "version": "1.0.0"
+    },
+    {
+      "id": "c4075278-c190-4e49-b06f-e64d7bb6ddc5",
+      "name": "Remote Builder - TV",
+      "namespace": "garyjmilne",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_TV.groovy",
+      "required": false,
+      "oauth": false,
+      "primary": false,
+      "version": "1.0.0"
+    }
+  ],
+  "drivers": [
+    {
+      "id": "7ab6c42a-5ad5-43b5-a60b-fde57c80c6db",
+      "name": "Remote Builder Storage Driver",
+      "namespace": "garyjmilne",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Storage_Driver.groovy",
+      "required": true,
+      "version": "1.0.0"
+    }
+  ]
+}
