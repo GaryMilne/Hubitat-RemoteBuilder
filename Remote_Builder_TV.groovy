@@ -26,14 +26,16 @@
 *
 *  Remote Builder TV Remote - ChangeLog
 *
-*  Gary Milne - August 1st, 2024 @ 12:16 PM
+*  Gary Milne - August 14th, 2024 @ 1:26 PM
 *
 *  Version 1.0.0 - Initial Public Release
 *
 **/
 
 /* Todo's
-
+Add mode device profiles
+Load commands from the device
+Allow users to select a command with a parameter to assign to a button.
 */
 
 import groovy.json.JsonSlurper
@@ -42,24 +44,12 @@ import groovy.transform.Field
 
 static def buttonGroup() { return  }
 
-@Field static final codeDescription = "<b>Remote Builder - TV 1.0 (8/12/24 @ 10:48 PM)</b>"
+@Field static final codeDescription = "<b>Remote Builder - TV 1.0 (8/14/24 @ 1:26 PM)</b>"
 @Field static final codeVersion = 100
 @Field static final moduleName = "TV Remote"
 
-/*
-
-@Field static final fixedButtonCount = 19
-@Field static final fixedButtonText = ["⚡️", "❖", "▲", "▼", "◀", "▶", "OK", "▲", "▼", "🔇", "☰", "▲", "▼", "↩", "⌂", "⚙️", "◀◀" , "▶ \\ ❚❚", "▶▶" ]
-@Field static final fixedButtonCommands = ["on", "source", "arrowUp", "arrowDown", "arrowLeft", "arrowRight", "enter", "volumeUp", "volumeDown", "mute", "guide", "channelUp", "channelDown", "exit", "home", "menu", "fastBack", "play", "fastForward" ]
-
-@Field static final customButtonCount = 10
-@Field static final customButtonCommands = ["off", "channelList", "appRunNetflix", "appRunPrimeVideo","*appRunDisney+", "*appRunHBOMAX", "exit", "exit", "exit", "exit" ]
-@Field static final customButtonColor = ["#555555", "#555555", "#000000", "#1294F7","#142156", "#000000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
-@Field static final customButtonText = ["A", "B", "N", "A", "𝒟", "H", "1", "2", "3", "4" ]
-@Field static final customButtonTextColor = ["#FFFFFF", "#FFFFFF","#FF0000", "#FFFFFF","#F3ECFE", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF" ]
-*/
-
-def deviceProfileList() { return [0:'Samsung TV Remote by David Gutheinz', 1:'MolSmart - GW3 - TV (irweb) by VH'] }
+//def deviceProfileList() { return [0:'Samsung TV Remote by David Gutheinz', 1:'MolSmart - GW3 - TV (irweb) by VH'] }
+def deviceProfileList() { return [0:'Samsung TV Remote by David Gutheinz'] }
 
 definition(
 	    name: "Remote Builder - TV",
@@ -179,7 +169,7 @@ def mainPage(){
                                     
             if (myRemoteName) app.updateLabel(myRemoteName)
             myText =  "Publishing a remote is optional and only required if it will be used within a dashboard. Remotes can be accessed directly via the URL's in the Endpoints section and bypass the Dashboard entirely. The <b>Remote Name</b> given here will also be used as the name for this instance of Remote Builder. "
-			myText += "Appending the name with your chosen tile number can make parent display more readable.<br>"
+			myText += "Appending the name with your chosen remote number can make parent display more readable.<br>"
             myText += "Only links to the Local and Cloud Endpoints are stored in the Remote Builder Storage Device when publishing is enabled.<br>"
             paragraph myText
 			
@@ -510,7 +500,7 @@ def HTML =
     <meta name="viewport" content="width=device-width, initial-scale=0.5">
     <title>Remote Control</title>
     <style> 
-        html, body {touch-action: manipulation; font-family: Arial, sans-serif, "Segoe UI Symbol";}
+        html, body {touch-action: manipulation; font-family: Arial, sans-serif, "Segoe UI Symbol"; overflow:hidden;}
         .button-text { font-family: Arial; font-size: 18px; fill: white; text-anchor: middle; dominant-baseline: middle; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
 		.button-text-small { font-size:12px;}
 		.button-text-large { font-size:24px;}		

@@ -25,16 +25,18 @@
 *  Remote Builder Documentation: TBD
 *
 *  Remote Builder Parent App - ChangeLog
-*  Version 1.0.3 - Internal Only
+*  Version 1.0.0 - First Public Release
 *
-*  Gary Milne - June 17th, 2024 @ 7:17 PM
+*  Gary Milne - 8/14/24 @ 1:15 PM
+*
+*  Pending Improvements: None at this time.
 *
 **/
+
 import groovy.transform.Field
-@Field static final Version = "<b>Remote Builder Parent v1.0.0 (7/31/24 @ 7:10 AM)</b>"
+@Field static final Version = "<b>Remote Builder Parent v1.0.0 (8/14/24 @ 1:15 PM)</b>"
 
 //These are the data for the pickers used on the child forms.
-def textScale() { return ['50', '55', '60', '65', '70', '75', '80', '85', '90', '95', '100', '105', '110', '115', '120', '125', '130', '135', '140', '145', '150', '175', '200', '250', '300', '350', '400', '450', '500'] }
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
 def allTileList() { return [1:'Remote1', 2:'Remote2', 3:'Remote3', 4:'Remote4', 5:'Remote5', 6:'Remote6', 7:'Remote7', 8:'Remote8', 9:'Remote9', 10:'Remote10', \
 							11:'Remote11', 12:'Remote12', 13:'Remote13', 14:'Remote14', 15:'Remote15', 16:'Remote16', 17:'Remote17', 18:'Remote18', 19:'Remote19', \
@@ -45,7 +47,7 @@ definition(
     author: 'Gary Milne',
     description: 'Remote Builder Parent App',
     category: 'Dashboards',
-	importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder.groovy",
+	importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Parent.groovy",
     iconUrl: '',
     iconX2Url: '',
     iconX3Url: '',
@@ -61,8 +63,7 @@ preferences {
 
 def mainPage() {
     if (state.initialized == null ) initialize()
-    //initialize()
-
+    
     dynamicPage(name: "mainPage") {
         //See if the user has changed the selected storage device
         isSelectedDeviceChanged()
@@ -156,7 +157,7 @@ def mainPage() {
             if (state.showDevice == true ) {
                 input(name: 'btnShowDevice', type: 'button', title: 'Storage Device ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true)  //▼ ◀ ▶ ▲
                 paragraph "<b>Remote Builder</b> stores generated tiles on a special purpose <b>Remote Builder Storage Device</b>. You must <b>create a device and attach</b> to it using the controls below.<br>"                 
-                paragraph note('Note: ', "Each instance of <b>Remote Builder</b> must have its own unique storage device.")
+                paragraph note('Note: ', "Each instance of <b>Remote Builder</b> must have its own unique storage device but can store up to 25 remotes.")
                     
                 if (state.isStorageConnected == false ) {
                     paragraph red('❌ - A Remote Builder Storage Device is not connected.')
@@ -212,10 +213,10 @@ def mainPage() {
 					myString += '<b>More remotes will be added soon.</b>'
                     paragraph note('', myString)
                     
-                    if (!hideFixed6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Fixed 6 Button', namespace: 'garyjmilne', title: 'Fixed Six Button Remote')
+                    if (!hideFixed6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Fixed 6 Button', namespace: 'garyjmilne', title: 'Add Fixed Six Button Remote')
 					//These are Premium apps only visible to Advanced Users.
-					if (checkLicense() && !hideCustom6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Custom 6 Button', namespace: 'garyjmilne', title: 'Custom Six Button Remote')
-					if (checkLicense() && !hideTVRemote) app (name: 'TBPA', appName: 'Remote Builder - TV', namespace: 'garyjmilne', title: 'TV Remote')
+					if (checkLicense() && !hideCustom6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Custom 6 Button', namespace: 'garyjmilne', title: 'Add Custom Six Button Remote')
+					if (checkLicense() && !hideTVRemote) app (name: 'TBPA', appName: 'Remote Builder - TV', namespace: 'garyjmilne', title: 'Add TV Remote')
                     }
                 else {
                     input(name: 'btnShowCreateEdit', type: 'button', title: 'Create\\Edit Remotes ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
@@ -231,7 +232,7 @@ def mainPage() {
                     myString = 'Here you can view information about the tiles on this storage device, which tiles are in use, the last time those tiles were updated and delete obsolete tiles.<br>'
                     myString += 'In the <b>Remote Builder Storage Device</b> you can also preview the tiles, add descriptions and delete tiles as necessary.'
                     paragraph note('Note: ', myString)
-                    input name: 'tilesInUse', type: 'enum', title: bold('List Tiles in Use'), options: getTileList(), required: false, defaultValue: 'Tile List', submitOnChange: false, width: 4, newLineAfter:false
+                    input name: 'tilesInUse', type: 'enum', title: bold('List Tiles in Use'), options: getTileList(), required: false, defaultValue: 'Tile List', submitOnChange: false, width: 4, newLineAfter:true
                     /*input name: 'tilesInUseByActivity', type: 'enum', title: bold('List Tiles By Activity'), options: getTileListByActivity(), required: false, defaultValue: 'Tile List By Activity', submitOnChange: true, width: 4, newLineAfter:true*/
 		    		input(name: 'deleteTile', type: 'button', title: '↑ Delete ↑ Selected ↑ Tile ↑', backgroundColor: 'Maroon', textColor: 'yellow', submitOnChange: true, width: 2)
 			    	paragraph note('Note: ', 'Deleting a tile does not delete the <b>Remote Builder</b> child app that generates the tile. Delete the child app first and then delete the tile.')
@@ -581,6 +582,7 @@ def getTileListByActivity() {
 def deleteTile() {
     if (isLogTrace) log.trace ('deleteTile: Entering deleteTile')
     myDeviceDNI = state.myStorageDeviceDNI
+	def remoteNumber
 	
 	//Test to see if it is a valid tile selection
 	if (tilesInUse == null || tilesInUse.size() < 5 ){
@@ -591,12 +593,17 @@ def deleteTile() {
 	//log.debug ("myArr is: ${myArr}")
 	selectedTile = myArr[0]
 	//log.debug ("selectedTile is: ${selectedTile}")
-	selectedTile = selectedTile.replace("tile","")
-	//log.debug ("Tile Number is: ${selectedTile}")
+	
+	//Extract the Remote Number
+	tileNumber = selectedTile.replace("Remote", "")
+	tileNumber = tileNumber.replace("-Local", "")
+	tileNumber = tileNumber.replace("-Cloud", "")
+	//log.debug ("Tile Number is: ${tileNumber}")
+	
 	myDevice = getChildDevice(state.myStorageDeviceDNI)
 	if (state.isStorageConnected == true) {
 		log.info ("deleteTile: Delete tile initiated for tile number ${selectedTile} on device: ${myDeviceDNI}")
-		myDevice.deleteTile(selectedTile)
+		myDevice.deleteTile(tileNumber)
 	}
 }
 
@@ -612,7 +619,6 @@ def checkLicense() {
 
 //Get the license type the user has selected.
 def isAdvLicense(){
-	return true
     if (isLogInfo) ("License:" + isAdvLicense)
     return isAdvLicense
 }

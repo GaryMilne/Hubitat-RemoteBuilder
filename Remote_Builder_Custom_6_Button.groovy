@@ -1,10 +1,10 @@
 /**
-*  Remote Builder Parent App
+*  Remote Builder 6 Button
 *  Version: See ChangeLog
 *  Download: See importUrl in definition
 *  Description: Used in conjunction with child apps to generate tabular reports on device data and publishes them to a dashboard.
 *
-*  Copyright 2022 Gary J. Milne  
+*  Copyright 2024 Gary J. Milne  
 *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
 *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
 *  for the specific language governing permissions and limitations under the License.
@@ -22,926 +22,943 @@
 *  Authors Notes:
 *  For more information on Remote Builder check out these resources.
 *  Original posting on Hubitat Community forum: TBD
-*  Remote Builder Documentation: TBD
+*  Remote Builder Documentation: https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf
 *
-*  Remote Builder Parent App - ChangeLog
-*  Version 1.0.3 - Internal Only
+*  Remote Builder 6 Button - ChangeLog
 *
-*  Gary Milne - June 17th, 2024 @ 7:17 PM
+*  Gary Milne - August 14th, 2024 @ 1:18 PM PM
+*
+*  Version 1.0.0 - Initial Public Release
+*
+* Possible Future Improvements:
+* Loadable configurations such as lighting, audio, security, TV
+* Default button group to have open on load.
 *
 **/
-import groovy.transform.Field
-@Field static final Version = "<b>Remote Builder Parent v1.0.0 (7/31/24 @ 7:10 AM)</b>"
 
-//These are the data for the pickers used on the child forms.
-def textScale() { return ['50', '55', '60', '65', '70', '75', '80', '85', '90', '95', '100', '105', '110', '115', '120', '125', '130', '135', '140', '145', '150', '175', '200', '250', '300', '350', '400', '450', '500'] }
-def fontFamily() { return ['Arial', 'Arial Sans Serif', 'Arial Black', 'Brush Script MT', 'Comic Sans MS', 'Courier New', 'Garamond', 'Georgia', 'Hubitat', 'Lucida', 'Monospace', 'Palatino', 'Roboto', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana'] }
-def opacity() { return ['1', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1', '0'] }
-def refreshInterval() { return [0:'Never', 1:'1 minute', 2:'2 minutes', 5:'5 minutes', 10:'10 minutes', 15:'15 minutes', 30:'30 minutes', 60:'1 hour', 120:'2 hours', 240:'4 hours', 480:'8 hours', 720:'12 hours', 1440:'24 hours'] }
-def tilePreviewList() { return [1:'1 x 1', 2:'1 x 2', 3:'1 x 3', 4:'1 x 4', 5:'2 x 1', 6:'2 x 2', 7:'2 x 3', 8:'2 x 4', 9:'2 x 5', 10:'3 x 1', 11:'3 x 2', 12:'3 x 3', 13:'3 x 4', 14:'3 x 5'] }
-def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
-def allTileList() { return [1:'Remote1', 2:'Remote2', 3:'Remote3', 4:'Remote4', 5:'Remote5', 6:'Remote6', 7:'Remote7', 8:'Remote8', 9:'Remote9', 10:'Remote10', \
-							11:'Remote11', 12:'Remote12', 13:'Remote13', 14:'Remote14', 15:'Remote15', 16:'Remote16', 17:'Remote17', 18:'Remote18', 19:'Remote19', \
-							20:'Remote20', 21:'Remote21', 22:'Remote22', 23:'Remote23', 24:'Remote24', 25:'Remote25'] }
+import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
+import groovy.transform.Field
+
+static def buttonGroup() { return ['ONE', 'TWO', 'THREE'] }
+
+@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.0 (8/14/24 @ 1:18 PM)</b>"
+@Field static final codeVersion = 100
+@Field static final moduleName = "Custom 6 Button"
+//@Field static final moduleName = "Fixed 6 Button"
+
 definition(
-    name: 'Remote Builder',
-    namespace: 'garyjmilne',
-    author: 'Gary Milne',
-    description: 'Remote Builder Parent App',
-    category: 'Dashboards',
-	importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Parent.groovy",
-    iconUrl: '',
-    iconX2Url: '',
-    iconX3Url: '',
-    singleThreaded: true,
-    installOnOpen: true
-    )
-	
+        name: "Remote Builder - Custom 6 Button",
+        description: "Generates a Custom 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
+        importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Custom_6_Button.groovy",
+	    //name: "Remote Builder - Fixed 6 Button",
+        //description: "Generates a Fixed 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
+        //importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Fixed_6_Button.groovy",
+        namespace: "garyjmilne", author: "Gary J. Milne", category: "Utilities", iconUrl: "", iconX2Url: "", iconX3Url: "", singleThreaded: true,
+        parent: "garyjmilne:Remote Builder", 
+        installOnOpen: true, oauth: true
+)
+
+//Tells the App how to direct inbound and outbound requests.
+mappings {
+    path("/tb") {
+        action: [POST: "response",
+                 GET: "showApplet"]
+    }
+}
+
 preferences {
-    page name: 'mainPage', title: '', install: true, uninstall: true // ,submitOnChange: true
+   page name: "mainPage"
 }
 
 
-
-def mainPage() {
-    if (state.initialized == null ) initialize()
-    //initialize()
-
-    dynamicPage(name: "mainPage") {
-        //See if the user has changed the selected storage device
-        isSelectedDeviceChanged()
-
-        //Refresh the UI - neccessary for controls located on the same page.
-        refreshUI()
-
-        //This is all a single section as section breaks have been commented out. This uses less screen space.
-        section { 
-            paragraph "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff;;'> Remote Builder 📱</div>"
-            //Intro
-            if (state.showIntro == true || state.setupState == 1) {
-                input(name: 'btnShowIntro', type: 'button', title: 'Introduction ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2)  //▼ ◀ ▶ ▲
-                
-                myString = "With <b>Remote Builder</b> you can create virtual Remote Controls that can be used to control devices around the home. These remotes can be installed onto the Hubitat Dashboard but they can also be accessed "
-				myString += "directly from any phone, tablet or computer around the home or around the world."
-				myString += "Virtual remotes are the digital equivalent of a physical remote control, but one that can be customed to perform any action. It provides a much simpler and more intuitive interface than using a button device on the current Hubitat Dashboard. "
-                if (state.setupState != 99) titleise2(red("<b>First time setup!</b>"))
-                paragraph myString
-                
-                myString = "You are installing <b>Remote Builder Standard which is free.</b> The standard version gives to access to the <b>Fixed 6 Button Remote</b> where actions can be customized by the appearance of the Remote is fixed.<br>"
-				myString += "The Advanced version gives you access to the <b>Custom 6 Button Remote</b> which support 18 buttons in three groups. All aspects of the remote appearance are also fully customizable.<br>"
-				myString += "The Advanced version also includes the TV Remote which gives you a fully configured TV Remote (shown below) which you can connect to your Hubitat TV Driver for a seamless experience. Other remotes will be added in the near future.<br>"
-                myString += "If you wish to upgrade to <b>Remote Builder Advanced</b> you can do so after setup is complete by visiting the Licensing section. The Advanced version gives you access to a variety of Remotes.<br>"
-				myString += "<b>Remote Builder</b> and <b>Tile Builder</b> are sister products. An Advanced license for either one grants you full access to the other."
-                paragraph myString
-				
-				//Get the sample table
-                myHTML = getSample()
-                paragraph myHTML
-                                
-                if (state.setupState != 99) myText = "  Use the <b>Next</b> button to move through the sections for initial setup."
-                else myText = "<b>Click on the section headers to navigate to a section.</b>"
-                paragraph(myText)
-                
-                //Only show button during the setup process
-                if (state.setupState != 99) {
-                    input(name: 'btnNext1', type: 'button', title: 'Next ▶', backgroundColor: 'teal', textColor: 'white', submitOnChange: true, width: 2)  //▼ ◀ ▶ ▲
-                }
+def mainPage(){
+    //Basic initialization for the initial release
+    if (state.initialized == null) initialize()
+    
+    dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff;;'> Remote Builder - " + moduleName + " 📱 </div>", uninstall: true, install: true, singleThreaded:true) {
+			section(hideable: true, hidden: state.hidden.Intro, title: buttonLink('btnHideIntro', getSectionTitle("Introduction"), 20)) {
+                text = "<b>Remote Builder</b> allows you to build compact remote control applets that you can customize to your liking. These applets provide a rich experience and allow distribution of control to any phone or tablet without the need for a full Dashboard. "
+                text += "The applets are published via the url's in the <b>Endpoints</b> section and use Hubitat's security token mechanism. You can also publish remotes to the Hubitat dashboard just as you do with Tile Builder. "
+				text += "The generated remote does not track state and is intended for use in the same way that a physical remote is used, when you are present in the environment that you are controlling."
+                paragraph text
             }
-            else {
-                input(name: 'btnShowIntro', type: 'button', title: 'Introduction ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2)  //▼ ◀ ▶ ▲
-            }
-            paragraph line(2)
-            //End of Intro
-            
-            
-            //Licensing
-            if (state.setupState == 99) {
-                if (state.showLicense == true) {
-                    input(name: 'btnShowLicense', type: 'button', title: 'Licensing ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
-                    link1 = 'Click <a href="https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf" target="_blank">here</a> for more information.'
-                                        
-                    myString = "<b>Remote Builder Standard (Free)</b><br>"
-                    myString += "Fixed 6 Button Remote (6 commands). Button actions can be customized but the interface cannot be.<br><br>"
-                    myString += "<b>Remote Builder Advanced (Donation Required)</b><br>"
-                    myString += "<b>1)</b> Customizable 6 Button Remote with 3 X button groups (18 commands). Highly customizable for button color, text, tooltips and background.<br>"
-					myString += "<b>2)</b> Universal TV Remote shown earlier with user defineable buttons for quick access.<br>"
-					myString += "<b>3)</b> More to come!<br><br>"
-                    myString += titleise("Remote Builder is bundled with Tile Builder and uses the same licensing keys. If you already have Tile Builder Advanced you can use those keys to activate Remote Builder Advanced.")
-                    
-                    myString = myString + "To purchase the license for <b>Remote Builder \\ Tile Builder Advanced</b> you must do the following:<br>"
-                    myString += '<b>1)</b> Donate at least <b>\$12</b> to ongoing development of Tile Builder \\ Remote Builder via PayPal using this <a href="https://www.paypal.com/donate/?business=YEAFRPFHJCTFA&no_recurring=1&item_name=A+donation+of+%2412+or+more+grants+a+license+to+Remote+Builder+and+Tile+Builder+Advanced.+Leave+your+Hubitat+Community+ID&currency_code=USD" target="_blank">link.</a></br>'			
-                    myString += "<b>2)</b> Forward the paypal eMail receipt along with your ID (<b>" + getID() + "</b>) to <b>TileBuilderApp@gmail.com</b>. Please include your Hubitat community ID for future notifications.<br>"
-                    myString += "<b>3)</b> Wait for license key eMail notification (usually within 24 hours).<br>"
-                    myString += "<b>4)</b> Apply license key using the input box below.<br>"
-                    myString += "<b>Please respect the time and effort it took to create this application and comply with the terms of the license.</b>"
-                    paragraph note('', myString)
-			
-                    if (state.isAdvancedLicense == false ){
-                        input (name: "licenseKey", title: "<b>Enter Advanced License Key</b>", type: "string", submitOnChange:true, width:3, defaultValue: "?")
-                        input (name: 'activateLicense', type: 'button', title: 'Activate Advanced License', backgroundColor: 'orange', textColor: 'black', submitOnChange: true, width: 2)
-                        myString = '<b>Activation State: ' + red(state.activationState) + '</b><br>'
-                        myString = myString + 'You are running ' + dodgerBlue('<b>Remote Builder Standard</b>')
-                        paragraph myString
-                    }
-                    else {
-                        myString = '<b>Activation State: ' + green(state.activationState) + '</b><br>'
-                        myString = myString + 'You are running ' + green('<b>Remote Builder Advanced</b>')
-                        paragraph myString
-                    }
-                }
-            else {
-                input(name: 'btnShowLicense', type: 'button', title: 'Licensing ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2)  //▼ ◀ ▶ ▲
-                }
-            paragraph line(2)
-            }
-            //End of Licensing
-            
-            //Device
-            if (state.showDevice == true ) {
-                input(name: 'btnShowDevice', type: 'button', title: 'Storage Device ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true)  //▼ ◀ ▶ ▲
-                paragraph "<b>Remote Builder</b> stores generated tiles on a special purpose <b>Remote Builder Storage Device</b>. You must <b>create a device and attach</b> to it using the controls below.<br>"                 
-                paragraph note('Note: ', "Each instance of <b>Remote Builder</b> must have its own unique storage device.")
-                    
-                if (state.isStorageConnected == false ) {
-                    paragraph red('❌ - A Remote Builder Storage Device is not connected.')
-                    myString = "You do not have a 'Remote Builder Storage Device' connected. Click the button below to create\\connect one. <br>"
-                    myString += "<b>Important: </b>If you remove the <b>Remote Builder</b> App the Remote Builder Storage Device will become orphaned and unusable. <br>"
-                    myString += "<b>Note: </b>It is possible to install multiple instances of <b>Remote Builder</b>. In such a scenario each instance should be connected to a unique Remote Builder Storage Device."
-                    
-                    input(name: 'selectedDevice', type: 'enum', title: bold('Select a Remote Builder Storage Device'), options: storageDevices(), required: false, defaultValue: 'Remote Builder Storage Device 1', submitOnChange: true, width: 3, newLineAfter:true)
-                    input(name: 'createDevice', type: 'button', title: 'Create Device', backgroundColor: 'MediumSeaGreen', textColor: 'white', submitOnChange: true, width: 2)
-                    //paragraph ("isStorageConnected: $state.isStorageConnected")
-                    
-                    if (state.isStorageConnected == false) input(name: 'connectDevice', type: 'button', title: 'Connect Device', backgroundColor: 'Orange', textColor: 'white', submitOnChange: true, width: 2)
-                    else input(name: 'doNothing', type: 'button', title: 'Connect Device', backgroundColor: 'MediumSeaGreen', textColor: 'white', submitOnChange: true, width: 2)
-                            
-                    input(name: 'deleteDevice', type: 'button', title: 'Delete Device', backgroundColor: 'Maroon', textColor: 'yellow', submitOnChange: true, width: 2, newLineAfter: true)
-                    if (state.hasMessage != null && state.hasMessage != '' ) {
-                        if (state.hasMessage.contains("Error")) paragraph note('', red(state.hasMessage))
-                        else paragraph note('', green(state.hasMessage))
-                    }
-                }
-                else {
-                    paragraph green('✅ - ' + state.myStorageDevice + ' is connected.')
-                    paragraph note('', 'You have successfully connected to a Remote Builder Storage Device on your system. You can now create and publish tiles.')
-                    input(name: 'disconnectDevice', type: 'button', title: 'Disconnect Device', backgroundColor: 'orange', textColor: 'black', submitOnChange: true, width: 2, newLineAfter: true)
-                    }
-                //Only show button during the setup process
-                if (state.setupState != 99)
-                    input(name: 'btnNext2', type: 'button', title: 'Next ▶', backgroundColor: 'teal', textColor: 'white', submitOnChange: true, width: 2, newLine: true)  //▼ ◀ ▶ ▲
-                }
-            else input(name: 'btnShowDevice', type: 'button', title: 'Storage Device ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2)  //▼ ◀ ▶ ▲
-            paragraph line(2)
-            //End of Device
-                    
-            //Setup Complete
-            if (state.setupState == 3){
-                paragraph titleise2(green('The required steps for setup are now complete!<br>'))
-                paragraph 'Click <b>Finish Setup</b> to proceed to creating your first tile!'
-                paragraph note("Note: ", "From now on you can click on the section headers to navigate the configuration options.")
-                input(name: 'btnNext3', type: 'button', title: 'Finish Setup ▶', backgroundColor: 'teal', textColor: 'white', submitOnChange: true, width: 2)  //▼ ◀ ▶ ▲
-                paragraph line(2)
-                }
-            //End of Setup
-            
-            //Create Tiles
-            if (state.setupState == 99) {
-                if (state.showCreateEdit == true) {
-                    //if (true ){
-                    input(name: 'btnShowCreateEdit', type: 'button', title: 'Create\\Edit Remotes ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
-                    myString = '<b>Remote Builder</b> currently has three types of remotes:<br>'
-                    myString += '<b>1)</b> Fixed 6 Button Remote. (Standard)<br>'
-                    myString += '<b>2)</b> Custom 6 Button Remote with 3 x button groups for 18 unique actions. (Advanced)<br>'
-                    myString += '<b>3)</b> TV Remote with custom buttons. (Advanced)<br>'
-					myString += '<b>More remotes will be added soon.</b>'
-                    paragraph note('', myString)
-                    
-                    if (!hideFixed6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Fixed 6 Button Remote', namespace: 'garyjmilne', title: 'Fixed Six Button Remote')
-					//These are Premium apps only visible to Advanced Users.
-					if (checkLicense() && !hideCustom6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Custom 6 Button Remote', namespace: 'garyjmilne', title: 'Custom Six Button Remote')
-					if (checkLicense() && !hideTVRemote) app (name: 'TBPA', appName: 'Remote Builder - TV Remote', namespace: 'garyjmilne', title: 'TV Remote')
-                    }
-                else {
-                    input(name: 'btnShowCreateEdit', type: 'button', title: 'Create\\Edit Remotes ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
-                }
-                paragraph line(2)
-            }
-            //End of Create Tiles
         
-            //Manage Remotes 
-            if (state.setupState == 99) {
-                if (state.showManage == true ) {
-                    input(name: 'btnShowManage', type: 'button', title: 'Manage Tiles ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
-                    myString = 'Here you can view information about the tiles on this storage device, which tiles are in use, the last time those tiles were updated and delete obsolete tiles.<br>'
-                    myString += 'In the <b>Remote Builder Storage Device</b> you can also preview the tiles, add descriptions and delete tiles as necessary.'
-                    paragraph note('Note: ', myString)
-                    input name: 'tilesInUse', type: 'enum', title: bold('List Tiles in Use'), options: getTileList(), required: false, defaultValue: 'Tile List', submitOnChange: false, width: 4, newLineAfter:false
-                    input name: 'tilesInUseByActivity', type: 'enum', title: bold('List Tiles By Activity'), options: getTileListByActivity(), required: false, defaultValue: 'Tile List By Activity', submitOnChange: true, width: 4, newLineAfter:true
-		    		input(name: 'deleteTile', type: 'button', title: '↑ Delete ↑ Selected ↑ Tile ↑', backgroundColor: 'Maroon', textColor: 'yellow', submitOnChange: true, width: 2)
-			    	paragraph note('Note: ', 'Deleting a tile does not delete the <b>Remote Builder</b> child app that generates the tile. Delete the child app first and then delete the tile.')
-                }
+            section(hideable: true, hidden: state.hidden.Endpoints, title: buttonLink('btnHideEndpoints', getSectionTitle("Endpoints"), 20)) {
+                input(name: "localEndpointState", type: "enum", title: bold("Local Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
+                input(name: "cloudEndpointState", type: "enum", title: bold("Cloud Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Disabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
+				paragraph line (1)
+				
+				//Display the Endpoints with links or ask for compilation
+				paragraph "<a href='${state.localEndpoint}' target=_blank><b>Local Endpoint</b></a>: ${state.localEndpoint} "
+                paragraph "<a href='${state.cloudEndpoint}' target=_blank><b>Cloud Endpoint</b></a>: ${state.cloudEndpoint} "
+				
+				myText = "<b>Important: If these endpoints are not generated you may have to enable OAuth for this application to work.</b><br>"
+            	myText += "Both endpoints can be active at the same time and can be enabled or disable through this interface.<br>"
+				myText += "Endpoints are paused if this instance of the <b>Remote Builder</b> application is paused. Endpoints are deleted if this instance of <b>Remote Builder</b> is removed.<br>"
+				paragraph myText
+            	paragraph line (1)
+            }
+        
+            section(hideable: true, hidden: state.hidden.Display, title: buttonLink('btnHideDisplay', getSectionTitle("Display"), 20)) {
+                input(name: "displayEndpoint", type: "enum", title: bold("Endpoint to Display"), options: ["Local", "Cloud"], required: false, defaultValue: "Local", submitOnChange: true, width: 2, style:"margin-right: 20px")
                 
-            else {
-                input(name: 'btnShowManage', type: 'button', title: 'Manage Tiles ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
-                }
-            paragraph line(2)
+				if ( state.compiledLocal == null || state.compiledCloud == null ) paragraph ("<span style=color:red><b>Press Compile Changes to Generate Remote</b></span>" )
+				else {
+					if ( displayEndpoint == "Local" ) paragraph '<iframe src="' + state.localEndpoint + '" width="140" height="240" style="border:solid" scrolling="no"></iframe>'
+					if (displayEndpoint == "Cloud" ) paragraph '<iframe src="' + state.cloudEndpoint + '" width="140" height="240" style="border:solid" scrolling="no"></iframe>'
+				}
+				
+                input(name: "Compile", type: "button", title: "Compile Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 12)
+				text = "<b>Important:</b> This is a live remote. Pressing any of the buttons will execute the actions you have assigned to the buttons below.<br>"
+				text += "When you make changes to properties of the remote they do not take effect until they have been Compiled.<br>"
+				paragraph text
+				
+				text = "The <b>LED on the upper left</b> will flash orange when a button has been pushed and data is being sent.<br>"
+				text += "The <b>icon on the top center</b> will either be a house or a cloud indicating which endpoint you are connected to.<br>"
+				text += "The <b>LED on the upper right</b> will go to steady green when data is received. It will go to steady red if an transmission error is detected.<br>"
+				text += "The <b>6 round buttons</b> 1-6, 7-12 and 13-18 are all programmable in terms of function and decoration. A single click of the button will cause the programmed action to be taken. There is no concept of double-click or long-click.<br>"
+				text += "The <b>rectangular button on the bottom left (| || |||)</b> toggles between the three available button groups.<br>"
+				text += "The <b>rectangular button on the bottom right (?)</b> toggles 'Help Mode' on or off. When in 'Help Mode' pressing the action buttons will reveal the tooltip. This is intended for use on touch devices where there is no concept of 'mouse-over'.<br>"
+				text += "The <b>label on the bottom</b> of the remote in slightly faded white text is user configurable and can be used as a reminder for the purpose of a particular button group. You can aslo paste eMoji's in here if preferred."
+				paragraph summary ("Explanation of Remote Layout", text)
             }
-            //End of Manage  
-       
-            //More
-            if (state.setupState == 99) {
-                if (state.showMore == true) {
-                    input(name: 'btnShowMore', type: 'button', title: 'More ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: true)  //▼ ◀ ▶ ▲
-                    label title: bold('Enter a name for this Remote Builder parent instance (optional)'), required: false, width: 4, newLineAfter: true
-                    
-                    paragraph body('<b>Logging Functions</b>')
-                    input (name: "isLogInfo",  type: "bool", title: "<b>Enable info logging?</b>", defaultValue: false, submitOnChange: true, width: 2)
-                    input (name: "isLogTrace", type: "bool", title: "<b>Enable trace logging?</b>", defaultValue: false, submitOnChange: true, width: 2)
-                    input (name: "isLogDebug", type: "bool", title: "<b>Enable debug logging?</b>", defaultValue: false, submitOnChange: true, width: 2)
-                    input (name: "isLogWarn",  type: "bool", title: "<b>Enable warn logging?</b>", defaultValue: true, submitOnChange: true, width: 2)
-                    input (name: "isLogError",  type: "bool", title: "<b>Enable error logging?</b>", defaultValue: true, submitOnChange: true, width: 2, newLineAfter: true)
+        
+			section(hideable: true, hidden: state.hidden.Customize, title: buttonLink('btnHideCustomize', getSectionTitle("Customize"), 20)) {
+				def startIndex, endIndex
+                if (moduleName == "Custom 6 Button")  input(name: "selectedButtonGroup", type: "enum", title: bold("Select Button Group to Customize"), options: buttonGroup(), required: true, defaultValue: "ONE", submitOnChange: true, width: 3)
+				if(selectedButtonGroup == "ONE") { 
+					startIndex = 1; endIndex = 6; 
+					input ("myRemoteBackground1", "color", title: "&nbsp<b>Group 1 Background Color</b>", required: false, defaultValue: "#555", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
+					input ("myTitleText1", "text", title: "&nbsp<b>Group 1 Title Text</b>", required: false, defaultValue: "#000", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px", newLineAfter:true)  
+					}
+				if(selectedButtonGroup == "TWO") { 
+					startIndex = 7; endIndex = 12;  
+					input ("myRemoteBackground2", "color", title: "&nbsp<b>Group 2 Background Color</b>", required: false, defaultValue: "#833", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
+					input ("myTitleText2", "text", title: "&nbsp<b>Group 2 Title Text</b>", required: false, defaultValue: "#000", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px", newLineAfter:true)  
+					}
+				if(selectedButtonGroup == "THREE") { 
+					startIndex = 13; endIndex = 18; 
+					input ("myRemoteBackground3", "color", title: "&nbsp<b>Group 3 Background Color</b>", required: false, defaultValue: "#7AD", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
+					input ("myTitleText3", "text", title: "&nbsp<b>Group 3 Title Text</b>", required: false, defaultValue: "#000", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px", newLineAfter:true)  
+					}
+                paragraph line(1)
+                
+                (startIndex..endIndex).each { i ->
+                    input ("myDevice$i", "capability.*", title: "<b>Button $i Device</b> ", multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px") /* top right bottom left */
+                    input ("myCommand$i", "enum", title: "&nbsp<b>Command</b>", options: getCommandList(settings["myDevice$i"]), multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px")
+					if (moduleName == "Custom 6 Button") { 
+                    	input ("myButtonColor$i", "color", title: "&nbsp<b>Button Color</b>", required: false, width: 1, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
+                    	//input ("myText$i", "text", title: "&nbsp<b>Character</b>", multiple: false, submitOnChange: true, width: 1, required: true, defaultValue: getDefaultButtonText(i), style: "margin: 2px 10px 2px 10px; padding:3px;border: 1px solid gray")
+						input ("myText$i", "text", title: "&nbsp<b>Character</b>", multiple: false, submitOnChange: true, width: 1, required: true, style: "margin: 2px 10px 2px 10px; padding:3px;border: 1px solid gray")
+                    	input ("myTextColor$i", "color", title: bold("&nbsp<b>Text Color</b>"), required: false, defaultValue: "#FFFFFF", width: 1, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
+					}
+                    input ("myTooltip$i", "text", title: "&nbsp<b>Tooltip (optional)</b>", multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "?", style: "margin: 2px 10px 2px 10px; padding:3px; border: 1px solid gray;")
                     paragraph line(1)
-                    
-                    paragraph body('<b>Show/Hide Modules</b>')
-                    input (name: "hideFixed6ButtonRemote", type: "bool", title: "<b>Hide Fixed 6 Button Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
-                    input (name: "hideCustom6ButtonRemote",  type: "bool", title: "<b>Hide Custom 6 Button Remote</b>", defaultValue: false, submitOnChange: true, width: 2)
-					input (name: "hideTVRemote",  type: "bool", title: "<b>Hide TV Remote</b>", defaultValue: false, submitOnChange: true, width: 2)
-                    paragraph line(1)
-                    
-                    input(name: 'removeLicense'  , type: 'button', title: 'De-Activate Software License', backgroundColor: '#27ae61', textColor: 'white', submitOnChange: true, width: 3, newLineAfter: true)
-                }
-                else {
-                    input(name: 'btnShowMore', type: 'button', title: 'More ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2)  //▼ ◀ ▶ ▲
-                }
-            paragraph line(2)
+                } 
+				input(name: "disableUnassignedButtons", type: "enum", title: bold("Disable Unassigned Buttons"), options: ["True", "False"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 3, style:"margin-right: 20px")
             }
-            //End of More
+        
+        //Start of Publish Section
+		section(hideable: true, hidden: state.hidden.Publish, title: buttonLink('btnHidePublish', getSectionTitle("Publish"), 20)) {
+            input(name: "myRemote", title: "<b>Attribute to store the Remote?</b>", type: "enum", options: parent.allTileList(), required: true, submitOnChange: true, width: 2, defaultValue: 0, newLine: false)
+            input(name: "myRemoteName", type: "text", title: "<b>Name this Remote</b>", submitOnChange: true, width: 2, newLine: false, required: true)
+            input(name: "tilesAlreadyInUse", type: "enum", title: bold("For Reference Only: Remotes in Use"), options: parent.getTileList(), required: false, defaultValue: "Remotes List", submitOnChange: true, width: 2)
+                                    
+            if (myRemoteName) app.updateLabel(myRemoteName)
+            myText =  "The <b>Remote Name</b> given here will also be used as the name for this instance of Remote Builder. Appending the name with your chosen tile number can make parent display more readable.<br>"
+            myText += "Only links to the Local and Cloud Endpoints are stored in the Remote Builder Storage Device. From there they can be published on the Dashboard if desired.<br>"
+            paragraph myText
 			
-			//Now add a footer.
+            paragraph summary("Publishing Notes", myText)																																																																														 
+            paragraph line(1)
+            
+            if ( state.compiledLocal != null  && state.compiledCloud && settings.myRemote != null && myRemoteName != null) {
+                input(name: "publishRemote", type: "button", title: "Publish Remote", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 12)
+            } else input(name: "cannotPublish", type: "button", title: "Publish Remote", backgroundColor: "#D3D3D3", textColor: "black", submitOnChange: true, width: 12)
+        }
+        //End of Publish Section
+		
+		//Start of More Section
+        section {
+            input(name: "isMore", type: "bool", title: "More Options", required: false, multiple: false, defaultValue: false, submitOnChange: true, width: 2)
+            if (isMore == true) {
+                //Horizontal Line
+				paragraph "In this section you can enable logging of any connection and action requests received.<br>You can also rebuild the endpoints if you choose to refresh the OAuth client secret"				
+                input(name: "isLogDebug", type: "bool", title: "<b>Enable Debug logging?</b>", defaultValue: false, submitOnChange: true, width: 3, newLine: true)
+                input(name: "isLogErrors", type: "bool", title: "<b>Log errors encountered?</b>", defaultValue: true, submitOnChange: true, width: 3)
+				input(name: "isLogConnections", type: "bool", title: "<b>Record All Connection Requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
+				input(name: "isLogActions", type: "bool", title: "<b>Record All Action Requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
+				input(name: "rebuildEndpoints", type: "button", title: "<b>Rebuild Endpoint(s)</b>", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLine:true)
+				
+            }
+            //Now add a footer.
+            myDocURL = "<a href='https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf' target=_blank> <i><b>Remote Builder Help</b></i></a>"
             myText = '<div style="display: flex; justify-content: space-between;">'
-            myText += '<div style="text-align:left;font-weight:small;font-size:12px"> Developer: Gary J. Milne</div>'
-            myText += '<div style="text-align:center;font-weight:small;font-size:12px">Version: ' + Version + '</div>'
+            myText += '<div style="text-align:left;font-weight:small;font-size:12px"> <b>Documentation:</b> ' + myDocURL + '</div>'
+            myText += '<div style="text-align:center;font-weight:small;font-size:12px">Version: ' + codeDescription + '</div>'
             myText += '<div style="text-align:right;font-weight:small;font-size:12px">Copyright 2022 - 2024</div>'
             myText += '</div>'
-            paragraph myText  
-           //paragraph ("setupState is: $state.setupState")
-           //input(name: "test"  , type: "button", title: "test", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLineAfter: false)
+            paragraph myText
         }
-        
+        //End of More Section
+
     }
-        
-        //Refresh the UI - neccessary for controls located on the same page.
-        //log.info ("Refresh again")
-        //refreshUI()
-    }
-
-
-
-//Returns a short version of the Storage Device Name for this instance.
-def getStorageShortName(){
-    if (isLogInfo) log.info ("Storage Name is: ${state.myStorageDeviceDNI.toString()} ")
-    if (state.myStorageDeviceDNI == "Remote_Builder_Storage_Device_1" ) return "RBSD1"
-    if (state.myStorageDeviceDNI == "Remote_Builder_Storage_Device_2" ) return "RBSD2"
-    if (state.myStorageDeviceDNI == "Remote_Builder_Storage_Device_3" ) return "RBSD3"
 }
 
-//Returns a long version of the Storage Device Name for this instance.
-def getStorageLongName(){
-    return state.myStorageDeviceDNI.toString()
-}
 
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//**************
-//**************  Setup and UI Functions
-//**************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
 
-//Show the selected section and hide all the others.
-def showSection(section, override){
-    //if (state.inSetup == true && override == false) return
-    state.showIntro = false
-    state.showLicense = false
-    state.showDevice = false
-    state.showSetupComplete = false
-    state.showCreateEdit = false
-    state.showManage = false
-    state.showMore = false
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  Compile Functions
+//**************
+//*******************************************************************************************************************************************************************************************
+
+//Compress the text output and generate the version that will be used by the browser.
+def compile(){
+    // Create a list to hold the JSON objects
+    def jsonGroup = []
+	def data
     
-    if (section == "Intro" ) state.showIntro = true
-    if (section == "License" ) state.showLicense = true
-    if (section == "Device" ) state.showDevice = true
-    if (section == "SetupComplete" ) state.showSetupComplete = true
-    if (section == "CreateEdit" ) state.showCreateEdit = true
-    if (section == "Manage" ) state.showManage = true
-    if (section == "More" ) state.showMore = true
-}
-
-//This is the standard button handler that receives the click of any button control.
-def appButtonHandler(btn) {
-    switch (btn) {
-        case 'test':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on test')
-            test()
-            break
-        case 'btnNext1':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on btnNext1')
-            state.setupState = 2
-            showSection("Device", true)
-            break
-        case 'btnNext2':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on btnNext2')
-            state.setupState = 3
-            showSection("SetupComplete", true)
-            break
-        case 'btnNext3':
-            state.setupState = 99
-            showSection("CreateEdit", true)
-            break
-        case 'btnShowIntro':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on btnShowIntro')
-            showSection("Intro", false)
-            break
-        case 'btnShowLicense':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on btnShowLicense')
-            showSection("License", false)
-            break
-        case 'btnShowDevice':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on btnShowDevice')
-            showSection("Device", false)
-            break
-        case 'btnShowCreateEdit':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on btnShowCreateEdit')
-            showSection("CreateEdit", false)
-            break
-        case 'btnShowManage':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on btnShowManage')
-            showSection("Manage", false)
-            break
-        case 'btnShowMore':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on btnShowMore')
-            showSection("More", false)
-            break
-        case 'createDevice':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on createDevice')
-            makeTileStorageDevice()
-            break
-        case 'connectDevice':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on connectDevice')
-            connectTileStorageDevice()
-            break
-        case 'disconnectDevice':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on disconnectDevice')
-            disconnectTileStorageDevice()
-            break
-        case 'deleteDevice':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on deleteDevice')
-            deleteTileStorageDevice()
-            break
-		case 'deleteTile':
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on deleteTile')
-            deleteTile()
-            break
-        case 'doNothing':
-            break
-        case 'activateLicense': 
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on activateLicense')
-            if (activateLicense() == true ) state.activationState = "Success"
-            else state.activationState = "Failed"
-            break
-        case 'removeLicense': 
-            if (isLogTrace) log.trace('appButtonHandler: Clicked on removeLicense')
-            state.isAdvancedLicense = false
-            state.activationState = "Not Activated"
-            break
+    // Loop from 1 to 18 and create data for each group
+    (1..18).each { i ->
+        def index = (i)
+		if (  ( settings."myDevice$i" == null || settings."myCommand$i" == null )  && disableUnassignedButtons == "True" ){
+			data = [ "index": "$index", "label": "?", "tooltip": "?", "bColor": "#555", "tColor": "#555"]
+		}
+		else data = [ "index": "$index", "label": settings."myText$i", "tooltip": settings."myTooltip$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" ]
+        jsonGroup << data
     }
-}
-
-//This is called after a submit actions
-void refreshUI() {
-    if (selectedDevice == null ) selectedDevice = 'Remote Builder Storage Device 1'
-    if (state.flags.selectedDeviceChanged == true && selectedDevice != null) {
-        state.isStorageConnected = false
-        if (selectedDevice != null ) log.info('selectedDevice is:' + selectedDevice)
-        state.myStorageDevice = selectedDevice
-        state.myStorageDeviceDNI = selectedDevice.replace(' ', '_')
-        state.hasMessage = '<b>You must connect to a storage device in order to publish tiles.</b>'
-        
-    }
-}
-
-
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//**************
-//**************  Storage Device Functions
-//**************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-
-//Called by the child apps. Returns an open handle to the childDevice
-def getStorageDevice() {
-    if (state.isStorageConnected == true ) {
-        deviceDNI = state.myStorageDeviceDNI
-        myStorageDevice = getChildDevice(deviceDNI)
-        if (isLogDebug) log.debug("Parent returning myStorageDevice is: $myStorageDevice")
-        return    myStorageDevice
-    }
-    else {
-        log.warn('getStorageDevice: There is no storage device connected.')
-        return null
-    }
-}
-
-//Create a Remote Builder Storage Device.
-def makeTileStorageDevice() {
-    if (isLogTrace) log.trace("makeTileStorageDevice: Attempting to create Remote Builder Storage Device: $selectedDevice")
-    deviceName = selectedDevice.toString()
-    deviceDNI = deviceName.replace(' ', '_')
-    try {
-        myChildDevice = addChildDevice('garyjmilne', 'Remote Builder Storage Driver', deviceDNI, [ isComponent:false, label: deviceName, name: deviceName] )
-        if (myChildDevice) {
-            if (isLogInfo) log.info ("makeTileStorageDevice: <b>Storage Device ${state.myStorageDevice} Created.</b>")
-            state.hasMessage = "<b>Storage Device ${state.myStorageDevice} Created. You must connect to it before you can start publishing tiles.</b>"
-            state.myStorageDevice = deviceName
-            state.myStorageDeviceDNI = deviceDNI
-        }
-         else {
-            log.warn = ("makeTileStorageDevice(): Device Creation Error! Does the device '$deviceName' already exist? Was it created by a different instance of Remote Builder?")
-            state.hasMessage = "<b>makeTileStorageDevice(): Device Creation Error! Does the device '$deviceName' already exist? Was it created by a different instance of Remote Builder?</b>"
-         }
-    }
-    catch (ex) {
-        log.error('makeTileStorageDevice(): Device Creation Error! Does the device already exist.')
-        state.hasMessage = '<b>Device Creation Error! Does the device already exist? Was it created by a different instance of Remote Builder?</b>'
-        state.isStorageConnected = false
-    }
-}
-
-//Connect to an existing Tile Storage Device
-def connectTileStorageDevice() {
-    if (isLogTrace) log.trace ('connectTileStorageDevice: Entering connectTileStorageDevice')
-    deviceDNI = state.myStorageDeviceDNI
-    if (isLogDebug) log.debug("Connecting to Storage Device: $deviceDNI")
-    try {
-        myChildDevice = getChildDevice(deviceDNI)
-        if (isLogDebug) log.debug ("myChildDevice is: $myChildDevice")
-        if (myChildDevice != null) {
-            state.hasMessage = "connectTileStorageDevice(): Connect Success ($myChildDevice)"
-            if (isLogInfo) log.info ("connectTileStorageDevice(): Connect Success ($myChildDevice)")
-            state.isStorageConnected = true
-        }
-         else {
-            state.hasMessage = '<b>Device Connection Error! Does the device exist? Was it created by a different instance of Remote Builder?</b>'
-            state.isStorageConnected = false
-         }
-    }
-    catch (ex) {
-        log.error("connectTileStorageDevice(): Failed - $selectedDevice. Exception:$ex")
-        state.hasMessage = "<b>Exception encountered. Connection to '${selectedDevice}' failed.</b>"
-        state.isStorageConnected = false
-    }
-}
-
-//Disonnect from an existing Tile Storage Device
-def disconnectTileStorageDevice() {
-    if (isLogTrace) log.trace ('disconnectTileStorageDevice: Entering disconnectTileStorageDevice')
-    deviceDNI = state.myStorageDeviceDNI
-    if (isLogInfo) log.info("Disconnecting from Storage Device: $deviceDNI")
-    try {
-        myChildDevice = getChildDevice(deviceDNI)
-        if (myChildDevice == true ) {
-            if (isLogInfo) log.info("disconnectTileStorageDevice(): Successfully disconnected from $myChildDevice")
-            state.hasMessage = ("<b>Successfully disconnected from $myChildDevice.</b>")
-            state.myStorageDevice = ''
-            state.myStorageDeviceDNI = ''
-            state.isStorageConnected = false
-        }
-        else {
-            if (isLogInfo) log.info("connectTileStorageDevice(): No connection to $myChildDevice to disconnect.")
-            state.hasMessage = "<b>No connection to $deviceDNI.</b>"
-            state.isStorageConnected = false
-        }
-    }
-    catch (ex) {
-        log.warn("connectTileStorageDevice: Error disconnecting from $myChildDevice. Exception:$ex")
-        state.hasMessage = "<b>Exception encountered. Error disconnecting from $myChildDevice. </b>"
-        state.isStorageConnected = true
-    }
-}
-
-//Delete a Remote Builder Storage Device.
-def deleteTileStorageDevice() {
-    if (isLogTrace) log.trace ('deleteTileStorageDevice: Entering deleteTileStorageDevice')
-    myDeviceDNI = state.myStorageDeviceDNI
-    state.hasMessage = "<b>Device Deletion initiated for $myDeviceDNI.</b>"
-    if (isLogInfo) log.info("deleteTileStorageDevice: Initiating deletion of ${myDeviceDNI}.")
-    deleteChildDevice("$myDeviceDNI")
-    state.isStorageConnected = false
-}
-
-//Get a list of tiles from the device
-def getTileList() {
-    if (isLogTrace) log.trace ('getTileList: Entering getTileList')
-    def tileList = []
-    myDevice = getChildDevice(state.myStorageDeviceDNI)
-    if (isLogDebug) log.debug("getTileList: myDevice: $myDevice")
-    
-    if (state.isStorageConnected == true) {    
-        try { tileList = myDevice.getTileList() }
-        catch (ex) {
-            log.error("getTileList(): Failed - Error connecting to $selectedDevice. Exception:$ex")
-            state.hasMessage = "<b>Exception encountered. Connection to '${selectedDevice}' failed.</b>"
-            state.isStorageConnected = false
-           }
-        }
-        return tileList
-}
-
-//Get a list of tiles from the device sorted by activity date.
-def getTileListByActivity() {
-    if (isLogTrace) log.trace ('getTileListbyActivity: Entering getTileListbyActivity')
-    def tileList = []
-    myDevice = getChildDevice(state.myStorageDeviceDNI)
-    if (isLogDebug) log.debug("getTileList: myDevice: $myDevice")
-    
-    if (state.isStorageConnected == true) {
-        try { tileList = myDevice.getTileListByActivity() }
-        catch (ex) {
-            log.error("getTileListByActivity(): Failed - Error connecting to $selectedDevice. Exception:$ex")
-            state.hasMessage = "<b>Exception encountered. Connection to '${selectedDevice}' failed.</b>"
-            state.isStorageConnected = false
-           }
-        return tileList
-        }
-}
-
-//Delete a Remote Builder Tile on connected Storage Device.
-def deleteTile() {
-    if (isLogTrace) log.trace ('deleteTile: Entering deleteTile')
-    myDeviceDNI = state.myStorageDeviceDNI
 	
-	//Test to see if it is a valid tile selection
-	if (tilesInUse == null || tilesInUse.size() < 5 ){
-		log.info ("deleteTile: Invalid selection: Nothing done.")
-		return
-	}
-	myArr = tilesInUse.tokenize(':')
-	//log.debug ("myArr is: ${myArr}")
-	selectedTile = myArr[0]
-	//log.debug ("selectedTile is: ${selectedTile}")
-	selectedTile = selectedTile.replace("tile","")
-	//log.debug ("Tile Number is: ${selectedTile}")
-	myDevice = getChildDevice(state.myStorageDeviceDNI)
-	if (state.isStorageConnected == true) {
-		log.info ("deleteTile: Delete tile initiated for tile number ${selectedTile} on device: ${myDeviceDNI}")
-		myDevice.deleteTile(selectedTile)
-	}
+	// Convert the list of maps to a JSON string and save them to state
+    state.buttonData = JsonOutput.toJson(jsonGroup)
+	state.backgroundData = '["' + settings."myRemoteBackground1" + '","' + settings."myRemoteBackground2" + '","' + settings."myRemoteBackground3" + '"]'
+	state.titlesData = '["' + settings."myTitleText1" + '","' + settings."myTitleText2" + '","' + settings."myTitleText3" + '"]'
+	
+	if (isLogDebug) log.debug ("ButtonData is: $state.buttonData")
+	if (isLogDebug) log.debug ("backgroundData is: $state.backgroundData")
+	if (isLogDebug) log.debug ("titlesData is: $state.titlesData")
+
+    def String content = myHTML()
+    content = content.replace("#buttonData#", state.buttonData )
+	content = content.replace("#backgroundData#", state.backgroundData )
+	content = content.replace("#titlesData#", state.titlesData )
+	
+	//When we are in Fixed 6 Button mode then we disable the Mode Button because buttons 7-18 are deaactivated.
+	if (moduleName == "Fixed 6 Button") content = content.replace("#disableModeButton#", "no-cursor" )
+	if (moduleName == "Custom 6 Button") content = content.replace("#disableModeButton#", "" )
+	
+    // Strip all the comments out of the file to save space.
+    content = condense(content)
+        
+    // Create separate copies of content for local and cloud versions
+    def localContent = content
+	localContent = localContent.replace('#connectionIcon#', '⌂' )
+    localContent = localContent.replace("#URL#", state.localEndpoint )
+    
+	def cloudContent = content
+	cloudContent = cloudContent.replace('#connectionIcon#', '☁︎' )
+    cloudContent = cloudContent.replace("#URL#", state.cloudEndpoint )
+		
+    // Saves a copy of this finalized HTML\CSS\SVG\SCRIPT so that it does not have to be re-calculated.
+    state.compiledLocal = localContent
+    state.compiledCloud = cloudContent
+    state.compiledSize = state.compiledLocal.size()
 }
 
-def checkLicense() {
-	return state.isAdvancedLicense
+//Remove any wasted space from the compiled version to shorten load times.
+def condense(String input) {
+	def initialSize = input.size()
+    if (isLogDebug) log.debug ("Original Size: " + initialSize )
+	
+	//Reduce any groups of 2 or more spaces to a single space
+	input = input.replaceAll(/ {2,}/, " ")
+	if (isLogDebug) log.debug ("After concurrent spaces removed: " + input.size() + " bytes." )
+	
+	//Remove any Tabs from the file
+	input = input.replaceAll(/\t/, "")
+	if (isLogDebug) log.debug ("After concurrent tabs removed: " + input.size() + " bytes." )
+	
+	//Replace "; " with ";"
+	input = input.replaceAll("; ", ";")
+	
+	input = input.replaceAll("> <", "><" )
+	input = input.replaceAll(" = ", "=" )
+    
+    //Replace any comments in the HTML\CSS\SVG section that will be between <!-- and -->
+    input = input.replaceAll(/<!--.*?-->/, "")
+    if (isLogDebug) log.debug ("After HTML\\CSS\\SVG comments removed: " + input.size() + " bytes." )
+    
+    //Replace any comments in the SCRIPT section that will be between \* and *\  Note: Comments beginning with \\ will not be removed.
+    input = input.replaceAll(/(?s)\/\*.*?\*\//, "")
+    if (isLogDebug) log.debug  ("After SCRIPT comments removed: " + input.size() + " bytes." )
+    if (isLogDebug) log.debug ("Before: " + String.format("%,d", initialSize) + " - After: " + String.format("%,d", input.size()) + " bytes.")
+	
+    return input 
 }
 
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  End of Compile Functions
+//**************
+//*******************************************************************************************************************************************************************************************
 
 
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  Endpoint Activity Handling
+//**************
+//*******************************************************************************************************************************************************************************************
 
-//*****************************************************************************************************
-//Utility Functions
-//*****************************************************************************************************
-
-//Get the license type the user has selected.
-def isAdvLicense(){
-    if (isLogInfo) ("License:" + isAdvLicense)
-    return isAdvLicense
-}
-
-//Functions to enhance text appearance
-String bold(s) { return "<b>$s</b>" }
-String italic(s) { return "<i>$s</i>" }
-String underline(s) { return "<u>$s</u>" }
-String dodgerBlue(s) { return '<font color = "DodgerBlue">' + s + '</font>' }
-String myTitle(s1, s2) { return '<h3><b><font color = "DodgerBlue">' + s1 + '</font></h3>' + s2 + '</b>' }
-String red(s) { return '<r style="color:red">' + s + '</r>' }
-String green(s) { return '<g style="color:green">' + s + '</g>' }
-String orange(s) { return '<g style="color:orange">' + s + '</g>' }
-
-//Set the titles to a consistent style.
-def titleise(title) {
-    title = "<span style='color:#1962d7;text-align:left; margin-top:0em; font-size:20px'><b>${title}</b></span>"
-}
-
-//Set the titles to a consistent style without underline
-def titleise2(title) {
-    title = "<span style='color:#1962d7;text-align:left; margin-top:0em; font-size:20px'><b>${title}</b></span>"
-}
-
-//Set the notes to a consistent style.
-String note(myTitle, myText) {
-    return "<span style='color:#17202A;text-align:left; margin-top:0.25em; margin-bottom:0.25em ; font-size:16px'>" + '<b>' + myTitle + '</b>' + myText + '</span>'
-}
-
-//Set the body text to a consistent style.
-String body(myBody) {
-    return "<span style='color:#17202A;text-align:left; margin-top:0em; margin-bottom:0em ; font-size:18px'>"  + myBody + '</span>&nbsp'
-}
-
-//Produce a horizontal line of the speficied width
-String line(myHeight) {
-    return "<div style='background:#005A9C; height: " + myHeight + "px; margin-top:0em; margin-bottom:0em ; border: 0;'></div>"
-}
-
-
-String obfuscateStrings(String str1, String str2) {
-    def result = ""
-    int maxLength = Math.max(str1.length(), str2.length())
-
-    for (int i = 0; i < maxLength; i++) {
-        if (i < str1.length()) {
-            result += str1.charAt(i)
-        }
-        if (i < str2.length()) {
-            result += str2.charAt(i)
-        }
+//This handles incoming response from any button.
+def response(){
+    // Extract the body field
+    def bodyJson = request.body
+    
+    // Parse the JSON content of the body
+    def parsedBody = new JsonSlurper().parseText(bodyJson)
+    
+    // Access the nested 'value' field
+    def mode = parsedBody.mode
+    String button = parsedBody.button
+    def i = (button.replace("button","")).toInteger()
+                        
+	myDevice = settings["myDevice$i"]
+    myCommand = settings["myCommand$i"]
+	
+	// Record the action request
+    if (isLogActions) log.info ( "Remote Builder Data Received - Remote: $myRemote - Name: $myRemoteName - Button: $i - Device: $myDevice - Command: $myCommand")
+	
+	if (myDevice == null || myCommand == null) return
+	
+    def myCommandIndex = 0
+    if (myCommand && myCommand[-1] in '1'..'4') {
+        myCommandIndex = myCommand[-1] as int
     }
+    
+	//If the values are valid we will execute the command    	
+	switch(myCommand){
+        case ["*toggle"]:
+			if (myDevice.currentValue('switch') == 'on') { myDevice.off() }
+			else myDevice.on()
+            return
+        case ["*push1","*push2","*push3","*push4"]:
+			myDevice.push(myCommandIndex)
+            return
+		case ["*doubleTap1","*doubleTap2","*doubleTap3","*doubleTap4"]:
+			myDevice.doubleTap(myCommandIndex)
+            return
+        default:
+            if (myDevice != null && myCommand != null ) myDevice."${myCommand}"()
+			}
+}
+
+//This delivers the applet content.
+def showApplet() {
+    def isLocal = false
+    def isCloud = false
+    def url
+    
+	def host = request.headers?.Host?.first()
+	def protocol = request.headers?.'X-hubitat-scheme'?.first()
+	
+    if(request.requestSource == "local") { isLocal = true ; if (isLogConnections) log.info("Connection: $request.requestSource with protocol $protocol and host $host.") }
+    if(request.requestSource == "cloud") { isCloud = true ; if (isLogConnections) log.info("Connection: $request.requestSource and host $host.") }
+    
+    if ( localEndpointState == "Disabled" && isLocal == true) {
+        result = render contentType: "text/html;charset=UTF-8", data:disabledEndpointHTML(), status:200
+        return result
+    }
+    
+    if ( cloudEndpointState == "Disabled" && isCloud == true) {
+        result = render contentType: "text/html;charset=UTF-8", data:disabledEndpointHTML(), status:200
+        return result
+    }
+        
+    //If it gets this far the interface must be enabled.
+    if( isLocal ) { result = render contentType: "text/html;charset=UTF-8", data:state.compiledLocal, status:200  }
+    if( isCloud ) { result = render contentType: "text/html;charset=UTF-8", data:state.compiledCloud, status:200  }
     return result
 }
 
-def activateLicense(){
-    String hubUID = getHubUID()
-    def P1 = (hubUID.substring(0, 8)).toUpperCase()
-    def P2 = (hubUID.substring(Math.max(hubUID.length() - 8, 0))).toUpperCase()
-    
-    myResult = obfuscateStrings(P1.reverse().toString(), P2.reverse().toString())
-    
-    def firstHalf = myResult.substring(0, 8)
-    def secondHalf = myResult.substring(8, 16)
-    
-    def key = firstHalf.toUpperCase() + "-" + secondHalf.toUpperCase()
-    
-    if (key == licenseKey) {
-        state.isAdvancedLicense = true
-        return true
+def disabledEndpointHTML(){
+    myHTML = '''<body style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: Arial, sans-serif; background-color: #f0f0f0;">
+    <div style="text-align: center; font-size: 24px; line-height: 1.5;color:red;">Endpoint<br>Disabled</div></body>'''
+    return myHTML
+}
+
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  End of Endpoint Activity Handling
+//**************
+//*******************************************************************************************************************************************************************************************
+
+
+
+
+
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  Remote Control APPlet Code
+//**************
+//*******************************************************************************************************************************************************************************************
+
+//This contains the whole HTML\CSS\SVG\SCRIPT file equivalent. Placing it in a function makes it easy to collapse.
+static def myHTML() {
+def HTML = 
+'''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Control</title>
+    <style>
+        html, body { align-items:center; display:flex; font-family:Arial; sans-serif; font-size:20px; justify-content:center; padding:0; user-select:none; height:100vh; background-color:transparent; }
+        .container { background-color:transparent; padding:0px; border-radius:4px;position:relative; height:80%; overflow:hidden}
+        .control { cursor:pointer }
+        .no-cursor { font-size:100%; font-weight:bold; pointer-events:none; text-anchor:middle; }
+        .hidden { display:none }
+        .tooltip { background-color:yellow; border-radius:4px; color:black; display:none; left:50%; font-size:70%; padding:5px; pointer-events:none; position:absolute; text-align:center; top:5%; transform: translateX(-50%); width:80%; }
+		.mode-button { font-size:14px; letter-spacing:3px;}
+
+		/* Animation */
+		.flicker {animation:flickerOrange 0.25s linear forwards}  
+		@keyframes flickerOrange {0%, 20%, 40%, 60%, 80%, 100% {fill:#555} 10%, 30%, 50%, 70%, 90% {fill:orange}}
+    </style>
+</head>
+<body>
+	<div class="container" style="display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden;">
+    	<svg id="remote" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid meet" style="width:100%; height:90%">
+ 	   		<defs>
+               <linearGradient id="shadow" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="white" stop-opacity="0.2" />
+                    <stop offset="100%" stop-color="black" stop-opacity="0.7" />
+                </linearGradient>
+            </defs>
+
+            <!-- Remote Body -->
+            <rect id="remote-body" x="0" y="0" width="100%" height="100%" rx="10" ry="10"/>
+
+            <!-- LED -->
+            <circle id="led1" cx="15%" cy="7%" r="5%" fill="#555"/>
+            <circle id="led2" cx="85%" cy="7%" r="5%" fill="#555"/>
+
+            <!-- Local\\Cloud Indicator -->
+			<text class="no-cursor" id="connection-text" x="50%" y="10%" text-anchor="middle" fill="#fff" font-weight="bold" style="font-size:17px">#connectionIcon#</text>
+
+            <!-- Buttons Container -->
+            <g>
+                <!-- Mode 1 Buttons -->
+                <circle class="control numeric-button" id="button1" cx="25%" cy="25%" r="10%" stroke="url(#shadow)" stroke-width="3" />
+                <text id="text1" class="no-cursor" x="25%" y="25.5%" dy="3%">1</text> 
+
+                <circle class="control numeric-button" id="button2" cx="75%" cy="25%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text2" class="no-cursor" x="75%" y="25.5%" dy="3%">2</text>
+
+                <circle class="control numeric-button" id="button3" cx="25%" cy="45%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text3" class="no-cursor" x="25%" y="45.5%" dy="3%">3</text>
+
+                <circle class="control numeric-button" id="button4" cx="75%" cy="45%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text4" class="no-cursor" x="75%" y="45.5%" dy="3%">4</text>
+
+                <circle class="control numeric-button" id="button5" cx="25%" cy="65%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text5" class="no-cursor" x="25%" y="65.5%" dy="3%">5</text>
+
+                <circle class="control numeric-button" id="button6" cx="75%" cy="65%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text6" class="no-cursor" x="75%" y="65.5%" dy="3%">6</text>
+
+                <!-- Mode 2 Buttons -->
+                <circle class="control numeric-button hidden" id="button7" cx="25%" cy="25%" r="10%" stroke="url(#shadow)" stroke-width="3" />
+                <text id="text7" class="no-cursor hidden" x="25%" y="25.5%" dy="3%">A</text> 
+
+                <circle class="control numeric-button hidden" id="button8" cx="75%" cy="25%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text8" class="no-cursor hidden" x="75%" y="25.5%" dy="3%">B</text>
+
+                <circle class="control numeric-button hidden" id="button9" cx="25%" cy="45%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text9" class="no-cursor hidden" x="25%" y="45.5%" dy="3%">C</text>
+
+                <circle class="control numeric-button hidden" id="button10" cx="75%" cy="45%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text10" class="no-cursor hidden" x="75%" y="45.5%" dy="3%">D</text>
+
+                <circle class="control numeric-button hidden" id="button11" cx="25%" cy="65%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text11" class="no-cursor hidden" x="25%" y="65.5%" dy="3%">E</text>
+
+                <circle class="control numeric-button hidden" id="button12" cx="75%" cy="65%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text12" class="no-cursor hidden" x="75%" y="65.5%" dy="3%">F</text>
+
+                <!-- Mode 3 Buttons -->
+                <circle class="control numeric-button hidden" id="button13" cx="25%" cy="25%" r="10%" stroke="url(#shadow)" stroke-width="3" />
+                <text id="text13" class="no-cursor hidden" x="25%" y="25.5%" dy="3%">➕</text> 
+
+                <circle class="control numeric-button hidden" id="button14" cx="75%" cy="25%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text14" class="no-cursor hidden" x="75%" y="25.5%" dy="3%">➖</text>
+
+                <circle class="control numeric-button hidden" id="button15" cx="25%" cy="45%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text15" class="no-cursor hidden" x="25%" y="45.5%" dy="3%">💡</text>
+
+                <circle class="control numeric-button hidden" id="button16" cx="75%" cy="45%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text16" class="no-cursor hidden" x="75%" y="45.5%" dy="3%">🔌</text>
+
+                <circle class="control numeric-button hidden" id="button17" cx="25%" cy="65%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text17" class="no-cursor hidden" x="25%" y="65.5%" dy="3%">X</text>
+
+                <circle class="control numeric-button hidden" id="button18" cx="75%" cy="65%" r="10%" stroke="url(#shadow)" stroke-width="3"/>
+                <text id="text18" class="no-cursor hidden" x="75%" y="65.5%" dy="3%">Y</text>
+            </g>
+
+            <!-- Mode Button -->
+            <rect id="mode-button" class="control #disableModeButton#" x="10%" y="78%" width=30% height=10% fill="#666" stroke="white" stroke-width="1" rx="2%" ry="2%"/>            
+			<text class="no-cursor mode-button #disableModeButton#" id="mode-text" x="26%" y="84.5%" text-anchor="middle" fill="#fff" font-weight="bold"></text>
+
+			<rect id="help-button" class="control" x="60%" y="78%" width=30% height=10% fill="#666" stroke="white" stroke-width="1" rx="2%" ry="2%"/>
+			<text class="no-cursor mode-button" id="help-button-text" x="76%" y="86%" text-anchor="middle" fill="#fff" style="font-size:18px" font-weight="bold">?</text>
+
+			<text class="no-cursor" id="title-text" x="50%" y="96%" text-anchor="middle" fill="#fff" style="font-size:12px; opacity:0.5 ">?</text>
+			
+        </svg>
+        <div id="tooltip" class="tooltip"></div>
+    </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+		const modeButton = document.getElementById('mode-button');
+		const modeText = document.getElementById('mode-text');
+		const titleText = document.getElementById('title-text');
+		const helpButton = document.getElementById('help-button');
+		const helpButtonText = document.getElementById('help-button-text');
+		const numericButtons = document.querySelectorAll('.numeric-button');
+		const tooltip = document.getElementById('tooltip');
+		const led1 = document.getElementById('led1');
+		const led2 = document.getElementById('led2');
+		const modes = ['|', '||', '|||'];		
+		const remoteBackground = document.getElementById('remote-body');
+		let helpMode = false;  /* Track help mode state */
+		
+		const buttonData = #buttonData#;
+		const backgroundData = #backgroundData#;
+		const titlesData = #titlesData#;
+
+        /* Get the saved mode index from localStorage or default to 0 */
+		let modeIndex = localStorage.getItem('modeIndex') ? parseInt(localStorage.getItem('modeIndex')) : 0;
+		modeIndex = 0
+				
+		console.log("modeIndex: ", modeIndex );
+        modeText.textContent = modes[modeIndex];
+		titleText.textContent = titlesData[modeIndex];
+
+        modeButton.addEventListener('click', () => {
+            modeIndex = (modeIndex + 1) % modes.length;
+            localStorage.setItem('modeIndex', modeIndex);
+            modeText.textContent = modes[modeIndex];
+            updateButtons();
+			updateBackground();
+			updateTitle();
+        });
+
+		helpButton.addEventListener('click', () => {
+            helpMode = !helpMode;
+			/* console.log("Helpmode is: ", helpMode ); */
+            helpButtonText.setAttribute('fill', helpMode ? 'green' : '#fff');
+        });
+
+	numericButtons.forEach(button => {
+    	button.addEventListener('click', (event) => {
+        	const buttonId = event.target.id; /* Get the ID of the clicked button */
+        	if (helpMode) {
+            	const buttonInfo = buttonData.find(b => `button${b.index}` === buttonId);
+            	if (buttonInfo) { 
+                	showTooltip(event, buttonInfo.tooltip);
+            	}
+        	} 
+			else { sendData(buttonId); }
+    });
+
+    button.addEventListener('mouseover', (event) => {
+        if (!helpMode) {
+            const buttonId = event.target.id;
+            const buttonInfo = buttonData.find(b => `button${b.index}` === buttonId);
+            if (buttonInfo) { 
+                showTooltip(event, buttonInfo.tooltip);
+            }
         }
-    else return false
+    });
+
+    button.addEventListener('mouseout', () => { hideTooltip(); });
+});
+
+/*  Start of <SCRIPT> functions */
+function updateButtons() {
+    for (let i = 1; i <= 18; i++) {
+        const buttonElement = document.getElementById(`button${i}`);
+        const textElement = document.getElementById(`text${i}`);
+		const tooltipElement = document.getElementById(`tooltip${i}`);
+        if (buttonElement && textElement) {
+            /* Hide all buttons initially */
+            buttonElement.classList.add('hidden');
+            textElement.classList.add('hidden');
+            
+            /* Show buttons for the current mode */
+            const button = buttonData.find(b => b.index == i);
+            if ((modeIndex === 0 && i <= 6) || (modeIndex === 1 && i > 6 && i <= 12) || (modeIndex === 2 && i > 12)) {
+                if (button) {
+                    buttonElement.classList.remove('hidden');
+                    textElement.classList.remove('hidden');
+                    buttonElement.setAttribute('fill',button.bColor);
+                    textElement.textContent = button.label;
+                    textElement.setAttribute('fill',button.tColor);
+                }
+            }
+        }
+    }
+};
+
+function updateBackground() { remoteBackground.setAttribute('fill', backgroundData[modeIndex]); }
+
+function updateTitle() { titleText.textContent = titlesData[modeIndex]; }
+
+function showTooltip(event, tooltipText) {
+	if (tooltipText && tooltipText !== "?") {
+    	tooltip.textContent = tooltipText;
+        tooltip.style.display = 'block';
+	} else {tooltip.style.display = 'none'}
+};
+
+function hideTooltip() {tooltip.style.display='none'};
+
+function sendData(buttonId) {
+	/* console.log("Helpmode2 is: ", helpMode ); */
+    const url = '#URL#';
+    /* Only proceed if mode is not null */
+    if (buttonId !== null) {
+        led1.classList.add('flicker'); /* Start flickering led1 */
+        // Construct the request payload
+        const payload = { button: buttonId };
+        fetch(url, {
+            mode: 'no-cors',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            /* console.log('Data sent:', response); */
+			led1.classList.remove('flicker'); /* Turn off LED1 */
+            led2.setAttribute('fill', 'green'); /* Set led2 to solid green */
+            setTimeout(() => {
+                led2.setAttribute('fill', '#555'); /* Reset led2 to its original color */
+            }, 2000); /* Solid for 2 seconds */
+        })
+        .catch(error => {
+            console.error('Error:', error);
+			led1.classList.remove('flicker'); /* Turn off LED1 */
+            led2.setAttribute('fill', 'red'); /* Set led2 to solid red */
+            setTimeout(() => {
+                led2.setAttribute('fill', '#555'); /* Reset led2 to its original color */
+            }, 2000); /* Solid for 2 second */
+        });
+    }
+    setTimeout(() => {
+        led1.classList.remove('flicker');
+    }, 250);
 }
 
-def getID(){
-    //Create a Quasi Unique Identifier
-    String hubUID = getHubUID()
-    def P1 = (hubUID.substring(0, 8)).toUpperCase()
-    def P2 = (hubUID.substring(Math.max(hubUID.length() - 8, 0))).toUpperCase()
-    return ("${P1}-${P2}")
+/* Initialize buttons */
+updateButtons();
+updateBackground();
+updateTitle();
+
+});
+</script>
+</body>
+</html>
+'''
+return HTML
+
 }
 
-
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
+//*******************************************************************************************************************************************************************************************
 //**************
-//**************  Button Related Functions
+//**************  End Remote Control APplet Code
 //**************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-
-String buttonLink(String btnName, String linkText, int buttonNumber) {
-    font = chooseButtonFont(buttonNumber)
-    color = chooseButtonColor(buttonNumber)
-    text = chooseButtonText(buttonNumber, linkText)
-    return "<div class='form-group'><input type='hidden' name='${btnName}.type' value='button'></div><div><div class='submitOnChange' onclick='buttonClick(this)' style='color:${color};cursor:pointer;font-size:${font}px'>${text}</div></div><input type='hidden' name='settings[$btnName]' value=''>"
-}
-
-def chooseButtonColor(buttonNumber) {
-    return (buttonNumber == settings.activeButton) ? '#00FF00' : '#000000'
-}
-
-def chooseButtonFont(buttonNumber) {
-    return (buttonNumber == settings.activeButton) ? 20 : 15
-}
-
-def chooseButtonText(buttonNumber, buttonText) {
-    return (buttonNumber == settings.activeButton) ? "<b>$buttonText</b>" : "<b>$buttonText</b>"
-}
+//*******************************************************************************************************************************************************************************************
 
 
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
+    
+
+//*******************************************************************************************************************************************************************************************
 //**************
-//**************  Installation and Update Functions
+//**************  Screen UI and Management Functions
 //**************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-
-def installed() {
-    if (isLogTrace) log.trace ('installed: Entering installed')
-    if (isLogInfo) log.info "Installed with settings: ${settings}"
+//*******************************************************************************************************************************************************************************************
+//This is the standard button handler that receives the click of any button control.
+def appButtonHandler(btn) {
+    if (isLogTrace == true) log.trace("<b style='color:green;font-size:medium'>appButtonHandler: Clicked on button: $btn</b>")
+    switch (btn) {
+        case "rebuildEndpoints":
+            createAccessToken()
+            state.localEndpoint = "${getFullLocalApiServerUrl()}/tb?access_token=${state.accessToken}"
+            state.cloudEndpoint = "${getFullApiServerUrl()}/tb?access_token=${state.accessToken}"
+			if (isLogDebug) log.debug ("Endpoints have been rebuilt")
+            break
+        case "Compile":
+            compile()
+            break
+		case "Test":
+			test()
+			break
+        case "publishRemote":
+            publishRemote()
+            break
+		case 'btnHideIntro':
+            state.hidden.Intro = state.hidden.Intro ? false : true
+            break
+        case 'btnHideEndpoints':
+            state.hidden.Endpoints = state.hidden.Endpoints ? false : true
+            break
+        case 'btnHideDisplay':
+            state.hidden.Display = state.hidden.Display ? false : true
+            break
+		case 'btnHideCustomize':
+            state.hidden.Customize = state.hidden.Customize ? false : true
+            break
+        case 'btnHidePublish':
+            state.hidden.Publish = state.hidden.Publish ? false : true
+            break
+    }
 }
 
-def updated() {
-    if (isLogTrace) log.trace ('updated: Entering updated')
-    if (isLogInfo) log.info "Updated with settings: ${settings}"
-    unschedule()
-    unsubscribe()
-}
-
-def initialize() {
-    if (isLogTrace) log.trace ('initialized: Entering initialize')
-    if (isLogInfo) log.info ('Running Initialize.')
-    if ( state.initialized == true ) {
-        if (isLogInfo) log.info ('initialize has already been run. Exiting')
+//Save the current HTML to the variable. This is the function that is called by the scheduler.
+void publishRemote(){
+    if (isLogDebug) log.debug("publishRemote: Entering publishRemote.")
+    
+    //Test whether we can create a cloud Endpoint to see if OAuth is enabled.
+    try {
+		if( !state.accessToken ) createAccessToken()
+        state.cloudEndpoint = getFullApiServerUrl() + "/tb?access_token=" + state.accessToken
+        }
+	catch (Exception e){
+        if (isLogError) log.error("This app is not OAuth Enabled.  Go to: <b>Developer Tools</b> / <b>Apps Code</b> and open the code for this app.  Click on <b>OAuth</b> and then <b>Enable OAuth in App</b> and leave it athe default values.")
+        }
+    
+    if (isLogEvents) log.debug("publishTable: Remote $myRemote ($myRemoteName) is being refreshed.")
+    
+    myStorageDevice = parent.getStorageDevice()
+    if ( myStorageDevice == null ) {
+        if (isLogError) log.error("publishTable: myStorageDevice is null. Is the device created and available? This error can occur immediately upon hub startup. Nothing published.")
         return
     }
     
-	//Set the flag so that this should only ever run once.
-    state.initialized = true
+	if (!state.publish) state.publish = {}
+    state.publish.lastPublished = now()
+	
+	def tileLink1 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.localEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][div]"
+	def tileLink2 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][div]"
+		
+    myStorageDevice.createTile(settings.myRemote, tileLink1, tileLink2, settings.myRemoteName)
+	return
+    
+}
 
-    //Set initial Log settings
+//Returns a formatted title for a section header based on whether the section is visible or not.
+def getSectionTitle(section) {
+    if (section == "Introduction") {
+        if (state.hidden.Intro == true) return sectionTitle("Introduction ▶") else return sectionTitle("Introduction ▼")
+    }
+    if (section == "Endpoints") {
+        if (state.hidden.Endpoints == true) return sectionTitle("Endpoints ▶") else return sectionTitle("Endpoints ▼")
+    }
+    if (section == "Display") {
+        if (state.hidden.Display == true) return sectionTitle("Remote Display ▶") else return sectionTitle("Remote Display ▼")
+    }
+    if (section == "Customize") {
+        if (state.hidden.Customize == true) return sectionTitle("Customize Remote ▶") else return sectionTitle("Customize Remote ▼")
+    }
+    if (section == "Publish") {
+        if (state.hidden.Publish == true) return sectionTitle("Publish Remote ▶") else return sectionTitle("Publish Remote ▼")
+    }
+}
+
+String buttonLink(String btnName, String linkText, int buttonNumber) {
+    if (isLogTrace && isLogDetails) log.trace("<b>buttonLink: Entering with $btnName  $linkText  $buttonNumber</b>")
+    def myColor, myText
+    Integer myFont = 16
+
+    if (buttonNumber == settings.activeButton) myColor = "#00FF00" else myColor = "#000000"
+    if (buttonNumber == settings.activeButton) myText = "<b><u>${linkText}</u></b>" else myText = "<b>${linkText}</b>"
+
+    return "<div class='form-group'><input type='hidden' name='${btnName}.type' value='button'></div><div><div class='submitOnChange' onclick='buttonClick(this)' style='color:${myColor};cursor:pointer;font-size:${myFont}px'>${myText}</div></div><input type='hidden' name='settings[$btnName]' value=''>"
+}
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  End Screen UI and Management Functions
+//**************
+//*******************************************************************************************************************************************************************************************
+
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  Utility Functions
+//**************
+//*******************************************************************************************************************************************************************************************
+
+//Returns a string containing the var if it is not null. Used for the controls.
+static String bold2(s, var) {
+    if (var == null) return "<b>$s (N/A)</b>"
+    else return ("<b>$s ($var)</b>")
+}
+
+//Functions to enhance text appearance
+static String bold(s) { return "<b>$s</b>" }
+
+//Set the Section Titles to a consistent style.
+static def sectionTitle(title) { return "<span style='color:#000000; margin-top:1em; font-size:16px; box-shadow: 0px 0px 3px 3px #40b9f2; padding:1px; background:#40b9f2;'><b>${title}</b></span>" }
+
+//Set the body text to a consistent style.
+static String body(myBody) { return "<span style='color:#17202A;text-align:left; margin-top:0em; margin-bottom:0em ; font-size:18px'>" + myBody + "</span>&nbsp" }
+
+//Produce a horizontal line of the specified width
+static String line(myHeight) { return "<div style='background:#005A9C; height: " + myHeight.toString() + "px; margin-top:0em; margin-bottom:0em ; border: 0;'></div>" }
+
+//Convert [HTML] tags to <HTML> for display.
+def toHTML(HTML) {
+    if (HTML == null) return ""
+    myHTML = HTML.replace("❰", "<")
+    myHTML = myHTML.replace("❱", ">")
+    return myHTML
+}
+
+//Convert <HTML> tags to [HTML] for storage.
+def unHTML(HTML) {
+    myHTML = HTML.replace("<", "❰")
+    myHTML = myHTML.replace(">", "❱")
+    return myHTML
+}
+
+//Set the notes to a consistent style.
+static String summary(myTitle, myText) {
+    myTitle = dodgerBlue(myTitle)
+    return "<details><summary>" + myTitle + "</summary>" + myText + "</details>"
+}
+
+static String dodgerBlue(s) { return '<font color = "DodgerBlue">' + s + '</font>' }
+
+// Get a list of supported commands for a given device and return a sorted list. Adds *toggle if 'on' or 'off' are present.
+def getCommandList(thisDevice) {
+    if (thisDevice != null) {
+        def myCommandsList = []
+        def supportedCommands = thisDevice.supportedCommands
+        def hasOnOrOff = false
+        def hasToggle = false
+		def hasPush = false
+		def hasDoubleTap = false
+
+        supportedCommands.each { command ->
+            def commandName = command.name
+            myCommandsList << commandName
+            if (commandName == 'on' || commandName == 'off') { hasOnOrOff = true  }
+			if (commandName == 'toggle') { hasToggle = true  }
+			if (commandName == 'push') { hasPush = true  }
+			if (commandName == 'doubleTap') { hasDoubleTap = true  }
+        }
+        if (hasOnOrOff && !hasToggle) { myCommandsList << '*toggle' }
+		if (hasPush) { myCommandsList.addAll(['*push1', '*push2', '*push3','*push4']) }
+		if (hasDoubleTap) { myCommandsList.addAll(['*doubleTap1', '*doubleTap2', '*doubleTap3','*doubleTap4']) }
+		
+        return myCommandsList.unique().sort()
+    }
+}
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  End Utility Functions
+//**************
+//*******************************************************************************************************************************************************************************************
+
+
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  Standard System Elements
+//**************
+//*******************************************************************************************************************************************************************************************
+
+//Configures all of the default settings values. This allows us to have some parts of the settings not be visible but still have their values initialized.
+//We do this to avoid errors that might occur if a particular setting were referenced but had not been initialized.
+def initialize() {
+    if (state.initialized == true) {
+        if (isLogTrace) log.trace("<b>initialize: Initialize has already been run. Exiting</b>")
+        return
+    }
+    log.trace("<b>Running Initialize</b>")
+       
+    //Initialze all the default settings
+    def buttonTextList = ["1", "2", "3", "4", "5", "6", "A", "B", "C", "D", "E", "F", "▶️", "⏹️", "⬅️", "➡️", "➕", "➖"]
+    def buttonColorList = ["#FF0000", "#FFA500", "#0000FF", "#008000", "#00FFFF", "#FF00FF", \
+                           "#FF0000", "#FFA500", "#0000FF", "#008000", "#00FFFF", "#FF00FF", \
+                           "#00A6ED", "#00A6ED", "#00A6ED", "#00A6ED", "#00A6ED", "#00A6ED"]
+    
+    for (int i = 1; i <= 18; i++) {
+        app.updateSetting("myText$i", buttonTextList[i - 1] )
+        app.updateSetting("myTooltip$i", "?" )
+        app.updateSetting("myButtonColor$i", buttonColorList[ i - 1 ] )
+        app.updateSetting("myTextColor$i", [value: "#FFFFFF", type: "color"])
+        app.updateSetting("selectedButtonGroup", [value: "ONE", type: "enum"])
+    }
+	
+	//Remote Settings
+	app.updateSetting("myRemoteBackground1", [value: "#A05050", type: "color"])
+	app.updateSetting("myRemoteBackground2", [value: "#506090", type: "color"])
+	app.updateSetting("myRemoteBackground3", [value: "#509090", type: "color"])
+	app.updateSetting("myTitleText1", "Group 1" )
+	app.updateSetting("myTitleText2", "Group 2" )
+	app.updateSetting("myTitleText3", "Group 3" )
+	app.updateSetting("disableUnassignedButtons", [value: "False", type: "enum"])
+
+    //Publishing
+    app.updateSetting("mySelectedRemote", "")
+    app.updateSetting("publishEndpoints", [value: "Local", type: "enum"])
+
+    //Create Access Points
+    createAccessToken()
+    state.localEndpoint = "${getFullLocalApiServerUrl()}/tb?access_token=${state.accessToken}"
+    state.cloudEndpoint = "${getFullApiServerUrl()}/tb?access_token=${state.accessToken}"
+		
+	//Set initial Log settings
     app.updateSetting('isLogDebug', false)
-    app.updateSetting('isLogTrace', false)
-    app.updateSetting('isLogInfo', false)
-    app.updateSetting('isLogWarn', true)
     app.updateSetting('isLogError', true)
-
-    state.setupState = 0
-    state.showIntro = true
-    state.showLicense = false
-    state.showDevice = false
-    state.showCreateEdit = false
-    state.showManage = false
-    state.showMore = false
-    state.descTextEnable = false
-    state.debugOutput = false
-    state.isStorageConnected = false
-    state.flags = [selectedDeviceChanged: false]
-    state.selectedDeviceHistory = [new: 'seed1', old: 'seed']
-    state.isAdvancedLicense = false
-    state.activationState = "Not Activated"
+    app.updateSetting('isLogCommands', false)
+    app.updateSetting('isLogConnections', false)
+	
+	//Have all the sections collapsed to begin with except devices
+    state.hidden = [Intro: false, Endpoints: true, Display: false, Customize: true, Publish: true]
     
-    app.updateSetting("myInput", [value:"#c61010", type:"color"])
-    app.updateSetting('selectedDevice', 'Remote Builder Storage Device 1')
+    state.initialized = true
+}
+
+def updated(){
+    if(!state?.isInstalled) { state?.isInstalled = true }
 }
 
 
-//Determine if something has changed in the command list.
-def isSelectedDeviceChanged() {
-    if (state.selectedDeviceHistory.new != selectedDevice) {
-        state.selectedDeviceHistory.old = state.selectedDeviceHistory.new
-        state.selectedDeviceHistory.new = selectedDevice
-        state.flags.selectedDeviceChanged = true
-    }
-    else { state.flags.selectedDeviceChanged = false }
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  End Standard System Elements
+//**************
+//*******************************************************************************************************************************************************************************************
+
+def test(){
+	//input(name: "testIcons", type: "enum", title: bold("Disable Unassigned Buttons"), options: test(), required: false, submitOnChange: true, width: 3, style:"margin-right: 20px")
+	def myIconList = []
+    def iconNames = [
+    'face', 'home', 'menu', 'search', 'settings', // Add more icon names as needed
+    'account_circle', 'alarm', 'build', 'delete', 'favorite',
+    'info', 'lock', 'message', 'notifications', 'shopping_cart' ]
+
+	iconNames.each { icon -> log.info "<span class=material-icons>${icon}</span>"  
+	myIconList << "<span class=material-icons>${icon}</span>" }
+	return myIconList.unique().sort()
 }
 
-
-
-def getSample(){
-
-	def myHTML = """
-<svg
-  width="180"
-  height="420"
-  viewBox="0 0 180 420"
-  xmlns="http://www.w3.org/2000/svg"
->
-
-  <!-- Define the radial gradient for the shadow effect -->
-  <defs>
-    <linearGradient id="shadow-effect" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="white" stop-opacity="0.2" />
-      <stop offset="100%" stop-color="black" stop-opacity="0.7" />
-    </linearGradient>
-	<linearGradient id="vertical-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="20%" stop-color="#555" />
-      <stop offset="80%" stop-color="#111" />
-    </linearGradient>
-	<linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="cyan" />
-      <stop offset="100%" stop-color="magenta" />
-    </linearGradient>
-  </defs>
-    
-  <style>
-    .button-text {
-      font-family: Arial;
-      font-size: 18px;
-      fill: white;
-      text-anchor: middle;
-      dominant-baseline: middle;
-    }
-	
-	.button-text-small {	
-		font-size:12px;
-	}
-	
-	.button-text-large {	
-		font-size:24px;
-	}
-	
-	.button-text-gradient {
-		font-family: Arial;
-		font-size: 30px;
-		text-anchor: middle;
-		dominant-baseline: middle;
-		font-weight: 700; 
-	}
-	
-	.custom-button {
-	opacity: 0.5;
-	text-shadow: 2px 2px #000;
-	}
-  </style>
-
-  <!-- Remote body -->
-  <rect x="10" y="10" width="160" height="400" rx="20" ry="20" fill="#333" stroke="#222" stroke-width="5" />
-
-  <!-- Power button -->
-  <circle cx="40" cy="40" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-  <text x="40" y="40" class="button-text">⚡</text>
-  
-  <!-- LED -->
-  <circle id="led1" cx="50%" cy="7%" r="2%" fill="#555"/>
-  
-  <!-- Source Button -->
-  <circle cx="140" cy="40" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-  <text x="140" y="40" class="button-text" style="fill:red" >☰</text>
-  
-  <!-- Navigation buttons -->
-  <circle cx="90" cy="120" r="50" fill="#444" stroke="url(#shadow-effect)" />
-  <text x="90" y="85" class="button-text"> ▲ </text>
-  <text x="90" y="155" class="button-text" >▼</text>
-  <text x="55" y="120" class="button-text" >◀</text>
-  <text x="125" y="120" class="button-text" > ▶ </text>
-    
-  <!-- Volume Controls -->
-  <rect x="25" y="180" width="30" height="80" rx="20" ry="20" fill="#333" stroke="url(#shadow-effect)" stroke-width="0.5" />
-  <text x="40" y="195" class="button-text" >▲</text>
-  <text x="40" y="220" class="button-text button-text-small">VOL</text>
-  <text x="40" y="245" class="button-text">▼</text>
-  
-  <!-- Channel Controls -->
-  <rect x="125" y="180" width="30" height="80" rx="20" ry="20" fill="#333" stroke="url(#shadow-effect)" stroke-width="0.5" />
-  <text x="140" y="195" class="button-text " >▲</text>
-  <text x="140" y="220" class="button-text button-text-small">CH.</text>
-  <text x="140" y="245" class="button-text ">▼</text>
-  
-  <!-- OK button -->
-  <circle cx="90" cy="120" r="15" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" />
-  <text x="90" y="122" class="button-text button-text-small">OK</text>
-
-  <!-- Mute button -->
-  <circle cx="90" cy="220" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-  <text x="90" y="220" class="button-text">🔇</text>
-  
-  <!-- Home button -->
-  <circle cx="90" cy="300" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-  <text x="91" y="299" class="button-text-gradient" fill="url(#gradient1)">⌂</text>
-  
-  <!-- Back button -->
-  <circle cx="40" cy="300" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-  <text x="40" y="302" class="button-text button-text-large">↩</text>
-  
-  <!-- Gear button -->
-  <circle cx="140" cy="300" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-  <text x="140" y="291" class="button-text" style="font-size:12px">⚙️</text>
-  <text x="140" y="300" class="button-text" style="font-size:5px">🔴🟢🟡🔵</text>
-  <text x="140" y="309" class="button-text" style="font-size:10px">123</text>
-  
-  <!-- Custom buttons -->
-  <circle cx="35" cy="350" r="12" fill="red" stroke="gray" stroke-width="1"/>
-  <text x="35" y="351" class="button-text custom-button">A</text>
-  
-  <circle cx="75" cy="350" r="12" fill="green" stroke="gray" stroke-width="1"/>
-  <text x="75" y="351" class="button-text custom-button">B</text>
-  
-  <circle cx="110" cy="350" r="12" fill="purple" stroke="gray" stroke-width="1"/>
-  <text x="110" y="351" class="button-text custom-button">C</text>
-  
-  <circle cx="145" cy="350" r="12" fill="blue" stroke="gray" stroke-width="1"/>
-  <text x="145" y="351" class="button-text custom-button">D</text>
-  
-  <!-- Custom buttons -->
-  <circle cx="35" cy="390" r="12" fill="red" stroke="gray" stroke-width="1"/>
-  <text x="35" y="391" class="button-text custom-button">1</text>
-  
-  <circle cx="75" cy="390" r="12" fill="green" stroke="gray" stroke-width="1"/>
-  <text x="75" y="391" class="button-text custom-button">2</text>
-  
-  <circle cx="110" cy="390" r="12" fill="purple" stroke="gray" stroke-width="1"/>
-  <text x="110" y="391" class="button-text custom-button">3</text>
-  
-  <circle cx="145" cy="390" r="12" fill="blue" stroke="gray" stroke-width="1"/>
-  <text x="145" y="391" class="button-text custom-button">4</text>
-  
-</svg>
-"""
-	
-	return myHTML
-}

@@ -26,16 +26,15 @@
 *
 *  Remote Builder 6 Button - ChangeLog
 *
-*  Gary Milne - August 1st, 2024 @ 12:16 PM
+*  Gary Milne - August 14th, 2024 @ 1:18 PM PM
 *
 *  Version 1.0.0 - Initial Public Release
 *
+* Possible Future Improvements:
+* Loadable configurations such as lighting, audio, security, TV
+* Default button group to have open on load.
+*
 **/
-
-/* Future Improvements
-Loadable configurations such as lighting, audio, security, TV
-Default button group to have open on load.
-*/
 
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
@@ -43,7 +42,7 @@ import groovy.transform.Field
 
 static def buttonGroup() { return ['ONE', 'TWO', 'THREE'] }
 
-@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.0 (8/1/24 @ 12:16 PM)</b>"
+@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.0 (8/14/24 @ 1:18 PM)</b>"
 @Field static final codeVersion = 100
 //@Field static final moduleName = "Custom 6 Button"
 @Field static final moduleName = "Fixed 6 Button"
@@ -194,7 +193,7 @@ def mainPage(){
 				
             }
             //Now add a footer.
-            myDocURL = "<a href='https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%Button%20Remote%20Help.pdf' target=_blank> <i><b>Remote Builder 6 Button Help</b></i></a>"
+            myDocURL = "<a href='https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf' target=_blank> <i><b>Remote Builder Help</b></i></a>"
             myText = '<div style="display: flex; justify-content: space-between;">'
             myText += '<div style="text-align:left;font-weight:small;font-size:12px"> <b>Documentation:</b> ' + myDocURL + '</div>'
             myText += '<div style="text-align:center;font-weight:small;font-size:12px">Version: ' + codeDescription + '</div>'
