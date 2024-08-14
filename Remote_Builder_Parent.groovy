@@ -607,11 +607,6 @@ def deleteTile() {
 	}
 }
 
-def checkLicense() {
-	if ( state.activatedHubID.toString() == getHubUID().toString() ) return state.isAdvancedLicense
-	else { return false	}
-}
-
 
 //*****************************************************************************************************
 //Utility Functions
@@ -701,6 +696,20 @@ def getID(){
     def P1 = (hubUID.substring(0, 8)).toUpperCase()
     def P2 = (hubUID.substring(Math.max(hubUID.length() - 8, 0))).toUpperCase()
     return ("${P1}-${P2}")
+}
+
+def checkLicense() {
+	//If it's not initialzed do so for this hub
+	if ( state.activatedHubID == null ) state.activatedHubID = getHubUID()
+	
+	//Check to see if it is initialized for this hub
+	if (state.activatedHubID == getHubUID() ) {
+		return state.isAdvancedLicense 
+	}
+	else {
+		log.error("This Tile Builder license is for Hub " + state.activatedHubID + " but this Hub has ID " + getHubUID() + "  You are running Tile Builder Standard." )
+		return false
+	}
 }
 
 
