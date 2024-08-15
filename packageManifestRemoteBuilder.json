@@ -21,7 +21,7 @@
       "namespace": "garyjmilne",
       "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Fixed_6_Button.groovy",
       "required": false,
-      "oauth": false,
+      "oauth": true,
       "primary": false,
       "version": "1.0.0"
     },
@@ -31,7 +31,7 @@
       "namespace": "garyjmilne",
       "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Custom_6_Button.groovy",
       "required": false,
-      "oauth": false,
+      "oauth": true,
       "primary": false,
       "version": "1.0.0"
     },
@@ -41,7 +41,7 @@
       "namespace": "garyjmilne",
       "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_TV.groovy",
       "required": false,
-      "oauth": false,
+      "oauth": true,
       "primary": false,
       "version": "1.0.0"
     }
