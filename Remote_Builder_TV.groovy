@@ -26,13 +26,15 @@
 *
 *  Remote Builder TV Remote - ChangeLog
 *
-*  Gary Milne - August 14th, 2024 @ 1:26 PM
+*  Gary Milne - August 16th, 2024 @ 8:31 AM
 *
-*  Version 1.0.0 - Initial Public Release
+*  Version 1.0.0 - Limited Release
+*  Version 1.0.1 - Removed Install on Open and added OAuth.
+*  Version 1.0.2 - Added the ability to provide parameters in the command array using the # as a separator.
 *
 **/
 
-/* Todo's
+/* Possible Todo's
 Add mode device profiles
 Load commands from the device
 Allow users to select a command with a parameter to assign to a button.
@@ -44,8 +46,8 @@ import groovy.transform.Field
 
 static def buttonGroup() { return  }
 
-@Field static final codeDescription = "<b>Remote Builder - TV 1.0 (8/14/24 @ 1:26 PM)</b>"
-@Field static final codeVersion = 100
+@Field static final codeDescription = "<b>Remote Builder - TV 1.0.2 (8/16/24)</b>"
+@Field static final codeVersion = 102
 @Field static final moduleName = "TV Remote"
 
 //def deviceProfileList() { return [0:'Samsung TV Remote by David Gutheinz', 1:'MolSmart - GW3 - TV (irweb) by VH'] }
@@ -57,7 +59,7 @@ definition(
         importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_TV.groovy",
         namespace: "garyjmilne", author: "Gary J. Milne", category: "Utilities", iconUrl: "", iconX2Url: "", iconX3Url: "", singleThreaded: false,
         parent: "garyjmilne:Remote Builder", 
-        installOnOpen: true, oauth: true
+        installOnOpen: false, oauth: true
 )
 
 //Tells the App how to direct inbound and outbound requests.
@@ -217,9 +219,10 @@ def getProfile(){
 			def fixedButtonText = ["⚡️", "❖", "▲", "▼", "◀", "▶", "OK", "▲", "▼", "🔇", "☰", "▲", "▼", "↩", "⌂", "⚙️", "◀◀" , "▶ \\ ❚❚", "▶▶" ]
 			def fixedButtonCommands = ["on", "source", "arrowUp", "arrowDown", "arrowLeft", "arrowRight", "enter", "volumeUp", "volumeDown", "mute", "guide", "channelUp", "channelDown", "exit", "home", "menu", "fastBack", "play", "fastForward" ]
 			def fixedButtonCount = fixedButtonCommands.size()
-			def customButtonCommands = ["off", "channelList", "appRunNetflix", "appRunPrimeVideo","*appRunDisney+", "*appRunHBOMAX", "exit", "exit", "exit", "exit" ]
-			def customButtonColor = ["#555555", "#555555", "#FFFFFF", "#1294F7","#142156", "#000000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
-			def customButtonText = ["◆︎", "◧", "N", "A", "𝒟", "H", "1", "2", "3", "4" ]
+			//You can execute a command with parameters. Simply separate the command and the paramters with a # symbol, for example: "myCommand#myParameter1#myParameter2"
+			def customButtonCommands = ["off", "channelList", "appRunNetflix", "appRunPrimeVideo","appOpenByName#Disney+", "appRunYouTube", "exit", "exit", "exit", "exit" ]
+			def customButtonColor = ["#555555", "#555555", "#FFFFFF", "#1294F7","#142156", "#FF0000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
+			def customButtonText = ["◆︎", "◧", "N", "A", "𝒟", "▶", "1", "2", "3", "4" ]
 			def customButtonTextColor = ["#FFFFFF", "#FFFFFF","#FF0000", "#FFFFFF","#F3ECFE", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF" ]		
 			def customButtonCount = customButtonCommands.size()
 			
@@ -414,7 +417,10 @@ def response(){
     if (myCommand && myCommand[-1] in '1'..'4') {
         myCommandIndex = myCommand[-1] as int
     }
-    
+	
+	result = parseCommandString(myCommand.toString())
+	if (isLogDebug) log.info ("Command String is: $result")
+	
 	//If the values are valid we will execute the command    	
 	switch(myCommand){
         case ["*toggle"]:
@@ -427,14 +433,40 @@ def response(){
 		case ["*doubleTap1","*doubleTap2","*doubleTap3","*doubleTap4"]:
 			myDevice.doubleTap(myCommandIndex)
             return
-		case ['*appRunAppleTV', '*appRunDisney+', '*appRunHBOMAX','*appRunHulu', '*appRunInternet', '*appRunSlingTV', '*appRunSpotify','*appRunTikTok' ]:
-			myParameter = myCommand.replace("*appRun", "")
-			myDevice.appOpenByName(myParameter)
-			return
         default:
-            if (myDevice != null && myCommand != null ) myDevice."${myCommand}"()
+			if (myDevice != null && myCommand != null ) {
+				if (result.parameterCount == 0 ) myDevice."${result.command}"()
+				if (result.parameterCount == 1 ) myDevice."${result.command}"( result.parameters[0] )
+				if (result.parameterCount == 2 ) myDevice."${result.command}"( result.parameters[0], result.paramters[1] )
 			}
+			return
+	}
 }
+
+// Parse out the command string
+def parseCommandString(String commandString) {
+    def result = [command: "", parameters: [], parameterCount: 0]
+    
+    // Split the string by the '#' character
+    def parts = commandString.split('#')
+    
+    // Ensure that there is at least a command present
+    if (parts.size() > 0) {
+        // The first part is the command
+        result['command'] = parts[0]
+        
+        // Check if there are additional parts (parameters)
+        if (parts.size() > 1) {
+            // The rest are the parameters
+            result['parameters'] = parts[1..-1]
+            result['parameterCount'] = result['parameters'].size()
+        }
+    }
+
+    return result
+}
+
+
 
 //This delivers the applet content.
 def showApplet() {
@@ -514,7 +546,7 @@ def HTML =
     </style>
 </head>
 <body>
-    <div class="container" style="display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden;">
+    <div class="container" style="display:flex; justify-content:center; align-items:center; height:98vh; overflow:hidden;">
         <svg id="remote" viewBox="0 0 180 420" preserveAspectRatio="xMidYMid meet" style="width:100%; height:90%">
             <!-- Define the radial gradient for the shadow effect -->
             <defs>
@@ -580,11 +612,11 @@ def HTML =
 
             <!-- Back button -->
             <circle cx="40" cy="267" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text14"  x="40" y="270" class="control numeric-button button-text button-text-large force-font" >↩</text>
+            <text id="text14"  x="40" y="270" class="control numeric-button button-text force-font" style="font-size:30px; font-weight:900">↩</text>
 
             <!-- Home button -->
             <circle cx="90" cy="267" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-            <text id="text15" x="90" y="267" class="control numeric-button button-text" fill="#FFF" style="font-size:34px; font-weight:900">⌂</text>
+            <text id="text15" x="90" y="267" class="control numeric-button button-text" fill="#FFF" style="font-size:30px; font-weight:900">⌂</text>
             
             <!-- Gear button -->
             <circle cx="140" cy="267" r="20" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
@@ -915,8 +947,7 @@ def getCommandList(thisDevice) {
         def hasToggle = false
 		def hasPush = false
 		def hasDoubleTap = false
-		def hasAppOpenByName = false
-
+		
         supportedCommands.each { command ->
             def commandName = command.name
             myCommandsList << commandName
@@ -924,12 +955,10 @@ def getCommandList(thisDevice) {
 			if (commandName == 'toggle') { hasToggle = true  }
 			if (commandName == 'push') { hasPush = true  }
 			if (commandName == 'doubleTap') { hasDoubleTap = true  }
-			if (commandName == 'appOpenByName') { hasAppOpenByName = true } 
         }
         if (hasOnOrOff && !hasToggle) { myCommandsList << '*toggle' }
 		if (hasPush) { myCommandsList.addAll(['*push1', '*push2', '*push3','*push4']) }
 		if (hasDoubleTap) { myCommandsList.addAll(['*doubleTap1', '*doubleTap2', '*doubleTap3','*doubleTap4']) }
-		if (hasAppOpenByName) { myCommandsList.addAll(['*appRunAppleTV', '*appRunDisney+', '*appRunHBOMAX','*appRunHulu', '*appRunInternet', '*appRunSlingTV', '*appRunSpotify','*appRunTikTok' ]) }
 		
         return myCommandsList.unique().sort()
     }

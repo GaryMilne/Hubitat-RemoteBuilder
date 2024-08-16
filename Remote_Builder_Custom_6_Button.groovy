@@ -26,9 +26,10 @@
 *
 *  Remote Builder 6 Button - ChangeLog
 *
-*  Gary Milne - August 14th, 2024 @ 1:18 PM PM
+*  Gary Milne - August 15th, 2024 @ 8:18 PM
 *
-*  Version 1.0.0 - Initial Public Release
+*  Version 1.0.0 - Limited Release
+*  Version 1.0.1 - Added different default color scheme for Fixed 6 Button remotes. Removed Install on Open and added OAuth.
 *
 * Possible Future Improvements:
 * Loadable configurations such as lighting, audio, security, TV
@@ -42,21 +43,21 @@ import groovy.transform.Field
 
 static def buttonGroup() { return ['ONE', 'TWO', 'THREE'] }
 
-@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.0 (8/14/24 @ 1:18 PM)</b>"
-@Field static final codeVersion = 100
+@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.0.1 (8/15/24 @ 8:18 PM)</b>"
+@Field static final codeVersion = 101
 @Field static final moduleName = "Custom 6 Button"
 //@Field static final moduleName = "Fixed 6 Button"
 
 definition(
-        name: "Remote Builder - Custom 6 Button",
-        description: "Generates a Custom 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
+        Name: "Remote Builder - Custom 6 Button",
+        Description: "Generates a Custom 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
         importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Custom_6_Button.groovy",
-	    //name: "Remote Builder - Fixed 6 Button",
-        //description: "Generates a Fixed 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
-        //importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Fixed_6_Button.groovy",
+	    name: "Remote Builder - Fixed 6 Button",
+        description: "Generates a Fixed 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
+        importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Fixed_6_Button.groovy",
         namespace: "garyjmilne", author: "Gary J. Milne", category: "Utilities", iconUrl: "", iconX2Url: "", iconX3Url: "", singleThreaded: true,
         parent: "garyjmilne:Remote Builder", 
-        installOnOpen: true, oauth: true
+        installOnOpen: false, oauth: true
 )
 
 //Tells the App how to direct inbound and outbound requests.
@@ -903,13 +904,15 @@ def initialize() {
     for (int i = 1; i <= 18; i++) {
         app.updateSetting("myText$i", buttonTextList[i - 1] )
         app.updateSetting("myTooltip$i", "?" )
-        app.updateSetting("myButtonColor$i", buttonColorList[ i - 1 ] )
+        if (moduleName == "Fixed 6 Button" )  app.updateSetting("myButtonColor$i", , [value:  "#888888" , type: "color"])
+		if (moduleName == "Custom 6 Button" ) app.updateSetting("myButtonColor$i", [value: buttonColorList[ i - 1 ], type: "color"] )
         app.updateSetting("myTextColor$i", [value: "#FFFFFF", type: "color"])
         app.updateSetting("selectedButtonGroup", [value: "ONE", type: "enum"])
     }
 	
 	//Remote Settings
-	app.updateSetting("myRemoteBackground1", [value: "#A05050", type: "color"])
+	if (moduleName == "Fixed 6 Button" ) app.updateSetting("myRemoteBackground1", [value: "#333333", type: "color"])
+	if (moduleName == "Custom 6 Button" ) app.updateSetting("myRemoteBackground1", [value: "#A05050", type: "color"])
 	app.updateSetting("myRemoteBackground2", [value: "#506090", type: "color"])
 	app.updateSetting("myRemoteBackground3", [value: "#509090", type: "color"])
 	app.updateSetting("myTitleText1", "Group 1" )

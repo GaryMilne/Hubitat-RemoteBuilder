@@ -25,16 +25,17 @@
 *  Remote Builder Documentation: TBD
 *
 *  Remote Builder Parent App - ChangeLog
-*  Version 1.0.0 - First Public Release
+*  Version 1.0.0 - Limited Release
+*  Version 1.0.1 - Fixed checkLicense for handling Hub migrations
 *
-*  Gary Milne - 8/14/24 @ 1:15 PM
+*  Gary Milne - 8/16/24 @ 8:37 AM
 *
 *  Pending Improvements: None at this time.
 *
 **/
 
 import groovy.transform.Field
-@Field static final Version = "<b>Remote Builder Parent v1.0.0 (8/14/24 @ 1:15 PM)</b>"
+@Field static final Version = "<b>Remote Builder Parent v1.0.0 (8/16/24)</b>"
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -607,6 +608,11 @@ def deleteTile() {
 	}
 }
 
+def checkLicense() {
+	if ( state.activatedHubID.toString() == getHubUID().toString() ) return state.isAdvancedLicense
+	else { return false	}
+}
+
 
 //*****************************************************************************************************
 //Utility Functions
@@ -696,20 +702,6 @@ def getID(){
     def P1 = (hubUID.substring(0, 8)).toUpperCase()
     def P2 = (hubUID.substring(Math.max(hubUID.length() - 8, 0))).toUpperCase()
     return ("${P1}-${P2}")
-}
-
-def checkLicense() {
-	//If it's not initialzed do so for this hub
-	if ( state.activatedHubID == null ) state.activatedHubID = getHubUID()
-	
-	//Check to see if it is initialized for this hub
-	if (state.activatedHubID == getHubUID() ) {
-		return state.isAdvancedLicense 
-	}
-	else {
-		log.error("This Tile Builder license is for Hub " + state.activatedHubID + " but this Hub has ID " + getHubUID() + "  You are running Tile Builder Standard." )
-		return false
-	}
 }
 
 
