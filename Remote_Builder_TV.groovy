@@ -224,7 +224,7 @@ def getProfile(){
 	def customButtonTextColor = []		
 	def customButtonCount = 0
 	
-	log.info ("Selected Profile is: " + selectedProfile.toInteger() )
+	if (isLogDebug) log.debug ("Selected Profile is: " + selectedProfile.toInteger() )
 	
 	switch(selectedProfile.toInteger()){
         case [0]: /* Samsung TV Remote */
@@ -259,7 +259,7 @@ def getProfile(){
 	
 	buttonData = [ fixedButtonText: fixedButtonText, fixedButtonCommands: fixedButtonCommands, fixedButtonCount: fixedButtonCount, customButtonCommands: customButtonCommands, customButtonColor: customButtonColor, \
 					customButtonText: customButtonText, customButtonTextColor: customButtonTextColor, customButtonCount: customButtonCount ]
-	log.debug ("Data is: $buttonData")		   
+	if (isLogDebug) log.debug ("Data is: $buttonData")		   
 	return buttonData
 }
 
