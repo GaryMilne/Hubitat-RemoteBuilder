@@ -49,8 +49,8 @@ static def buttonGroup() { return ['ONE', 'TWO', 'THREE'] }
 //@Field static final moduleName = "Fixed 6 Button"
 
 definition(
-        Name: "Remote Builder - Custom 6 Button",
-        Description: "Generates a Custom 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
+        name: "Remote Builder - Custom 6 Button",
+        description: "Generates a Custom 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
         importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Custom_6_Button.groovy",
 	    //name: "Remote Builder - Fixed 6 Button",
         //description: "Generates a Fixed 6 Button remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
