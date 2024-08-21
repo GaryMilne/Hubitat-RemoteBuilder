@@ -5,8 +5,8 @@
   "minimumHEVersion": "2.3.4.132",
   "dateReleased": "2024-08-14",
   "releaseNotes": "Package-101: Initial Release\n\n",
-  "documentationLink": "https://github.com/GaryMilne/Hubitat-TileBuilder/tree/main",
-  "communityLink": "https://community.hubitat.com/t/release-tile-builder-build-beautiful-dashboards/118822",
+  "documentationLink": "",
+  "communityLink": "",
   "apps": [
     {
       "id": "ba72af2b-020d-445e-858d-58dfdd542e73",
