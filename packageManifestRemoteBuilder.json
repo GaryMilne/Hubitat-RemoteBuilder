@@ -20,7 +20,7 @@
     },
     {
       "id": "c3d1eb91-bbe4-4a9e-b938-db4b1b18f20b",
-      "name": "Remote Builder - Custom 6 Button",
+      "name": "Remote Builder - Fixed 6 Button",
       "namespace": "garyjmilne",
       "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Fixed_6_Button.groovy",
       "required": false,
