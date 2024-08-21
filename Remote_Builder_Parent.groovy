@@ -35,7 +35,7 @@
 **/
 
 import groovy.transform.Field
-@Field static final Version = "<b>Remote Builder Parent v1.0.0 (8/16/24)</b>"
+@Field static final Version = "<b>Remote Builder Parent v1.0.1 (8/16/24)</b>"
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }

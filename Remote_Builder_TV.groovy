@@ -26,11 +26,12 @@
 *
 *  Remote Builder TV Remote - ChangeLog
 *
-*  Gary Milne - August 16th, 2024 @ 8:31 AM
+*  Gary Milne - August 20th, 2024 @ 9:15 PM
 *
 *  Version 1.0.0 - Limited Release
 *  Version 1.0.1 - Removed Install on Open and added OAuth.
 *  Version 1.0.2 - Added the ability to provide parameters in the command array using the # as a separator.
+*  Version 1.0.3 - Added a profile for the MolSmart - GW3 - TV (irweb) driver.
 *
 **/
 
@@ -46,12 +47,11 @@ import groovy.transform.Field
 
 static def buttonGroup() { return  }
 
-@Field static final codeDescription = "<b>Remote Builder - TV 1.0.2 (8/16/24)</b>"
-@Field static final codeVersion = 102
+@Field static final codeDescription = "<b>Remote Builder - TV 1.0.3 (8/20/24)</b>"
+@Field static final codeVersion = 103
 @Field static final moduleName = "TV Remote"
 
-//def deviceProfileList() { return [0:'Samsung TV Remote by David Gutheinz', 1:'MolSmart - GW3 - TV (irweb) by VH'] }
-def deviceProfileList() { return [0:'Samsung TV Remote by David Gutheinz'] }
+def deviceProfileList() { return [0:'Samsung TV Remote (4.1-2) by David Gutheinz', 1:'MolSmart - GW3 - TV (irweb) by VH'] }
 
 definition(
 	    name: "Remote Builder - TV",
@@ -86,7 +86,7 @@ def mainPage(){
 				if (myTV != null ) { 
 					input(name: "selectedProfile", type: "enum", title: bold("Select the Device Driver Profile"), options: deviceProfileList(), required: false, defaultValue: 0, submitOnChange: true, width: 4, style:"margin-right: 20px")
 				
-					paragraph "Click <b>Apply Profile</b> after making your selections.  The profile selected determines the mapping of key presses to the execution of commands. These can be modified in the <b>Customize Remote</b> section.<br><b>Applying a profile wipes out the current configuration of the remote!</b>"
+					paragraph "Click <b>Apply Profile</b> after making your selections.  The profile selected determines the mapping of key presses to the execution of commands. These can be modified in the <b>Customize Remote</b> section.<br><b>Applying a profile wipes out the current configuration of the remote including any custom buttons!</b>"
 					input(name: "applyProfile", type: "button", title: "Apply Profile", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 12)
 				}
 			}
@@ -214,25 +214,53 @@ def mainPage(){
 //Returns all the data for a given device profile in a Map
 def getProfile(){
 	
+	def fixedButtonText = []
+	def fixedButtonCommands = []
+	def fixedButtonCount = 0
+	//You can execute a command with parameters. Simply separate the command and the paramters with a # symbol, for example: "myCommand#myParameter1#myParameter2"
+	def customButtonCommands = []
+	def customButtonColor = []
+	def customButtonText = []
+	def customButtonTextColor = []		
+	def customButtonCount = 0
+	
+	log.info ("Selected Profile is: " + selectedProfile.toInteger() )
+	
 	switch(selectedProfile.toInteger()){
         case [0]: /* Samsung TV Remote */
-			def fixedButtonText = ["⚡️", "❖", "▲", "▼", "◀", "▶", "OK", "▲", "▼", "🔇", "☰", "▲", "▼", "↩", "⌂", "⚙️", "◀◀" , "▶ \\ ❚❚", "▶▶" ]
-			def fixedButtonCommands = ["on", "source", "arrowUp", "arrowDown", "arrowLeft", "arrowRight", "enter", "volumeUp", "volumeDown", "mute", "guide", "channelUp", "channelDown", "exit", "home", "menu", "fastBack", "play", "fastForward" ]
-			def fixedButtonCount = fixedButtonCommands.size()
+			fixedButtonText = ["⚡️", "❖", "▲", "▼", "◀", "▶", "OK", "▲", "▼", "🔇", "☰", "▲", "▼", "↩", "⌂", "⚙️", "◀◀" , "▶ \\ ❚❚", "▶▶" ]
+			fixedButtonCommands = ["on", "source", "arrowUp", "arrowDown", "arrowLeft", "arrowRight", "enter", "volumeUp", "volumeDown", "mute", "guide", "channelUp", "channelDown", "exit", "home", "menu", "fastBack", "play", "fastForward" ]
+			fixedButtonCount = fixedButtonCommands.size()
 			//You can execute a command with parameters. Simply separate the command and the paramters with a # symbol, for example: "myCommand#myParameter1#myParameter2"
-			def customButtonCommands = ["off", "channelList", "appRunNetflix", "appRunPrimeVideo","appOpenByName#Disney+", "appRunYouTube", "exit", "exit", "exit", "exit" ]
-			def customButtonColor = ["#555555", "#555555", "#FFFFFF", "#1294F7","#142156", "#FF0000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
-			def customButtonText = ["◆︎", "◧", "N", "A", "𝒟", "▶", "1", "2", "3", "4" ]
-			def customButtonTextColor = ["#FFFFFF", "#FFFFFF","#FF0000", "#FFFFFF","#F3ECFE", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF" ]		
-			def customButtonCount = customButtonCommands.size()
-			
-		    return [ fixedButtonText: fixedButtonText, fixedButtonCommands: fixedButtonCommands, fixedButtonCount: fixedButtonCount, customButtonCommands: customButtonCommands, customButtonColor: customButtonColor, \
-					customButtonText: customButtonText, customButtonTextColor: customButtonTextColor, customButtonCount: customButtonCount ]
+			customButtonCommands = ["off", "channelList", "appRunNetflix", "appRunPrimeVideo","appOpenByName#Disney+", "appRunYouTube", "exit", "exit", "exit", "exit" ]
+			customButtonColor = ["#555555", "#555555", "#FFFFFF", "#1294F7","#142156", "#FF0000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
+			customButtonText = ["◆︎", "◧", "N", "A", "𝒟", "▶", "1", "2", "3", "4" ]
+			customButtonTextColor = ["#FFFFFF", "#FFFFFF","#FF0000", "#FFFFFF","#F3ECFE", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF" ]		
+			customButtonCount = customButtonCommands.size()
+			break
+		    
         case [1]: /* MolSmart Default*/
-			return [ "No Data"]
+			fixedButtonText = ["⚡️", "❖", "▲", "▼", "◀", "▶", "OK", "▲", "▼", "🔇", "☰", "▲", "▼", "↩", "⌂", "⚙️", "◀◀" , "▶ \\ ❚❚", "▶▶" ]
+			fixedButtonCommands = ["poweron", "source", "up", "down", "left", "right", "confirm", "volumeUp", "volumeDown", "mute", "guideIRsend", "channelUp", "channelDown", "exit", "home", "menu", "backIRsend", "playIRsend", "nextIRsend" ]
+			fixedButtonCount = fixedButtonCommands.size()
+		
+			//You can execute a command with parameters. Simply separate the command and the paramters with a # symbol, for example: "myCommand#myParameter1#myParameter2"
+			customButtonCommands = ["poweroff","infoIRsend", "appNetflix", "appAmazonPrime", "", "appYouTube", "btnextra1", "btnextra2", "btnextra3", "btnextra4" ]
+			customButtonColor = ["#555555", "#555555", "#FFFFFF", "#1294F7","#142156", "#FF0000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
+			customButtonText = ["◆︎", "◧", "N", "A", "𝒟", "▶", "1", "2", "3", "4" ]
+			customButtonTextColor = ["#FFFFFF", "#FFFFFF","#FF0000", "#FFFFFF","#F3ECFE", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF" ]		
+			customButtonCount = customButtonCommands.size()
+			break
+		
         default:
             return [ "No Device Profile Found"]
 			}
+	
+	
+	buttonData = [ fixedButtonText: fixedButtonText, fixedButtonCommands: fixedButtonCommands, fixedButtonCount: fixedButtonCount, customButtonCommands: customButtonCommands, customButtonColor: customButtonColor, \
+					customButtonText: customButtonText, customButtonTextColor: customButtonTextColor, customButtonCount: customButtonCount ]
+	log.debug ("Data is: $buttonData")		   
+	return buttonData
 }
 
 
@@ -365,7 +393,8 @@ def condense(String input) {
 	
 	input = input.replaceAll("> <", "><" )
 	input = input.replaceAll(" = ", "=" )
-    
+	input = input.replaceAll(" <", "<" )
+	
     //Replace any comments in the HTML\CSS\SVG section that will be between <!-- and -->
     input = input.replaceAll(/<!--.*?-->/, "")
     if (isLogDebug) log.debug ("After HTML\\CSS\\SVG comments removed: " + input.size() + " bytes." )
@@ -437,7 +466,7 @@ def response(){
 			if (myDevice != null && myCommand != null ) {
 				if (result.parameterCount == 0 ) myDevice."${result.command}"()
 				if (result.parameterCount == 1 ) myDevice."${result.command}"( result.parameters[0] )
-				if (result.parameterCount == 2 ) myDevice."${result.command}"( result.parameters[0], result.paramters[1] )
+				if (result.parameterCount == 2 ) myDevice."${result.command}"( result.parameters[0], result.parameters[1] )
 			}
 			return
 	}
@@ -529,14 +558,14 @@ def HTML =
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=0.5">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remote Control</title>
     <style> 
         html, body {touch-action: manipulation; font-family: Arial, sans-serif, "Segoe UI Symbol"; overflow:hidden;}
-        .button-text { font-family: Arial; font-size: 18px; fill: white; text-anchor: middle; dominant-baseline: middle; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+		.button-text { font-family: Arial; font-size: 18px; fill: white; text-anchor: middle; dominant-baseline: middle; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
 		.button-text-small { font-size:12px;}
 		.button-text-large { font-size:24px;}		
-        .control { cursor:pointer; }
+		.control { cursor:pointer; }
         .no-cursor { font-size:18px; font-weight:bold; pointer-events:none; text-anchor:middle; }
 		.force-font {font-family: "Courier New"; }  /* This class is used to force the use of non-eMojoi characters as these get presented on an iPad at times */
 		
@@ -641,10 +670,10 @@ def HTML =
 
             <!-- Custom Buttons - Group B -->
             <circle id="object53" cx="35" cy="350" r="12" fill="red" stroke="gray" stroke-width="1"/>
-            <text id="text53" class="control numeric-button button-text" x="35" y="351" >◈</text>
+            <text id="text53" class="control numeric-button button-text" x="35" y="351" >A</text>
             
             <circle id="object54" cx="75" cy="350" r="12" fill="green" stroke="gray" stroke-width="1"/>
-            <text id="text54" class="control numeric-button button-text" x="75" y="351" >◉</text>
+            <text id="text54" class="control numeric-button button-text" x="75" y="351" >B</text>
             
             <circle id="object55" cx="110" cy="350" r="12" fill="purple" stroke="gray" stroke-width="1"/>
             <text id="text55" class="control numeric-button button-text" x="110" y="351" >C</text>
@@ -792,7 +821,6 @@ def appButtonHandler(btn) {
 		case "applyProfile":
 			applyProfile()
 			compile()
-			state.hidden.Device = true
 			state.hidden.Display = false
 			break
 		case "Test":
