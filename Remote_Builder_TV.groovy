@@ -26,20 +26,19 @@
 *
 *  Remote Builder TV Remote - ChangeLog
 *
-*  Gary Milne - August 20th, 2024 @ 9:15 PM
+*  Gary Milne - September 2nd, 2024 @ 12:05 PM
 *
 *  Version 1.0.0 - Limited Release
 *  Version 1.0.1 - Removed Install on Open and added OAuth.
 *  Version 1.0.2 - Added the ability to provide parameters in the command array using the # as a separator.
 *  Version 1.0.3 - Added a profile for the MolSmart - GW3 - TV (irweb) driver.
+*  Version 1.0.4 - Minor cosmetic changes - Tim's fixes - Unreleased.
+*  Version 1.1.0 - Feature - Adds support for parameters to be passed to commands. Cleans up data structures. Add profile for Samsung TV Remote (2.3.9) by David Gutheinz
+*  Version 1.1.1 - Feature - Adds remote Icon to Browser tab.
+*  Version 1.1.2 - Added Haptic Response option for button presses.
+*  Version 1.1.3 - Added option for Unassigned Buttons to be Hidden in addition to Disabled or Normal
 *
 **/
-
-/* Possible Todo's
-Add mode device profiles
-Load commands from the device
-Allow users to select a command with a parameter to assign to a button.
-*/
 
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
@@ -47,11 +46,11 @@ import groovy.transform.Field
 
 static def buttonGroup() { return  }
 
-@Field static final codeDescription = "<b>Remote Builder - TV 1.0.3 (8/20/24)</b>"
-@Field static final codeVersion = 103
+@Field static final codeDescription = "<b>Remote Builder - TV 1.1.3 (9/2/24)</b>"
+@Field static final codeVersion = 113
 @Field static final moduleName = "TV Remote"
 
-def deviceProfileList() { return [0:'Samsung TV Remote (4.1-2) by David Gutheinz', 1:'MolSmart - GW3 - TV (irweb) by VH'] }
+def deviceProfileList() { return [0:'Samsung TV Remote (2.3.9) by David Gutheinz', 1:'Samsung TV Remote (4.1-2) by David Gutheinz', 2:'MolSmart - GW3 - TV (irweb) by VH'] }
 
 definition(
 	    name: "Remote Builder - TV",
@@ -101,7 +100,7 @@ def mainPage(){
                 paragraph "<a href='${state.cloudEndpoint}' target=_blank><b>Cloud Endpoint</b></a>: ${state.cloudEndpoint} "
 				
 				myText = "<b>Important: If these endpoints are not generated you may have to enable OAuth for this application to work.</b><br>"
-            	myText += "Both endpoints can be active at the same time and can be enabled or disable through this interface.<br>"
+            	myText += "Both endpoints can be active at the same time and can be enabled or disabled through this interface.<br>"
 				myText += "Endpoints are paused if this instance of the <b>Remote Builder</b> application is paused. Endpoints are deleted if this instance of <b>Remote Builder</b> is removed.<br>"
 				paragraph myText
             	paragraph line (1)
@@ -142,40 +141,75 @@ def mainPage(){
 		
 			section(hideable: true, hidden: state.hidden.Customize, title: buttonLink('btnHideCustomize', getSectionTitle("Customize"), 20)) {
 				def startIndex, endIndex
+				input(name: "selectedButtonGroup", type: "enum", title: bold("Select Button Group"), options: ['FIXED', 'CUSTOM'], required: true, defaultValue: "FIXED", submitOnChange: true, width: 2)
+				input(name: "showParameters", type: "enum", title: bold("Show Parameters"), options: ['TRUE', 'FALSE'], required: true, defaultValue: "FALSE", submitOnChange: true, width: 2)								   
+				if(selectedButtonGroup == "FIXED") input(name: "commandsPerLine", type: "enum", title: bold("Commands Per Line"), options: ['1', '2','3','4','5'], required: true, defaultValue: "2", submitOnChange: true, width: 2)								   
+				paragraph( line(1) )
 				
-                input(name: "selectedButtonGroup", type: "enum", title: bold("Select Button Group"), options: ['FIXED', 'CUSTOM'], required: true, defaultValue: "FIXED", submitOnChange: true, width: 3)
+				if(selectedButtonGroup == "FIXED") { 
+					//Main loop that places the control on the screen
+					(1..fixedButtonCount).each { i ->
+						index = i
+						input ("myCommand$i", "enum", title: "&nbsp<b>Command</b> (" + data.fixedButtons["button${index}"].text.toString() + ")", options: getCommandList(settings["myTV"]), multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px")
+						if (showParameters == "TRUE") input ("myParameter$i", "text", title: "&nbsp<b>Parameter</b>", multiple: false, submitOnChange: true, width: 1, style: "margin: 2px 60px 2px 10px; padding:3px")
+						if ( (i ) % commandsPerLine.toInteger() == 0 ) paragraph( line(1) )
+					}
+				}
 				
-				startIndex = 1
-				endIndex = fixedButtonCount
-				if(selectedButtonGroup == "CUSTOM") { startIndex = 51; endIndex = startIndex + customButtonCount - 1 }
-                paragraph line(1)
+				if(selectedButtonGroup == "CUSTOM") { 
+					endIndex = 50 + customButtonCount
+					//Main loop that places the control on the screen	
+					(51..endIndex).each { i ->
+						input ("myDevice$i", "capability.*", title: "<b>Custom Button " + ( i - 50 ) + " Device</b> ", multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px") /* top right bottom left */
+						input ("myCommand$i", "enum", title: "&nbsp<b>Command</b>", options: getCommandList(settings["myDevice$i"]), multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px")
+						if (showParameters == "TRUE") input ("myParameter$i", "text", title: "&nbsp<b>Parameter</b>", multiple: false, submitOnChange: true, width: 1, style: "margin: 2px 60px 2px 10px; padding:3px")
+				    	input ("myButtonColor$i", "color", title: "&nbsp<b>Button Color</b>", defaultValue: "#FFFFFF", required: false, width: 1, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
+						input ("myText$i", "text", title: "&nbsp<b>Character</b>", multiple: false, submitOnChange: true, width: 1, required: true, style: "margin: 2px 10px 2px 10px; padding:3px;border: 1px solid gray")
+                    	input ("myTextColor$i", "color", title: bold("&nbsp<b>Text Color</b>"), required: false, defaultValue: "#FFFFFF", width: 1, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
+						paragraph( line(1) )
+                	} 
+				}
 				
-                (startIndex..endIndex).each { i ->
-					if (i > 50) prefix = "Custom"
-                    if (i > 50) input ("myDevice$i", "capability.*", title: "<b>$prefix Button " + ( i - 50 ) + " Device</b> ", multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px") /* top right bottom left */
-					if (i < 50) input ("myCommand$i", "enum", title: "&nbsp<b>Command</b> (" + data.fixedButtonText[i - 1].toString() + ")", options: getCommandList(settings["myTV"]), multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px")
-					if (i > 50) input ("myCommand$i", "enum", title: "&nbsp<b>Command</b>", options: getCommandList(settings["myDevice$i"]), multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px")
-                    if (i > 50) input ("myButtonColor$i", "color", title: "&nbsp<b>Button Color</b>", defaultValue: "#FFFFFF", required: false, width: 1, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
-					if (i > 50) input ("myText$i", "text", title: "&nbsp<b>Character</b>", multiple: false, submitOnChange: true, width: 1, required: true, style: "margin: 2px 10px 2px 10px; padding:3px;border: 1px solid gray")
-                    if (i > 50) input ("myTextColor$i", "color", title: bold("&nbsp<b>Text Color</b>"), required: false, defaultValue: "#FFFFFF", width: 1, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
-                    if (i > 50) paragraph line(1)
-                } 
+				paragraph line(2)
 				input(name: "unassignedButtonBehaviour", type: "enum", title: bold("Unassigned Button Behaviour"), options: ["Normal", "Disabled", "Hidden"], required: false, defaultValue: "Normal", submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px")
+				input(name: "enableHapticResponse", type: "enum", title: bold("Enable Haptic Response"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2)
+				
+				text = "The contents of the <b>Command</b> drop down list is retrieved from the device and contains all available commands, plus some Remote Builder added commands described below.<br><br>"
+				text += "<b>Synthetic Commands</b><br>"
+				text += "Commands beginning with an <b>*</b>, such as *toggle are synthetic commands that don't exist within the device but are are added if the equivalent command does not already exist.<br><br>"
+				text += "<b>Arithmetic Parameters</b><br>"
+				text += "Commands ending with an <b>*</b>, such as setLevel*, volumeLevel* etc have values in the range 0 - 100 and support simple arithmetic parameters. These arithmetic parameters make a single button click more powerful such as lowering a dimmer by 25% or raising a blind by 10% with each click instead of using fixed values.<br>"
+				text += "Supported arithmetic parameters are as follows: <br>"
+				text += "<b>Addition:</b> Entering a parameter in the form <mark><b>+<i>number</i></b></mark> will add the parameter value to the existing value up to a maximum value of 100. Examples: <mark><b>+2</b></mark> , <mark><b>+5</b></mark> , <mark><b>+20</b></mark><br>"
+				text += "<b>Subtraction:</b> Entering a parameter in the form <mark><b>-<i>number</i></b></mark> will subtract the parameter value from the existing value down to a minimum of 0. Examples: <mark><b>-2</b></mark> , <mark><b>-10</b></mark> , <mark><b>-25</b></mark><br>"
+				text += "<b>Multiplication:</b> Entering a parameter in the form <mark><b>*<i>number</i></b></mark> will multiply the existing value by the parameter value up to a maximum value of 100. Examples: <mark><b>*2</b></mark> , <mark><b>*1.1</b></mark> , <mark><b>*0.5</b></mark><br>"
+				text += "<b>Division:</b> Entering a parameter in the form <mark><b>/<i>number</i></b></mark> will divide the existing value by the parameter value down to a minimum of 0. Examples: <mark><b>/3</b></mark> , <mark><b>/2</b></mark> , <mark><b>/1.1</b></mark><br><br>"
+				text += "<b>Note:</b> All of these commands operate on a scale of 0 - 100. If a dimmer were at 50 then the -10 command will lower the value to 40.  Using *0.9 would lower the dimmer from 50 to 45 so these commands are not equal (except at a value of 100).<br>"
+				text += "<b>Note:</b> A dimmer starting at 100 with a command of /2 would step down as follows: 100, 50, 25, 12, 6, 3, 1. Of course dividing by 2 is the same as multiplying by 0.5, it's just a matter of personal preference.<br><br>"
+				text += "<b>Passing Multiple Parameters</b><br>"
+				text += "Some commands take multiple parameters but you can provide multiple parameters even though there is only a single parameter field. This is accomplished by using the # character as a seperator.<br>"
+				text += "<b>Example 1:</b> The <b>setColorTemperature</b> with parameter <mark><b>2900#100#10</b></mark> will set the color temperature to 2900, the level to 100 and the transition time for this change will be 10 seconds.<br>"
+				text += "<b>Example 2:</b> The <b>setLevel</b> with parameter <mark><b>10#5</b></mark> will change the light level from its current setting to a value of 10 over the next 5 seconds.<br><br>"
+				text += "<b>Passing a Map as a Parameter</b><br>"
+				text += "The <b>setColor</b> command is unusual in that it takes it's arguments the form of a map. The following examples show the proper way to format a map argument for use with setColor.<br>"
+				text += "<b>setColor:</b> After selecting the <b>setColor</b> command from the dropdown menu enter the map arguments like this: <mark><b>['hue':20,'saturation':38,'level':24]</b></mark><br>"
+				text += "<b>setColor:</b> Because the level parameter is optional in <b>setColor</b> you may also use the form: <mark><b>['hue':65,'saturation':77]</b></mark><br>"
+				text += "For information on the required parameters for device commands you can find the reference here: <a href='https://docs2.hubitat.com/en/developer/driver/capability-list' target=_blank> <i><b>Driver Capability Reference</b></i></a>"
+				paragraph summary ("Commands and Parameters Help", text)
+				
             }
         
         //Start of Publish Section
 		section(hideable: true, hidden: state.hidden.Publish, title: buttonLink('btnHidePublish', getSectionTitle("Publish"), 20)) {
             input(name: "myRemote", title: "<b>Attribute to store the Remote? (Optional)</b>", type: "enum", options: parent.allTileList(), required: false, submitOnChange: true, width: 3, defaultValue: 0, newLine: false)
-            input(name: "myRemoteName", type: "text", title: "<b>Name this Remote</b>", submitOnChange: true, width: 3, defaultValue: "New Remote", newLine: false, required: true)
+            input(name: "myRemoteName", type: "text", title: "<b>Name this Remote</b>", submitOnChange: true, width: 3, defaultValue: "New TV Remote", newLine: false, required: false)
             input(name: "tilesAlreadyInUse", type: "enum", title: bold("For Reference Only: Remotes in Use"), options: parent.getTileList(), required: false, defaultValue: "Remotes List", submitOnChange: true, width: 3)
                                     
             if (myRemoteName) app.updateLabel(myRemoteName)
             myText =  "Publishing a remote is optional and only required if it will be used within a dashboard. Remotes can be accessed directly via the URL's in the Endpoints section and bypass the Dashboard entirely. The <b>Remote Name</b> given here will also be used as the name for this instance of Remote Builder. "
 			myText += "Appending the name with your chosen remote number can make parent display more readable.<br>"
             myText += "Only links to the Local and Cloud Endpoints are stored in the Remote Builder Storage Device when publishing is enabled.<br>"
-            paragraph myText
-			
-            paragraph summary("Publishing Notes", myText)																																																																														 
+            paragraph myText																																																																													 
             paragraph line(1)
             
             if ( state.compiledLocal != null  && state.compiledCloud && settings.myRemote != null && myRemoteName != null) {
@@ -192,9 +226,9 @@ def mainPage(){
 				paragraph "In this section you can enable logging of any connection and action requests received. You can also rebuild the endpoints if you choose to refresh the OAuth client secret."				
                 input(name: "isLogDebug", type: "bool", title: "<b>Enable Debug logging?</b>", defaultValue: false, submitOnChange: true, width: 3, newLine: true)
                 input(name: "isLogErrors", type: "bool", title: "<b>Log errors encountered?</b>", defaultValue: true, submitOnChange: true, width: 3)
-				input(name: "isLogConnections", type: "bool", title: "<b>Record All Connection Requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
-				input(name: "isLogActions", type: "bool", title: "<b>Record All Action Requests?</b>", defaultValue: true, submitOnChange: true, width: 3)
-				input(name: "rebuildEndpoints", type: "button", title: "<b>Rebuild Endpoint(s)</b>", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLine:true)
+				input(name: "isLogConnections", type: "bool", title: "<b>Record all connection requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
+				input(name: "isLogActions", type: "bool", title: "<b>Record all action requests?</b>", defaultValue: true, submitOnChange: true, width: 3)
+				input(name: "rebuildEndpoints", type: "button", title: "<b>Rebuild endpoint(s)</b>", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLine:true)
             }
             //Now add a footer.
             myDocURL = "<a href='https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf' target=_blank> <i><b>Remote Builder Help</b></i></a>"
@@ -210,99 +244,184 @@ def mainPage(){
     }
 }
 
-
 //Returns all the data for a given device profile in a Map
 def getProfile(){
 	
-	def fixedButtonText = []
-	def fixedButtonCommands = []
+	def fixedButtons
 	def fixedButtonCount = 0
-	//You can execute a command with parameters. Simply separate the command and the paramters with a # symbol, for example: "myCommand#myParameter1#myParameter2"
-	def customButtonCommands = []
-	def customButtonColor = []
-	def customButtonText = []
-	def customButtonTextColor = []		
+	def customButtons
 	def customButtonCount = 0
 	
 	if (isLogDebug) log.debug ("Selected Profile is: " + selectedProfile.toInteger() )
 	
 	switch(selectedProfile.toInteger()){
-        case [0]: /* Samsung TV Remote */
-			fixedButtonText = ["⚡️", "❖", "▲", "▼", "◀", "▶", "OK", "▲", "▼", "🔇", "☰", "▲", "▼", "↩", "⌂", "⚙️", "◀◀" , "▶ \\ ❚❚", "▶▶" ]
-			fixedButtonCommands = ["on", "source", "arrowUp", "arrowDown", "arrowLeft", "arrowRight", "enter", "volumeUp", "volumeDown", "mute", "guide", "channelUp", "channelDown", "exit", "home", "menu", "fastBack", "play", "fastForward" ]
-			fixedButtonCount = fixedButtonCommands.size()
-			//You can execute a command with parameters. Simply separate the command and the paramters with a # symbol, for example: "myCommand#myParameter1#myParameter2"
-			customButtonCommands = ["off", "channelList", "appRunNetflix", "appRunPrimeVideo","appOpenByName#Disney+", "appRunYouTube", "exit", "exit", "exit", "exit" ]
-			customButtonColor = ["#555555", "#555555", "#FFFFFF", "#1294F7","#142156", "#FF0000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
-			customButtonText = ["◆︎", "◧", "N", "A", "𝒟", "▶", "1", "2", "3", "4" ]
-			customButtonTextColor = ["#FFFFFF", "#FFFFFF","#FF0000", "#FFFFFF","#F3ECFE", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF" ]		
-			customButtonCount = customButtonCommands.size()
+        case [0]: /* Samsung TV Remote - Newer Driver 2.3.9  */	
+			fixedButtons = [
+				button1: [text: "⚡️", command: "on", parameter: "?"],
+ 				button2: [text: "❖", command: "sourceToggle", parameter: "?"],
+ 				button3: [text: "▲", command: "arrowUp", parameter: "?"],
+ 				button4: [text: "▼", command: "arrowDown", parameter: "?"],
+ 				button5: [text: "◀", command: "arrowLeft", parameter: "?"],
+ 				button6: [text: "▶", command: "arrowRight", parameter: "?"],
+ 				button7: [text: "OK", command: "enter", parameter: "?"],
+ 				button8: [text: "▲", command: "volumeUp", parameter: "?"],
+ 				button9: [text: "▼", command: "volumeDown", parameter: "?"],
+ 				button10: [text: "🔇", command: "mute", parameter: "?"],
+ 				button11: [text: "☰", command: "guide", parameter: "?"],
+ 				button12: [text: "▲", command: "channelUp", parameter: "?"],
+ 				button13: [text: "▼", command: "channelDown", parameter: "?"],
+ 				button14: [text: "↩", command: "exit", parameter: "?"],
+ 				button15: [text: "⌂", command: "home", parameter: "?"],
+ 				button16: [text: "⚙️", command: "menu", parameter: "?"],
+ 				button17: [text: "◀◀", command: "fastBack", parameter: "?"],
+ 				button18: [text: "▶ \\ ❚❚", command: "play", parameter: "?"],
+ 				button19: [text: "▶▶", command: "fastForward", parameter: "?"]
+			]
+			
+			customButtons = [
+ 				button51: [command: "off", parameter: "?", color: "#555555", text: "◆︎", textColor: "#FFFFFF"],
+ 				button52: [command: "channelList", parameter: "?", color: "#555555", text: "◧", textColor: "#FFFFFF"],
+ 				button53: [command: "appOpenBYName", parameter: "Netflix", color: "#FFFFFF", text: "N", textColor: "#FF0000"],
+ 				button54: [command: "appOpenByName", parameter: "Prime Video", color: "#1294F7", text: "A", textColor: "#FFFFFF"],
+ 				button55: [command: "appOpenByName", parameter: "Disney+", color: "#142156", text: "𝒟", textColor: "#F3ECFE"],
+ 				button56: [command: "appOpenByName", parameter: "YouTube", color: "#FF0000", text: "▶", textColor: "#FFFFFF"],
+ 				button57: [command: "presetExecute", parameter: "1", color: "#FF0000", text: "1", textColor: "#FFFFFF"],
+ 				button58: [command: "presetExecute", parameter: "2", color: "#FFA500", text: "2", textColor: "#FFFFFF"],
+ 				button59: [command: "presetExecute", parameter: "3", color: "#0000FF", text: "3", textColor: "#FFFFFF"],
+ 				button60: [command: "presetExecute", parameter: "4", color: "#008000", text: "4", textColor: "#FFFFFF"]
+			]
+			
+			break
+		
+		case [1]: /* Samsung TV Remote - Older Driver 4.1-2 */	
+			fixedButtons = [
+				button1: [text: "⚡️", command: "on", parameter: "?"],
+ 				button2: [text: "❖", command: "source", parameter: "?"],
+ 				button3: [text: "▲", command: "arrowUp", parameter: "?"],
+ 				button4: [text: "▼", command: "arrowDown", parameter: "?"],
+ 				button5: [text: "◀", command: "arrowLeft", parameter: "?"],
+ 				button6: [text: "▶", command: "arrowRight", parameter: "?"],
+ 				button7: [text: "OK", command: "enter", parameter: "?"],
+ 				button8: [text: "▲", command: "volumeUp", parameter: "?"],
+ 				button9: [text: "▼", command: "volumeDown", parameter: "?"],
+ 				button10: [text: "🔇", command: "mute", parameter: "?"],
+ 				button11: [text: "☰", command: "guide", parameter: "?"],
+ 				button12: [text: "▲", command: "channelUp", parameter: "?"],
+ 				button13: [text: "▼", command: "channelDown", parameter: "?"],
+ 				button14: [text: "↩", command: "exit", parameter: "?"],
+ 				button15: [text: "⌂", command: "home", parameter: "?"],
+ 				button16: [text: "⚙️", command: "menu", parameter: "?"],
+ 				button17: [text: "◀◀", command: "fastBack", parameter: "?"],
+ 				button18: [text: "▶ \\ ❚❚", command: "play", parameter: "?"],
+ 				button19: [text: "▶▶", command: "fastForward", parameter: "?"]
+			]
+			
+			customButtons = [
+ 				button51: [command: "off", parameter: "?", color: "#555555", text: "◆︎", textColor: "#FFFFFF"],
+ 				button52: [command: "channelList", parameter: "?", color: "#555555", text: "◧", textColor: "#FFFFFF"],
+ 				button53: [command: "appRunNetflix", parameter: "?", color: "#FFFFFF", text: "N", textColor: "#FF0000"],
+ 				button54: [command: "appRunPrimeVideo", parameter: "?", color: "#1294F7", text: "A", textColor: "#FFFFFF"],
+ 				button55: [command: "appOpenByName#Disney+", parameter: "?", color: "#142156", text: "𝒟", textColor: "#F3ECFE"],
+ 				button56: [command: "appRunYouTube", parameter: "?", color: "#FF0000", text: "▶", textColor: "#FFFFFF"],
+ 				button57: [command: "exit", parameter: "?", color: "#FF0000", text: "1", textColor: "#FFFFFF"],
+ 				button58: [command: "exit", parameter: "?", color: "#FFA500", text: "2", textColor: "#FFFFFF"],
+ 				button59: [command: "exit", parameter: "?", color: "#0000FF", text: "3", textColor: "#FFFFFF"],
+ 				button60: [command: "exit", parameter: "?", color: "#008000", text: "4", textColor: "#FFFFFF"]
+			]
+			
 			break
 		    
-        case [1]: /* MolSmart Default*/
-			fixedButtonText = ["⚡️", "❖", "▲", "▼", "◀", "▶", "OK", "▲", "▼", "🔇", "☰", "▲", "▼", "↩", "⌂", "⚙️", "◀◀" , "▶ \\ ❚❚", "▶▶" ]
-			fixedButtonCommands = ["poweron", "source", "up", "down", "left", "right", "confirm", "volumeUp", "volumeDown", "mute", "guideIRsend", "channelUp", "channelDown", "exit", "home", "menu", "backIRsend", "playIRsend", "nextIRsend" ]
-			fixedButtonCount = fixedButtonCommands.size()
+        case [2]: /* MolSmart Default*/
 		
-			//You can execute a command with parameters. Simply separate the command and the paramters with a # symbol, for example: "myCommand#myParameter1#myParameter2"
-			customButtonCommands = ["poweroff","infoIRsend", "appNetflix", "appAmazonPrime", "", "appYouTube", "btnextra1", "btnextra2", "btnextra3", "btnextra4" ]
-			customButtonColor = ["#555555", "#555555", "#FFFFFF", "#1294F7","#142156", "#FF0000", "#FF0000", "#FFA500", "#0000FF", "#008000" ]
-			customButtonText = ["◆︎", "◧", "N", "A", "𝒟", "▶", "1", "2", "3", "4" ]
-			customButtonTextColor = ["#FFFFFF", "#FFFFFF","#FF0000", "#FFFFFF","#F3ECFE", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF", "#FFFFFF" ]		
-			customButtonCount = customButtonCommands.size()
+			fixedButtons = [
+ 				button1: [text: "⚡️", command: "poweron", parameter: "?"],
+ 				button2: [text: "❖", command: "source", parameter: "?"],
+ 				button3: [text: "▲", command: "up", parameter: "?"],
+ 				button4: [text: "▼", command: "down", parameter: "?"],
+ 				button5: [text: "◀", command: "left", parameter: "?"],
+ 				button6: [text: "▶", command: "right", parameter: "?"],
+ 				button7: [text: "OK", command: "confirm", parameter: "?"],
+ 				button8: [text: "▲", command: "volumeUp", parameter: "?"],
+ 				button9: [text: "▼", command: "volumeDown", parameter: "?"],
+ 				button10: [text: "🔇", command: "mute", parameter: "?"],
+ 				button11: [text: "☰", command: "guideIRsend", parameter: "?"],
+ 				button12: [text: "▲", command: "channelUp", parameter: "?"],
+ 				button13: [text: "▼", command: "channelDown", parameter: "?"],
+ 				button14: [text: "↩", command: "exit", parameter: "?"],
+ 				button15: [text: "⌂", command: "home", parameter: "?"],
+ 				button16: [text: "⚙️", command: "menu", parameter: "?"],
+ 				button17: [text: "◀◀", command: "backIRsend", parameter: "?"],
+ 				button18: [text: "▶ \\ ❚❚", command: "playIRsend", parameter: "?"],
+ 				button19: [text: "▶▶", command: "nextIRsend", parameter: "?"]
+			]
+					
+			customButtons = [
+    			button51: [command: "poweroff", parameter: "?", color: "#555555", text: "◆︎", textColor: "#FFFFFF"],
+    			button52: [command: "infoIRsend", parameter: "?", color: "#555555", text: "◧", textColor: "#FFFFFF"],
+    			button53: [command: "appNetflix", parameter: "?", color: "#FFFFFF", text: "N", textColor: "#FF0000"],
+    			button54: [command: "appAmazonPrime", parameter: "?", color: "#1294F7", text: "A", textColor: "#FFFFFF"],
+    			button55: [command: "?", parameter: "?", color: "#142156", text: "𝒟", textColor: "#F3ECFE"],
+    			button56: [command: "appYouTube", parameter: "?", color: "#FF0000", text: "▶", textColor: "#FFFFFF"],
+    			button57: [command: "btnextra1", parameter: "?", color: "#FF0000", text: "1", textColor: "#FFFFFF"],
+    			button58: [command: "btnextra2", parameter: "?", color: "#FFA500", text: "2", textColor: "#FFFFFF"],
+    			button59: [command: "btnextra3", parameter: "?", color: "#0000FF", text: "3", textColor: "#FFFFFF"],
+    			button60: [command: "btnextra4", parameter: "?", color: "#008000", text: "4", textColor: "#FFFFFF"]
+			]
+
 			break
 		
         default:
             return [ "No Device Profile Found"]
 			}
 	
+	customButtonCount = customButtons.size()
+	fixedButtonCount = fixedButtons.size()
 	
-	buttonData = [ fixedButtonText: fixedButtonText, fixedButtonCommands: fixedButtonCommands, fixedButtonCount: fixedButtonCount, customButtonCommands: customButtonCommands, customButtonColor: customButtonColor, \
-					customButtonText: customButtonText, customButtonTextColor: customButtonTextColor, customButtonCount: customButtonCount ]
-	if (isLogDebug) log.debug ("Data is: $buttonData")		   
+	buttonData = [ fixedButtons: fixedButtons, fixedButtonCount: fixedButtonCount, customButtons: customButtons, customButtonCount: customButtonCount ]
+	//if (isLogDebug) log.debug ("Data is: $buttonData")		   
 	return buttonData
 }
-
 
 //Sets the default actions for each of the buttons.
 def applyProfile(){
 	
 	def data = getProfile()
-	log.info("Data is: $data")
 	def fixedButtonCount = data.fixedButtonCount
-	def customButtonCount = data.customButtonCount + 51 - 1
 	
 	// Loop from 1 to fixedButtonCount and assign each buttonCommand to the appropriate myCommand setting.
 	(1..fixedButtonCount).each { index ->
-    	def command = data.fixedButtonCommands[index - 1]
+		def command = data.fixedButtons["button${index}"].command
+		def parameter = data.fixedButtons["button${index}"].parameter
 		app.updateSetting("myCommand${index}", [value:"$command", type:"enum"])
-		//log.info("myCommand${index} is: $command ")
+		app.updateSetting("myParameter${index}", [value:"$parameter", type:"enum"])
 	}	
 	
-	//Custom buttons start at 51. These are the buttons that can be customized.
-	(51..customButtonCount).each { deviceIndex ->
-		index = deviceIndex - 51
-		log.info ("Device Index is: $deviceIndex and index is: $index")
-		app.updateSetting("myDevice${deviceIndex}", [type: "capability", value: settings.myTV ] )
+	//Custom buttons start at 51 and end at 60. These are the buttons that can be customized.
+	(51..60).each { index ->
 		
-		log.info("<b>Button " + (index + 1) + "($deviceIndex)</b>")
-		def myCustomButtonColor = data.customButtonColor[index]
-		log.info ("Button Color: $myCustomButtonColor")
-		app.updateSetting("myButtonColor${deviceIndex}", [value: "$myCustomButtonColor", type: "color"])
+		app.updateSetting("myDevice${index}", [type: "capability", value: settings.myTV ] )
 		
-		def myCustomText = data.customButtonText[index]
-		log.info ("Text: $myCustomText")
+		def myCustomButtonColor = data.customButtons["button${index}"].color
+		if (isLogDebug) log.info ("Button Color: $myCustomButtonColor")
+		app.updateSetting("myButtonColor${index}", [value: "$myCustomButtonColor", type: "color"])
+		
+		def myCustomText = data.customButtons["button${index}"].text
+		if (isLogDebug) log.info ("Text: $myCustomText")
 		app.updateSetting("myText${deviceIndex}", [value: "$myCustomText", type: "text"])
 		
-		def myCustomTextColor = data.customButtonTextColor[index]
-		log.info ("Text Color: $myCustomTextColor")
-		app.updateSetting("myTextColor${deviceIndex}", [value: "$myCustomTextColor", type: "color"])
+		def myCustomTextColor = data.customButtons["button${index}"].textColor
+		if (isLogDebug) log.info ("Text Color: $myCustomTextColor")
+		app.updateSetting("myTextColor${index}", [value: "$myCustomTextColor", type: "color"])
 		
-		log.info("myDevice$index: " + settings."myDevice${deviceIndex}" )
-		def myCommand = data.customButtonCommands[index]
-		log.info("Command is: $myCommand ")
-		app.updateSetting("myCommand${deviceIndex}", [value:"$myCommand", type:"enum"])
-	}	
+		def myCommand = data.customButtons["button${index}"].command
+		if (isLogDebug) log.info("Command is: $myCommand ")
+		app.updateSetting("myCommand${index}", [value:"$myCommand", type:"enum"])
+		
+		def myParameter = data.customButtons["button${index}"].parameter
+		if ( myParameter == null || myParameter == "" ) myParameter = "?"
+		if (isLogDebug) log.info("Parameter is: $myParameter ")
+		app.updateSetting("myParameter${index}", [value:"$myParameter", type:"text"])
+	}		
 }
 
 
@@ -325,28 +444,28 @@ def compile(){
         //def index = (i)
 		isActive = true
 		isHidden = false
-		def myCommand = settings."myCommand$i"
 		def myDevice = settings."myDevice$i"
+		def myCommand = settings."myCommand$i"
 		
 	if ( myDevice == null || myCommand == null ) isActive = false
 		
 	if (isLogDebug) log.debug ("Index: $i  and isActive: $isActive and myCommand is: $myCommand")
 		
-	switch(unassignedButtonBehaviour){
-        case ["Normal"]:  //Show all buttons
-			data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
-            break
-        case ["Disabled"]:  //Buttons are shown but are disabled
-			if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
-			else data = [ "index": "$i", "label": "?", "bColor": "#555", "tColor": "#555", "bHidden": "false"]
-            break
-		case ["Hidden"]:
-			if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
-			else data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "true" ]
-            break
-        default:
-            break
-			}
+		switch(unassignedButtonBehaviour){
+        	case ["Normal"]:  //Show all buttons
+				data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
+    	        break
+        	case ["Disabled"]:  //Buttons are shown but are disabled
+				if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
+				else data = [ "index": "$i", "label": "?", "bColor": "#555", "tColor": "#555", "bHidden": "false"]
+        	    break
+			case ["Hidden"]:
+				if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
+				else data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "true" ]
+    	        break
+        	default:
+            	break
+		}
 	    jsonGroup << data
     }
 	
@@ -356,6 +475,7 @@ def compile(){
 	
     def String content = myHTML()
     content = content.replace("#buttonData#", state.buttonData )
+	content = content.replace("#hapticResponse#", enableHapticResponse.toLowerCase() )
 	
 	// Strip all the comments out of the file to save space.
     content = condense(content)
@@ -436,61 +556,149 @@ def response(){
 	if (i < 20) myDevice = settings["myTV"]
 	else myDevice = settings["myDevice$i"]
     myCommand = settings["myCommand$i"]
+	myParameter = settings["myParameter$i"]
 	
 	// Record the action request
-    if (isLogActions) log.info ( "Remote Builder Data Received - Remote: $myRemote - Name: $myRemoteName - Button: $i - Device: $myDevice - Command: $myCommand")
+    if (isLogActions) log.info ( "Remote Builder Data Received - Remote: $myRemote - Name: $myRemoteName - Button: $i - Device: $myDevice - Command: $myCommand - Parameters: $myParameter")
 	
 	if (myDevice == null || myCommand == null) return
 	
-    def myCommandIndex = 0
-    if (myCommand && myCommand[-1] in '1'..'4') {
-        myCommandIndex = myCommand[-1] as int
-    }
-	
-	result = parseCommandString(myCommand.toString())
-	if (isLogDebug) log.info ("Command String is: $result")
-	
+	result = assembleCommand(myCommand, myParameter)
+	if (isLogDebug) log.info ("Command Array is: $result")
+    
 	//If the values are valid we will execute the command    	
 	switch(myCommand){
+		case ["setLevel*"]:
+			myLevel = myDevice.currentValue('level')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setVolume*"]:
+			myLevel = myDevice.currentValue('volumeLevel')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setHue*"]:
+			myLevel = myDevice.currentValue('hue')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setSaturation*"]:
+			myLevel = myDevice.currentValue('saturation')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setPosition*"]:
+			myLevel = myDevice.currentValue('position')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setTiltLevel*"]:
+			myLevel = myDevice.currentValue('tilt')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setColor"]:
+			def map = evaluate(myParameter)
+			myDevice."${result.command}"( map )
+			return
         case ["*toggle"]:
 			if (myDevice.currentValue('switch') == 'on') { myDevice.off() }
 			else myDevice.on()
             return
-        case ["*push1","*push2","*push3","*push4"]:
-			myDevice.push(myCommandIndex)
-            return
-		case ["*doubleTap1","*doubleTap2","*doubleTap3","*doubleTap4"]:
-			myDevice.doubleTap(myCommandIndex)
-            return
         default:
 			if (myDevice != null && myCommand != null ) {
-				if (result.parameterCount == 0 ) myDevice."${result.command}"()
+				if (myParameter == null || myParameter == "?" || myParameter == "" ) myDevice."${result.command}"()
 				if (result.parameterCount == 1 ) myDevice."${result.command}"( result.parameters[0] )
 				if (result.parameterCount == 2 ) myDevice."${result.command}"( result.parameters[0], result.parameters[1] )
+				if (result.parameterCount == 3 ) myDevice."${result.command}"( result.parameters[0], result.parameters[1], result.parameters[2] )
 			}
 			return
-	}
+		}
 }
 
-// Parse out the command string
-def parseCommandString(String commandString) {
+//Takes the existing value of the attribute and the parameter.  If the parameter has a leading +,- or * then the existing value will be adjusted by that much. If not then the value will be set to the integer value of the specified parameter.
+def getNewValue(oldValue, parameter) {
+    if (isLogDebug) log.debug("newValue: $oldValue , $parameter")
+    def operator = parameter.find(/[\+\-\*\/]/)
+    def modifierValue = operator ? convertToNumber(parameter.replaceAll("[+\\-*/]", "")) : convertToInt(parameter)
+
+    if (modifierValue == null) {
+        log.error("Input <mark><b> $parameter </b></mark> is not a valid number. Nothing done.")
+        return 0
+    }
+
+    def result = operator ? 
+        operator == '+' ? oldValue + modifierValue :
+        operator == '-' ? oldValue - modifierValue :
+        operator == '*' ? oldValue * modifierValue :
+        operator == '/' ? oldValue / modifierValue : oldValue
+        : modifierValue
+
+    result = Math.max(0, Math.min(100, result.toInteger()))
+    
+    if (isLogActions) log.info("getNewValue: New value is: $result")
+    return result
+}
+
+//Takes a string and tries to convert it to a double or integer
+def convertToNumber(String input) {
+    // Check if the string is an integer
+	if (input.isInteger()) { return input.toInteger() } // Convert to Integer
+    
+    // Otherwise, assume it's a float and convert it to a Double
+	else if (input.isDouble()) { return input.toDouble() } // Convert to Double
+    
+    // If the input is neither an integer nor a float return null
+    else { return null }
+}
+
+//Takes a string and tries to convert it to an integer.  The controls only accept integers in the range 0 - 100.
+def convertToInt(String input) {
+    // First, check if the string is an integer
+    if (input.isInteger()) { return input.toInteger() } 
+    
+    // Otherwise, assume it's a float and convert it to a double first
+    else if (input.isDouble()) {
+        double floatValue = input.toDouble()
+        return floatValue.toInteger()  // Truncate the decimal part
+    } 
+    
+    // If the input is neither an integer nor a float return null
+    else { return null }
+}
+	
+
+// Assemble the command string
+def assembleCommand(myCommand, myParameters) {
+	log.info ("assembleCommands: '$myCommand' -  '$myParameters' ")
     def result = [command: "", parameters: [], parameterCount: 0]
     
-    // Split the string by the '#' character
-    def parts = commandString.split('#')
+	//If we have no command just return the empty map
+	if ( myCommand == null || myCommand == "" ) return result
+	else {
+		myCommand = myCommand.replace("*","")
+		result['command'] = myCommand
+	}
+	
+	//A ? is the default value and can be ignored.
+	if (myParameters == "?" || myParameters == "null" || myParameters == null ) {
+	    result['parameters'] = []
+		result['parameterCount'] = 0
+		return result
+	}
+		
+    // Split the parameter string by the '#' character
+    def parts = myParameters.split('#')
     
-    // Ensure that there is at least a command present
+    // If there are no parameters we can just return what we already have.
+    if (parts.size() == 0) return result
+	
     if (parts.size() > 0) {
-        // The first part is the command
-        result['command'] = parts[0]
-        
-        // Check if there are additional parts (parameters)
-        if (parts.size() > 1) {
             // The rest are the parameters
-            result['parameters'] = parts[1..-1]
+            result['parameters'] = parts[0..-1]
             result['parameterCount'] = result['parameters'].size()
         }
-    }
 
     return result
 }
@@ -541,8 +749,6 @@ def disabledEndpointHTML(){
 
 
 
-
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  Remote Control APPlet Code
@@ -553,13 +759,14 @@ def disabledEndpointHTML(){
 static def myHTML() {
 def HTML = 
 '''
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remote Control</title>
+	<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAACFUlEQVR4nJWP3U9ScRyH+RPqqverXDZX623mBSEIbCqL2jA2kiLhwOFVTkMROAbIAeQgZZxzIqhIBWorzbXFuvFl2T/QWl00l1tdd93g8tMObq4VED3b7/J5vp+fRPKf9MhdB7sHHJauAfJ4x5KWCEtHJ9gNpYk+clJGHupWko4epd3TUURLhKUm32w9mS3CHMp+Ojvk7T2hsLvEiLhE0o5hIiw1Ts7WQ6mHYO8vorKxBTPNf7igofq65Naj4pO0k01+tuZkeNhnOHDLb/Bs8/1eRHbVd6ylfIWM91voudqtUAZOJgcqnYcjJoBbqe5GNregc6cKLeWxYLqmc8cQ4EqwRbJwxXOg2DzIGR78qyq87JNtpZE+33S24Xaynig+b1zSuRkE+RLICAcXk4Mv8xhEmP+uMAT7mspjAbY26s9g5NEL6PgK2KVVjIzHEeAWYY1kYYsI35rKGlOg33rnbi23+hpRIgq1g8Og/R7Y8VRjid6bhIPJ7yiv0xf/ks+p3Yc1Zt9PvSf2o/h2HRkiCpVTwCA5j6x3N0Cli9tNZRG1aaLqZpKIPS3B4GN3PIkChoQKNHMLYIRye7nxd4v/43SugMRSZS8iLimvvWvIKmOwt6Usorox+ZJ+kG8Efo94EoWv/5RFTl9y7h+2TX8WRTHALJRxjUp8kemnWs/+kzNyap/CODV/2RZZUd0MCae03gOdyr8Af8srRbSy15kAAAAASUVORK5CYII=" type="image/png">
+
     <style> 
         html, body {touch-action: manipulation; font-family: Arial, sans-serif, "Segoe UI Symbol"; overflow:hidden;}
 		.button-text { font-family: Arial; font-size: 18px; fill: white; text-anchor: middle; dominant-baseline: middle; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
@@ -743,6 +950,9 @@ def HTML =
             }
 
             function sendData(buttonId) {
+				/* Trigger a vibration for 200 milliseconds if the user has selected it and it is supported by the device. */
+				if (navigator.vibrate && #hapticResponse#) { navigator.vibrate(100); } 
+
                 console.log("Button is: ", buttonId );
                 const url = '#URL#';
                 /* Only proceed if mode is not null */
@@ -969,25 +1179,16 @@ static String dodgerBlue(s) { return '<font color = "DodgerBlue">' + s + '</font
 // Get a list of supported commands for a given device and return a sorted list. Adds *toggle if 'on' or 'off' are present.
 def getCommandList(thisDevice) {
     if (thisDevice != null) {
+		def arithmeticCommands = [ 'setVolume','setLevel', 'setHue', 'setSaturation', 'setPosition', 'setTiltLevel' ]
         def myCommandsList = []
         def supportedCommands = thisDevice.supportedCommands
-        def hasOnOrOff = false
-        def hasToggle = false
-		def hasPush = false
-		def hasDoubleTap = false
-		
         supportedCommands.each { command ->
             def commandName = command.name
-            myCommandsList << commandName
-            if (commandName == 'on' || commandName == 'off') { hasOnOrOff = true  }
-			if (commandName == 'toggle') { hasToggle = true  }
-			if (commandName == 'push') { hasPush = true  }
-			if (commandName == 'doubleTap') { hasDoubleTap = true  }
+			if (arithmeticCommands.contains(commandName)) commandName = commandName + "*"
+			myCommandsList << commandName
+            if (commandName == 'on' || commandName == 'off') { myCommandsList << '*toggle'  }
         }
-        if (hasOnOrOff && !hasToggle) { myCommandsList << '*toggle' }
-		if (hasPush) { myCommandsList.addAll(['*push1', '*push2', '*push3','*push4']) }
-		if (hasDoubleTap) { myCommandsList.addAll(['*doubleTap1', '*doubleTap2', '*doubleTap3','*doubleTap4']) }
-		
+        
         return myCommandsList.unique().sort()
     }
 }
@@ -1009,42 +1210,41 @@ def getCommandList(thisDevice) {
 //Configures all of the default settings values. This allows us to have some parts of the settings not be visible but still have their values initialized.
 //We do this to avoid errors that might occur if a particular setting were referenced but had not been initialized.
 def initialize() {
-    if (state.initialized == true) {
-        if (isLogTrace) log.trace("<b>initialize: Initialize has already been run. Exiting</b>")
-        return
-    }
+    //if (state.initialized == true) {
+      //  if (isLogTrace) log.trace("<b>initialize: Initialize has already been run. Exiting</b>")
+        //return
+    //}
     log.trace("<b>Running Initialize</b>")
 
 	//Get the settings for the default profile.
 	app.updateSetting("selectedProfile", 0)
 	data = getProfile()
 	
+	app.updateSetting("commandsPerLine", 3)
+	app.updateSetting("showParameters", [value: "FALSE", type: "enum"])
+	
     //Initialze all the Fixed button settings
     for (int i = 1; i <= 19; i++) {
-        app.updateSetting("myText$i", data.fixedButtonText[i - 1].toString() )
-        app.updateSetting("myButtonColor$i", "#000000" )
+		app.updateSetting("myText$i", data.fixedButtons["button$i"].text.toString() )
+		app.updateSetting("myButtonColor$i", "#000000" )
         app.updateSetting("myTextColor$i", [value: "#FFFFFF", type: "color"])
-        app.updateSetting("selectedButtonGroup", [value: "ONE", type: "enum"])
     }
 	
 	//Initialze all the custom button settings
     for (int i = 51; i <= 60; i++) {
-        app.updateSetting("myText$i", data.customButtonText[i - 1].toString() )
+		app.updateSetting("myText$i", data.customButtons["button$i"].text.toString() )
         app.updateSetting("myButtonColor$i", "#000000" )
         app.updateSetting("myTextColor$i", [value: "#FFFFFF", type: "color"])
-        app.updateSetting("selectedButtonGroup", [value: "ONE", type: "enum"])
     }
-	
-
 	
 	//Remote Settings
 	app.updateSetting("mySelectedRemote", "")
 	app.updateSetting("myTitleText1", "Group 1" )
 	app.updateSetting("unassignedButtonBehaviour", [value: "Normal", type: "enum"])
+	app.updateSetting("enableHapticResponse", [value: "False", type: "enum"])
 
     //Publishing
-	
-    app.updateSetting("mySelectedRemote", "")
+	app.updateSetting("mySelectedRemote", "")
     app.updateSetting("publishEndpoints", [value: "Local", type: "enum"])
 
     //Create Access Points

@@ -21,19 +21,21 @@
 
 *  Authors Notes:
 *  For more information on Remote Builder check out these resources.
-*  Original posting on Hubitat Community forum: TBD
+*  Original posting on Hubitat Community forum: https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices/142060
 *  Remote Builder Documentation: https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf
 *
 *  Remote Builder 6 Button - ChangeLog
 *
-*  Gary Milne - August 15th, 2024 @ 8:18 PM
+*  Gary Milne - September 2nd, 2024 @ 9:45 AM
 *
-*  Version 1.0.0 - Limited Release
-*  Version 1.0.1 - Added different default color scheme for Fixed 6 Button remotes. Removed Install on Open and added OAuth.
+*  Version 1.0.0 - Initial Public Release
+*  Version 1.1.0 - Feature - Adds support for parameters to be passed to commands. Adds arithmetic operations to parameter fields. 
+*  Version 1.1.1 - Feature - Adds remote Icon to Browser window.
+*  Version 1.1.2 - Added Haptic Response option for button presses.
+*  Version 1.1.3 - Added option for Unassigned Buttons to be Hidden, Disabled or Normal
 *
-* Possible Future Improvements:
-* Loadable configurations such as lighting, audio, security, TV
-* Default button group to have open on load.
+*  Possible Future Improvements:
+*  Default button group to have open on load.
 *
 **/
 
@@ -43,8 +45,8 @@ import groovy.transform.Field
 
 static def buttonGroup() { return ['ONE', 'TWO', 'THREE'] }
 
-@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.0.1 (8/15/24 @ 8:18 PM)</b>"
-@Field static final codeVersion = 101
+@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.1.3 (9/2/24 @ 9:45 AM)</b>"
+@Field static final codeVersion = 113
 //@Field static final moduleName = "Custom 6 Button"
 @Field static final moduleName = "Fixed 6 Button"
 
@@ -95,7 +97,7 @@ def mainPage(){
                 paragraph "<a href='${state.cloudEndpoint}' target=_blank><b>Cloud Endpoint</b></a>: ${state.cloudEndpoint} "
 				
 				myText = "<b>Important: If these endpoints are not generated you may have to enable OAuth for this application to work.</b><br>"
-            	myText += "Both endpoints can be active at the same time and can be enabled or disable through this interface.<br>"
+            	myText += "Both endpoints can be active at the same time and can be enabled or disabled through this interface.<br>"
 				myText += "Endpoints are paused if this instance of the <b>Remote Builder</b> application is paused. Endpoints are deleted if this instance of <b>Remote Builder</b> is removed.<br>"
 				paragraph myText
             	paragraph line (1)
@@ -112,7 +114,8 @@ def mainPage(){
 				
                 input(name: "Compile", type: "button", title: "Compile Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 12)
 				text = "<b>Important:</b> This is a live remote. Pressing any of the buttons will execute the actions you have assigned to the buttons below.<br>"
-				text += "When you make changes to properties of the remote they do not take effect until they have been Compiled.<br>"
+				text += "When you make changes to properties (button color, text, text color or tooltip) of the remote they do not take effect until they have been Compiled.<br>"
+				text += "Changes to commands or parameters take effect immediately and do not require the remote to be compiled.<br>"
 				paragraph text
 				
 				text = "The <b>LED on the upper left</b> will flash orange when a button has been pushed and data is being sent.<br>"
@@ -127,43 +130,70 @@ def mainPage(){
         
 			section(hideable: true, hidden: state.hidden.Customize, title: buttonLink('btnHideCustomize', getSectionTitle("Customize"), 20)) {
 				def startIndex, endIndex
-                if (moduleName == "Custom 6 Button")  input(name: "selectedButtonGroup", type: "enum", title: bold("Select Button Group to Customize"), options: buttonGroup(), required: true, defaultValue: "ONE", submitOnChange: true, width: 3)
+				if (moduleName == "Custom 6 Button")  input(name: "selectedButtonGroup", type: "enum", title: bold("Button Group to Customize"), options: buttonGroup(), required: true, defaultValue: "ONE", submitOnChange: true, width: 2)
+					
 				if(selectedButtonGroup == "ONE") { 
 					startIndex = 1; endIndex = 6; 
-					input ("myRemoteBackground1", "color", title: "&nbsp<b>Group 1 Background Color</b>", required: false, defaultValue: "#555", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
-					input ("myTitleText1", "text", title: "&nbsp<b>Group 1 Title Text</b>", required: false, defaultValue: "#000", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px", newLineAfter:true)  
+					input ("myRemoteBackground1", "color", title: "&nbsp<b>Group 1 Background Color</b>", required: false, defaultValue: "#555", width: 2, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
+					input ("myTitleText1", "text", title: "&nbsp<b>Group 1 Title Text</b>", required: false, defaultValue: "#000", width: 2, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
 					}
 				if(selectedButtonGroup == "TWO") { 
 					startIndex = 7; endIndex = 12;  
-					input ("myRemoteBackground2", "color", title: "&nbsp<b>Group 2 Background Color</b>", required: false, defaultValue: "#833", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
-					input ("myTitleText2", "text", title: "&nbsp<b>Group 2 Title Text</b>", required: false, defaultValue: "#000", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px", newLineAfter:true)  
+					input ("myRemoteBackground2", "color", title: "&nbsp<b>Group 2 Background Color</b>", required: false, defaultValue: "#833", width: 2, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
+					input ("myTitleText2", "text", title: "&nbsp<b>Group 2 Title Text</b>", required: false, defaultValue: "#000", width: 2, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
 					}
 				if(selectedButtonGroup == "THREE") { 
 					startIndex = 13; endIndex = 18; 
-					input ("myRemoteBackground3", "color", title: "&nbsp<b>Group 3 Background Color</b>", required: false, defaultValue: "#7AD", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
-					input ("myTitleText3", "text", title: "&nbsp<b>Group 3 Title Text</b>", required: false, defaultValue: "#000", width: 3, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px", newLineAfter:true)  
+					input ("myRemoteBackground3", "color", title: "&nbsp<b>Group 3 Background Color</b>", required: false, defaultValue: "#7AD", width: 2, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
+					input ("myTitleText3", "text", title: "&nbsp<b>Group 3 Title Text</b>", required: false, defaultValue: "#000", width: 2, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")  
 					}
+				input(name: "showParameters", type: "enum", title: bold("Show Parameters"), options: ['TRUE', 'FALSE'], defaultValue: "FALSE", submitOnChange: true, width: 2)								   
+				
                 paragraph line(1)
                 
                 (startIndex..endIndex).each { i ->
                     input ("myDevice$i", "capability.*", title: "<b>Button $i Device</b> ", multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px") /* top right bottom left */
                     input ("myCommand$i", "enum", title: "&nbsp<b>Command</b>", options: getCommandList(settings["myDevice$i"]), multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px")
+					if (showParameters == "TRUE") input ("myParameter$i", "text", title: "&nbsp<b>Parameter(s)</b>", multiple: false, submitOnChange: true, width: 1, style: "margin: 2px 10px 2px 10px; padding:3px")
 					if (moduleName == "Custom 6 Button") { 
                     	input ("myButtonColor$i", "color", title: "&nbsp<b>Button Color</b>", required: false, width: 1, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
-                    	//input ("myText$i", "text", title: "&nbsp<b>Character</b>", multiple: false, submitOnChange: true, width: 1, required: true, defaultValue: getDefaultButtonText(i), style: "margin: 2px 10px 2px 10px; padding:3px;border: 1px solid gray")
-						input ("myText$i", "text", title: "&nbsp<b>Character</b>", multiple: false, submitOnChange: true, width: 1, required: true, style: "margin: 2px 10px 2px 10px; padding:3px;border: 1px solid gray")
+                    	input ("myText$i", "text", title: "&nbsp<b>Character</b>", multiple: false, submitOnChange: true, width: 1, required: true, style: "margin: 2px 10px 2px 10px; padding:3px;border: 1px solid gray")
                     	input ("myTextColor$i", "color", title: bold("&nbsp<b>Text Color</b>"), required: false, defaultValue: "#FFFFFF", width: 1, submitOnChange: true, style: "margin: 2px 10px 2px 10px; padding:3px")
 					}
                     input ("myTooltip$i", "text", title: "&nbsp<b>Tooltip (optional)</b>", multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "?", style: "margin: 2px 10px 2px 10px; padding:3px; border: 1px solid gray;")
                     paragraph line(1)
                 } 
-				input(name: "disableUnassignedButtons", type: "enum", title: bold("Disable Unassigned Buttons"), options: ["True", "False"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 3, style:"margin-right: 20px")
+				input(name: "unassignedButtonBehaviour", type: "enum", title: bold("Unassigned Button Behaviour"), options: ["Normal", "Disabled", "Hidden"], required: false, defaultValue: "Normal", submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px")
+				input(name: "enableHapticResponse", type: "enum", title: bold("Enable Haptic Response"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2)
+				
+				text = "The contents of the <b>Command</b> drop down list is retrieved from the device and contains all available commands, plus some Remote Builder added commands described below.<br><br>"
+				text += "<b>Synthetic Commands</b><br>"
+				text += "Commands beginning with an <b>*</b>, such as *toggle are synthetic commands that don't exist within the device but are are added if the equivalent command does not already exist.<br><br>"
+				text += "<b>Arithmetic Parameters</b><br>"
+				text += "Commands ending with an <b>*</b>, such as setLevel*, volumeLevel* etc have values in the range 0 - 100 and support simple arithmetic parameters. These arithmetic parameters make a single button click more powerful such as lowering a dimmer by 25% or raising a blind by 10% with each click instead of using fixed values.<br>"
+				text += "Supported arithmetic parameters are as follows: <br>"
+				text += "<b>Addition:</b> Entering a parameter in the form <mark><b>+<i>number</i></b></mark> will add the parameter value to the existing value up to a maximum value of 100. Examples: <mark><b>+2</b></mark> , <mark><b>+5</b></mark> , <mark><b>+20</b></mark><br>"
+				text += "<b>Subtraction:</b> Entering a parameter in the form <mark><b>-<i>number</i></b></mark> will subtract the parameter value from the existing value down to a minimum of 0. Examples: <mark><b>-2</b></mark> , <mark><b>-10</b></mark> , <mark><b>-25</b></mark><br>"
+				text += "<b>Multiplication:</b> Entering a parameter in the form <mark><b>*<i>number</i></b></mark> will multiply the existing value by the parameter value up to a maximum value of 100. Examples: <mark><b>*2</b></mark> , <mark><b>*1.1</b></mark> , <mark><b>*0.5</b></mark><br>"
+				text += "<b>Division:</b> Entering a parameter in the form <mark><b>/<i>number</i></b></mark> will divide the existing value by the parameter value down to a minimum of 0. Examples: <mark><b>/3</b></mark> , <mark><b>/2</b></mark> , <mark><b>/1.1</b></mark><br><br>"
+				text += "<b>Note:</b> All of these commands operate on a scale of 0 - 100. If a dimmer were at 50 then the -10 command will lower the value to 40.  Using *0.9 would lower the dimmer from 50 to 45 so these commands are not equal (except at a value of 100).<br>"
+				text += "<b>Note:</b> A dimmer starting at 100 with a command of /2 would step down as follows: 100, 50, 25, 12, 6, 3, 1. Of course dividing by 2 is the same as multiplying by 0.5, it's just a matter of personal preference.<br><br>"
+				text += "<b>Passing Multiple Parameters</b><br>"
+				text += "Some commands take multiple parameters but you can provide multiple parameters even though there is only a single parameter field. This is accomplished by using the # character as a seperator.<br>"
+				text += "<b>Example 1:</b> The <b>setColorTemperature</b> with parameter <mark><b>2900#100#10</b></mark> will set the color temperature to 2900, the level to 100 and the transition time for this change will be 10 seconds.<br>"
+				text += "<b>Example 2:</b> The <b>setLevel</b> with parameter <mark><b>10#5</b></mark> will change the light level from its current setting to a value of 10 over the next 5 seconds.<br><br>"
+				text += "<b>Passing a Map as a Parameter</b><br>"
+				text += "The <b>setColor</b> command is unusual in that it takes it's arguments the form of a map. The following examples show the proper way to format a map argument for use with setColor.<br>"
+				text += "<b>setColor:</b> After selecting the <b>setColor</b> command from the dropdown menu enter the map arguments like this: <mark><b>['hue':20,'saturation':38,'level':24]</b></mark><br>"
+				text += "<b>setColor:</b> Because the level parameter is optional in <b>setColor</b> you may also use the form: <mark><b>['hue':65,'saturation':77]</b></mark><br>"
+				text += "For information on the required parameters for device commands you can find the reference here: <a href='https://docs2.hubitat.com/en/developer/driver/capability-list' target=_blank> <i><b>Driver Capability Reference</b></i></a>"
+				paragraph summary ("Commands and Parameters Help", text)
             }
         
         //Start of Publish Section
 		section(hideable: true, hidden: state.hidden.Publish, title: buttonLink('btnHidePublish', getSectionTitle("Publish"), 20)) {
-            input(name: "myRemote", title: "<b>Attribute to store the Remote?</b>", type: "enum", options: parent.allTileList(), required: true, submitOnChange: true, width: 2, defaultValue: 0, newLine: false)
-            input(name: "myRemoteName", type: "text", title: "<b>Name this Remote</b>", submitOnChange: true, width: 2, newLine: false, required: true)
+            input(name: "myRemote", title: "<b>Attribute to store the Remote?</b>", type: "enum", options: parent.allTileList(), required: false, submitOnChange: true, width: 2, defaultValue: 0, newLine: false)
+            input(name: "myRemoteName", type: "text", title: "<b>Name this Remote</b>", submitOnChange: true, width: 3, newLine: false, defaultValue: "New 6 Button Remote", required: false)
             input(name: "tilesAlreadyInUse", type: "enum", title: bold("For Reference Only: Remotes in Use"), options: parent.getTileList(), required: false, defaultValue: "Remotes List", submitOnChange: true, width: 2)
                                     
             if (myRemoteName) app.updateLabel(myRemoteName)
@@ -188,9 +218,9 @@ def mainPage(){
 				paragraph "In this section you can enable logging of any connection and action requests received.<br>You can also rebuild the endpoints if you choose to refresh the OAuth client secret"				
                 input(name: "isLogDebug", type: "bool", title: "<b>Enable Debug logging?</b>", defaultValue: false, submitOnChange: true, width: 3, newLine: true)
                 input(name: "isLogErrors", type: "bool", title: "<b>Log errors encountered?</b>", defaultValue: true, submitOnChange: true, width: 3)
-				input(name: "isLogConnections", type: "bool", title: "<b>Record All Connection Requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
-				input(name: "isLogActions", type: "bool", title: "<b>Record All Action Requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
-				input(name: "rebuildEndpoints", type: "button", title: "<b>Rebuild Endpoint(s)</b>", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLine:true)
+				input(name: "isLogConnections", type: "bool", title: "<b>Log all connection requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
+				input(name: "isLogActions", type: "bool", title: "<b>Log all action requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
+				input(name: "rebuildEndpoints", type: "button", title: "<b>Rebuild endpoint(s)</b>", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLine:true)
 				
             }
             //Now add a footer.
@@ -223,12 +253,30 @@ def compile(){
     
     // Loop from 1 to 18 and create data for each group
     (1..18).each { i ->
-        def index = (i)
-		if (  ( settings."myDevice$i" == null || settings."myCommand$i" == null )  && disableUnassignedButtons == "True" ){
-			data = [ "index": "$index", "label": "?", "tooltip": "?", "bColor": "#555", "tColor": "#555"]
+        //def index = (i)
+		isActive = true
+		isHidden = false
+		
+		if ( settings."myDevice$i" == null || settings."myCommand$i" == null ) isActive = false
+		//if (isLogDebug) 
+		log.debug ("Index: $i  and isActive: $isActive and myCommand is: " + settings."myCommand$i")
+		
+		switch(unassignedButtonBehaviour){
+        	case ["Normal"]:  //Show all buttons
+				data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
+    	        break
+        	case ["Disabled"]:  //Buttons are shown but are disabled
+				if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
+				else data = [ "index": "$i", "label": "?", "bColor": "#555", "tColor": "#555", "bHidden": "false"]
+        	    break
+			case ["Hidden"]:
+				if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
+				else data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "true" ]
+    	        break
+        	default:
+            	break
 		}
-		else data = [ "index": "$index", "label": settings."myText$i", "tooltip": settings."myTooltip$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" ]
-        jsonGroup << data
+	    jsonGroup << data
     }
 	
 	// Convert the list of maps to a JSON string and save them to state
@@ -244,6 +292,7 @@ def compile(){
     content = content.replace("#buttonData#", state.buttonData )
 	content = content.replace("#backgroundData#", state.backgroundData )
 	content = content.replace("#titlesData#", state.titlesData )
+	content = content.replace("#hapticResponse#", enableHapticResponse.toLowerCase() )
 	
 	//When we are in Fixed 6 Button mode then we disable the Mode Button because buttons 7-18 are deaactivated.
 	if (moduleName == "Fixed 6 Button") content = content.replace("#disableModeButton#", "no-cursor" )
@@ -280,9 +329,8 @@ def condense(String input) {
 	input = input.replaceAll(/\t/, "")
 	if (isLogDebug) log.debug ("After concurrent tabs removed: " + input.size() + " bytes." )
 	
-	//Replace "; " with ";"
+	//Remove unneccessary spaces
 	input = input.replaceAll("; ", ";")
-	
 	input = input.replaceAll("> <", "><" )
 	input = input.replaceAll(" = ", "=" )
     
@@ -326,32 +374,158 @@ def response(){
                         
 	myDevice = settings["myDevice$i"]
     myCommand = settings["myCommand$i"]
+	myParameter = settings["myParameter$i"]
 	
 	// Record the action request
-    if (isLogActions) log.info ( "Remote Builder Data Received - Remote: $myRemote - Name: $myRemoteName - Button: $i - Device: $myDevice - Command: $myCommand")
+    if (isLogActions) log.info ( "Remote Builder Data Received - Remote: $myRemoteName - Button: $i - Device: $myDevice - Command: $myCommand - Parameters: $myParameter")
 	
 	if (myDevice == null || myCommand == null) return
 	
+	//This checks to see if the command end in any of the numbers 1-4.  If it does it sets the myCommandIndex to the value found. This is used for things like button presses.
     def myCommandIndex = 0
     if (myCommand && myCommand[-1] in '1'..'4') {
         myCommandIndex = myCommand[-1] as int
     }
+	
+	result = assembleCommand(myCommand, myParameter)
+	if (isLogDebug) log.info ("Command Array is: $result")
     
 	//If the values are valid we will execute the command    	
 	switch(myCommand){
+		case ["setLevel*"]:
+			myLevel = myDevice.currentValue('level')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setVolume*"]:
+			myLevel = myDevice.currentValue('volumeLevel')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setHue*"]:
+			myLevel = myDevice.currentValue('hue')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setSaturation*"]:
+			myLevel = myDevice.currentValue('saturation')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setPosition*"]:
+			myLevel = myDevice.currentValue('position')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setTiltLevel*"]:
+			myLevel = myDevice.currentValue('tilt')
+			def newValue = getNewValue( myLevel, result.parameters[0] )
+			myDevice."${result.command}"( newValue )
+			return
+		case ["setColor"]:
+			def map = evaluate(myParameter)
+			myDevice."${result.command}"( map )
+			return
         case ["*toggle"]:
 			if (myDevice.currentValue('switch') == 'on') { myDevice.off() }
 			else myDevice.on()
             return
-        case ["*push1","*push2","*push3","*push4"]:
-			myDevice.push(myCommandIndex)
-            return
-		case ["*doubleTap1","*doubleTap2","*doubleTap3","*doubleTap4"]:
-			myDevice.doubleTap(myCommandIndex)
-            return
         default:
-            if (myDevice != null && myCommand != null ) myDevice."${myCommand}"()
+			if (myDevice != null && myCommand != null ) {
+				if (myParameter == null || myParameter == "?" || myParameter == "" ) myDevice."${result.command}"()
+				if (result.parameterCount == 1 ) myDevice."${result.command}"( result.parameters[0] )
+				if (result.parameterCount == 2 ) myDevice."${result.command}"( result.parameters[0], result.parameters[1] )
+				if (result.parameterCount == 3 ) myDevice."${result.command}"( result.parameters[0], result.parameters[1], result.parameters[2] )
 			}
+			return
+		}
+}
+
+
+//Takes the existing value of the attribute and the parameter.  If the parameter has a leading +,- or * then the existing value will be adjusted by that much. If not then the value will be set to the integer value of the specified parameter.
+def getNewValue(oldValue, parameter) {
+    if (isLogDebug) log.debug("newValue: $oldValue , $parameter")
+    def operator = parameter.find(/[\+\-\*\/]/)
+    def modifierValue = operator ? convertToNumber(parameter.replaceAll("[+\\-*/]", "")) : convertToInt(parameter)
+
+    if (modifierValue == null) {
+        log.error("Input <mark><b> $parameter </b></mark> is not a valid number. Nothing done.")
+        return 0
+    }
+
+    def result = operator ? 
+        operator == '+' ? oldValue + modifierValue :
+        operator == '-' ? oldValue - modifierValue :
+        operator == '*' ? oldValue * modifierValue :
+        operator == '/' ? oldValue / modifierValue : oldValue
+        : modifierValue
+
+    result = Math.max(0, Math.min(100, result.toInteger()))
+    
+    if (isLogActions) log.info("getNewValue: New value is: $result")
+    return result
+}
+
+//Takes a string and tries to convert it to a double or integer
+def convertToNumber(String input) {
+    // Check if the string is an integer
+	if (input.isInteger()) { return input.toInteger() } // Convert to Integer
+    
+    // Otherwise, assume it's a float and convert it to a Double
+	else if (input.isDouble()) { return input.toDouble() } // Convert to Double
+    
+    // If the input is neither an integer nor a float return null
+    else { return null }
+}
+
+//Takes a string and tries to convert it to an integer.  The controls only accept integers in the range 0 - 100.
+def convertToInt(String input) {
+    // First, check if the string is an integer
+    if (input.isInteger()) { return input.toInteger() } 
+    
+    // Otherwise, assume it's a float and convert it to a double first
+    else if (input.isDouble()) {
+        double floatValue = input.toDouble()
+        return floatValue.toInteger()  // Truncate the decimal part
+    } 
+    
+    // If the input is neither an integer nor a float return null
+    else { return null }
+}
+	
+
+// Assemble the command string
+def assembleCommand(myCommand, myParameters) {
+	log.info ("assembleCommands: '$myCommand' -  '$myParameters' ")
+    def result = [command: "", parameters: [], parameterCount: 0]
+    
+	//If we have no command just return the empty map
+	if ( myCommand == null || myCommand == "" ) return result
+	else {
+		myCommand = myCommand.replace("*","")
+		result['command'] = myCommand
+	}
+	
+	//A ? is the default value and can be ignored.
+	if (myParameters == "?" || myParameters == "null" || myParameters == null ) {
+	    result['parameters'] = []
+		result['parameterCount'] = 0
+		return result
+	}
+		
+    // Split the parameter string by the '#' character
+    def parts = myParameters.split('#')
+    
+    // If there are no parameters we can just return what we already have.
+    if (parts.size() == 0) return result
+	
+    if (parts.size() > 0) {
+            // The rest are the parameters
+            result['parameters'] = parts[0..-1]
+            result['parameterCount'] = result['parameters'].size()
+        }
+
+    return result
 }
 
 //This delivers the applet content.
@@ -397,9 +571,6 @@ def disabledEndpointHTML(){
 
 
 
-
-
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  Remote Control APPlet Code
@@ -416,13 +587,14 @@ def HTML =
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Remote Control</title>
+	<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAsTAAALEwEAmpwYAAABC0lEQVR4nJXTuy5FQRTG8R8hPINLgqcQl4gSjUQhGh5AQaUUj6IUDR1egEZQuMQlQRA6CTmNhkyyNmPnHGf7kknWrJn/N2tWZvifxrGBFbRWhVrQEXF7zKewXsWkF+eoYQbD2MEgprHcDL7BZ4yPMOkMk1TJZiO4J4Mf8FwyGUIbxhrB1wEsZn1YK5nUVXcGn0ZuEqNh8hJrtayxv+Cr7M7HkZ/FRMSPsXYRht/qyuAjvEY897PFUuRu0VeGL7OT57GXzU9w1ghOOozFfaxm4G5WSRp39eCkp9hwj+0MWIg+/AnDCN4zcKtUyZ9wbvKWAQdZ3N8MLpReV2FSXGmgKlwofZb0WFLXK538BaLoXBuHlaWwAAAAAElFTkSuQmCC" type="image/png">
     <style>
         html, body { align-items:center; display:flex; font-family:Arial; sans-serif; font-size:20px; justify-content:center; padding:0; user-select:none; height:100vh; background-color:transparent; }
         .container { background-color:transparent; padding:0px; border-radius:4px;position:relative; height:80%; overflow:hidden}
         .control { cursor:pointer }
         .no-cursor { font-size:100%; font-weight:bold; pointer-events:none; text-anchor:middle; }
         .hidden { display:none }
-        .tooltip { background-color:yellow; border-radius:4px; color:black; display:none; left:50%; font-size:70%; padding:5px; pointer-events:none; position:absolute; text-align:center; top:5%; transform: translateX(-50%); width:80%; }
+        .tooltip { background-color:yellow; opacity: 0.5; border-radius:4px; font-size:80%; color:black; display:none; left:50%; padding:2px; pointer-events:none; position:absolute; text-align:center; top:5%; transform: translateX(-50%); width:90%; }
 		.mode-button { font-size:14px; letter-spacing:3px;}
 
 		/* Animation */
@@ -541,7 +713,7 @@ def HTML =
 		const buttonData = #buttonData#;
 		const backgroundData = #backgroundData#;
 		const titlesData = #titlesData#;
-
+		
         /* Get the saved mode index from localStorage or default to 0 */
 		let modeIndex = localStorage.getItem('modeIndex') ? parseInt(localStorage.getItem('modeIndex')) : 0;
 		modeIndex = 0
@@ -562,7 +734,7 @@ def HTML =
 		helpButton.addEventListener('click', () => {
             helpMode = !helpMode;
 			/* console.log("Helpmode is: ", helpMode ); */
-            helpButtonText.setAttribute('fill', helpMode ? 'green' : '#fff');
+            helpButtonText.setAttribute('fill', helpMode ? 'orange' : '#fff');
         });
 
 	numericButtons.forEach(button => {
@@ -610,11 +782,13 @@ function updateButtons() {
                     buttonElement.setAttribute('fill',button.bColor);
                     textElement.textContent = button.label;
                     textElement.setAttribute('fill',button.tColor);
-                }
+			    }
+			if (button && button.bHidden === 'true') { buttonElement.style.display = "none"; textElement.style.display = "none"; }
             }
         }
     }
 };
+
 
 function updateBackground() { remoteBackground.setAttribute('fill', backgroundData[modeIndex]); }
 
@@ -630,8 +804,11 @@ function showTooltip(event, tooltipText) {
 function hideTooltip() {tooltip.style.display='none'};
 
 function sendData(buttonId) {
-	/* console.log("Helpmode2 is: ", helpMode ); */
-    const url = '#URL#';
+
+	/* Trigger a vibration for 200 milliseconds if the user has selected it and it is supported by the device. */
+	if (navigator.vibrate && #hapticResponse#) { navigator.vibrate(100); } 
+	
+	const url = '#URL#';
     /* Only proceed if mode is not null */
     if (buttonId !== null) {
         led1.classList.add('flicker'); /* Start flickering led1 */
@@ -649,7 +826,7 @@ function sendData(buttonId) {
             led2.setAttribute('fill', 'green'); /* Set led2 to solid green */
             setTimeout(() => {
                 led2.setAttribute('fill', '#555'); /* Reset led2 to its original color */
-            }, 2000); /* Solid for 2 seconds */
+            }, 1000); /* Solid for 1 second */
         })
         .catch(error => {
             console.error('Error:', error);
@@ -849,25 +1026,16 @@ static String dodgerBlue(s) { return '<font color = "DodgerBlue">' + s + '</font
 // Get a list of supported commands for a given device and return a sorted list. Adds *toggle if 'on' or 'off' are present.
 def getCommandList(thisDevice) {
     if (thisDevice != null) {
+		def arithmeticCommands = [ 'setVolume','setLevel', 'setHue', 'setSaturation', 'setPosition', 'setTiltLevel' ]
         def myCommandsList = []
         def supportedCommands = thisDevice.supportedCommands
-        def hasOnOrOff = false
-        def hasToggle = false
-		def hasPush = false
-		def hasDoubleTap = false
-
         supportedCommands.each { command ->
             def commandName = command.name
-            myCommandsList << commandName
-            if (commandName == 'on' || commandName == 'off') { hasOnOrOff = true  }
-			if (commandName == 'toggle') { hasToggle = true  }
-			if (commandName == 'push') { hasPush = true  }
-			if (commandName == 'doubleTap') { hasDoubleTap = true  }
+			if (arithmeticCommands.contains(commandName)) commandName = commandName + "*"
+			myCommandsList << commandName
+            if (commandName == 'on' || commandName == 'off') { myCommandsList << '*toggle'  }
         }
-        if (hasOnOrOff && !hasToggle) { myCommandsList << '*toggle' }
-		if (hasPush) { myCommandsList.addAll(['*push1', '*push2', '*push3','*push4']) }
-		if (hasDoubleTap) { myCommandsList.addAll(['*doubleTap1', '*doubleTap2', '*doubleTap3','*doubleTap4']) }
-		
+        
         return myCommandsList.unique().sort()
     }
 }
@@ -902,13 +1070,18 @@ def initialize() {
                            "#00A6ED", "#00A6ED", "#00A6ED", "#00A6ED", "#00A6ED", "#00A6ED"]
     
     for (int i = 1; i <= 18; i++) {
+		app.updateSetting("myParameter$i", "?")
         app.updateSetting("myText$i", buttonTextList[i - 1] )
         app.updateSetting("myTooltip$i", "?" )
-        if (moduleName == "Fixed 6 Button" )  app.updateSetting("myButtonColor$i", , [value:  "#888888" , type: "color"])
+		if (moduleName == "Fixed 6 Button" )  app.updateSetting("myButtonColor$i", , [value:  "#888888" , type: "color"])
 		if (moduleName == "Custom 6 Button" ) app.updateSetting("myButtonColor$i", [value: buttonColorList[ i - 1 ], type: "color"] )
+        app.updateSetting("myButtonColor$i", buttonColorList[ i - 1 ] )
         app.updateSetting("myTextColor$i", [value: "#FFFFFF", type: "color"])
         app.updateSetting("selectedButtonGroup", [value: "ONE", type: "enum"])
     }
+	
+	app.updateSetting("showParameters", [value: "FALSE", type: "enum"])
+	app.updateSetting("unassignedButtonBehaviour", [value: "Normal", type: "enum"])
 	
 	//Remote Settings
 	if (moduleName == "Fixed 6 Button" ) app.updateSetting("myRemoteBackground1", [value: "#333333", type: "color"])
@@ -918,6 +1091,7 @@ def initialize() {
 	app.updateSetting("myTitleText1", "Group 1" )
 	app.updateSetting("myTitleText2", "Group 2" )
 	app.updateSetting("myTitleText3", "Group 3" )
+	app.updateSetting("enableHapticResponse", [value: "False", type: "enum"])
 	app.updateSetting("disableUnassignedButtons", [value: "False", type: "enum"])
 
     //Publishing
@@ -944,6 +1118,7 @@ def initialize() {
 def updated(){
     if(!state?.isInstalled) { state?.isInstalled = true }
 }
+
 
 
 //*******************************************************************************************************************************************************************************************

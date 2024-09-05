@@ -27,15 +27,16 @@
 *  Remote Builder Parent App - ChangeLog
 *  Version 1.0.0 - Limited Release
 *  Version 1.0.1 - Fixed checkLicense for handling Hub migrations
+*  Version 1.0.2 - Added Roku Module
 *
-*  Gary Milne - 8/16/24 @ 8:37 AM
+*  Gary Milne - 9/4/24 @ 7:05 AM
 *
 *  Pending Improvements: None at this time.
 *
 **/
 
 import groovy.transform.Field
-@Field static final Version = "<b>Remote Builder Parent v1.0.1 (8/16/24)</b>"
+@Field static final Version = "<b>Remote Builder Parent v1.0.2 (9/4/24)</b>"
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -80,12 +81,12 @@ def mainPage() {
                 input(name: 'btnShowIntro', type: 'button', title: 'Introduction ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2)  //▼ ◀ ▶ ▲
                 
                 myString = "With <b>Remote Builder</b> you can create virtual Remote Controls that can be used to control devices around the home. These remotes can be installed onto the Hubitat Dashboard but they can also be accessed "
-				myString += "directly from any phone, tablet or computer around the home or around the world."
+				myString += "directly from any phone, tablet or computer around the home or around the world. "
 				myString += "Virtual remotes are the digital equivalent of a physical remote control, but one that can be customed to perform any action. It provides a much simpler and more intuitive interface than using a button device on the current Hubitat Dashboard. "
                 if (state.setupState != 99) titleise2(red("<b>First time setup!</b>"))
                 paragraph myString
                 
-                myString = "You are installing <b>Remote Builder Standard which is free.</b> The standard version gives to access to the <b>Fixed 6 Button Remote</b> where actions can be customized by the appearance of the Remote is fixed.<br>"
+                myString = "You are installing <b>Remote Builder Standard which is free.</b> The standard version gives access to the <b>Fixed 6 Button Remote</b> where actions can be customized but the appearance of the Remote is fixed.<br>"
 				myString += "The Advanced version gives you access to the <b>Custom 6 Button Remote</b> which support 18 buttons in three groups. All aspects of the remote appearance are also fully customizable.<br>"
 				myString += "The Advanced version also includes the TV Remote which gives you a fully configured TV Remote (shown below) which you can connect to your Hubitat TV Driver for a seamless experience. Other remotes will be added in the near future.<br>"
                 myString += "If you wish to upgrade to <b>Remote Builder Advanced</b> you can do so after setup is complete by visiting the Licensing section. The Advanced version gives you access to a variety of Remotes.<br>"
@@ -209,15 +210,19 @@ def mainPage() {
                     input(name: 'btnShowCreateEdit', type: 'button', title: 'Create\\Edit Remotes ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
                     myString = '<b>Remote Builder</b> currently has three types of remotes:<br>'
                     myString += '<b>1)</b> Fixed 6 Button Remote. (Standard)<br>'
-                    myString += '<b>2)</b> Custom 6 Button Remote with 3 x button groups for 18 unique actions. (Advanced)<br>'
-                    myString += '<b>3)</b> TV Remote with custom buttons. (Advanced)<br>'
+					myString += '<b>2)</b> Roku Remote. (Standard)<br>'
+                    myString += '<b>3)</b> Custom 6 Button Remote with 3 x button groups for 18 unique actions. (Advanced)<br>'
+                    myString += '<b>4)</b> TV Remote with custom buttons. (Advanced)<br>'
 					myString += '<b>More remotes will be added soon.</b>'
                     paragraph note('', myString)
                     
+					//Advanced only items use the checkLicense() function to tell if they should be displayed.
                     if (!hideFixed6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Fixed 6 Button', namespace: 'garyjmilne', title: 'Add Fixed Six Button Remote')
-					//These are Premium apps only visible to Advanced Users.
-					if (checkLicense() && !hideCustom6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Custom 6 Button', namespace: 'garyjmilne', title: 'Add Custom Six Button Remote')
-					if (checkLicense() && !hideTVRemote) app (name: 'TBPA', appName: 'Remote Builder - TV', namespace: 'garyjmilne', title: 'Add TV Remote')
+					if (!hideCustom6ButtonRemote && checkLicense() ) app (name: 'TBPA', appName: 'Remote Builder - Custom 6 Button', namespace: 'garyjmilne', title: 'Add Custom Six Button Remote')
+					//if (!hideKeypad) app (name: 'TBPA', appName: 'Remote Builder - Keypad', namespace: 'garyjmilne', title: 'Add Keypad')
+					if (!hideRokuRemote) app (name: 'TBPA', appName: 'Remote Builder - Roku', namespace: 'garyjmilne', title: 'Add Roku Remote')
+					if (!hideTVRemote && checkLicense() ) app (name: 'TBPA', appName: 'Remote Builder - TV', namespace: 'garyjmilne', title: 'Add TV Remote')
+					
                     }
                 else {
                     input(name: 'btnShowCreateEdit', type: 'button', title: 'Create\\Edit Remotes ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
@@ -262,8 +267,10 @@ def mainPage() {
                     
                     paragraph body('<b>Show/Hide Modules</b>')
                     input (name: "hideFixed6ButtonRemote", type: "bool", title: "<b>Hide Fixed 6 Button Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
-                    input (name: "hideCustom6ButtonRemote",  type: "bool", title: "<b>Hide Custom 6 Button Remote</b>", defaultValue: false, submitOnChange: true, width: 2)
-					input (name: "hideTVRemote",  type: "bool", title: "<b>Hide TV Remote</b>", defaultValue: false, submitOnChange: true, width: 2)
+					input (name: "hideCustom6ButtonRemote",  type: "bool", title: "<b>Hide Custom 6 Button Remote</b>", defaultValue: false, submitOnChange: true, width: 2)
+					input (name: "hideRokuRemote", type: "bool", title: "<b>Hide Roku Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
+					input (name: "hideTVRemote", type: "bool", title: "<b>Hide TV Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
+					//input (name: "hideKeypad",  type: "bool", title: "<b>Hide Keypad</b>", defaultValue: false, submitOnChange: true, width: 2)
                     paragraph line(1)
                     
                     input(name: 'removeLicense'  , type: 'button', title: 'De-Activate Software License', backgroundColor: '#27ae61', textColor: 'white', submitOnChange: true, width: 3, newLineAfter: true)
