@@ -1,62 +1,69 @@
 {
   "packageName": "Remote Builder",
   "author": "Gary J. Milne",
-  "version": "102",
-  "minimumHEVersion": "2.3.4.132",
+  "version": "1.0.0",
+  "minimumHEVersion": "0.0",
   "dateReleased": "2024-08-14",
-  "releaseNotes": "Package-102: Brings all remotes to Version 1.1.3 and adds Roku Remote initial release.\n\nPackage-101: Initial Release\n\n",
-  "documentationLink": "",
-  "communityLink": "",
   "apps": [
     {
       "id": "ba72af2b-020d-445e-858d-58dfdd542e73",
-      "name": "Remote Builder",
-      "namespace": "garyjmilne",
+      "name": "",
+      "namespace": "",
       "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Parent.groovy",
       "required": true,
       "oauth": false,
       "primary": false,
-      "version": "1.0.2"
+      "version": "1.0.0"
     },
     {
       "id": "c3d1eb91-bbe4-4a9e-b938-db4b1b18f20b",
-      "name": "Remote Builder - Fixed 6 Button",
+      "name": "Remote Builder - Custom 6 Button",
       "namespace": "garyjmilne",
-      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Fixed_6_Button.groovy",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Fixed_6_Button.groovy",
       "required": false,
-      "oauth": true,
+      "oauth": false,
       "primary": false,
-      "version": "1.1.3"
+      "version": "1.0.0"
     },
     {
       "id": "45ffa616-8a0b-477e-9952-c49f8bb0b4d6",
       "name": "Remote Builder - Custom 6 Button",
       "namespace": "garyjmilne",
-      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Custom_6_Button.groovy",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Custom_6_Button.groovy",
       "required": false,
-      "oauth": true,
+      "oauth": false,
       "primary": false,
-      "version": "1.1.3"
+      "version": "1.0.0"
     },
     {
       "id": "c4075278-c190-4e49-b06f-e64d7bb6ddc5",
       "name": "Remote Builder - TV",
       "namespace": "garyjmilne",
-      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_TV.groovy",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/TV.groovy",
       "required": false,
-      "oauth": true,
+      "oauth": false,
       "primary": false,
-      "version": "1.1.3"
+      "version": "1.0.0"
     },
-	{
+    {
       "id": "ca1c58fb-5042-48d8-82e4-5055b4b4dc6a",
       "name": "Remote Builder - Roku",
       "namespace": "garyjmilne",
       "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Roku.groovy",
       "required": false,
-      "oauth": true,
+      "oauth": false,
       "primary": false,
-      "version": "1.1.3"
+      "version": "1.0.0"
+    },
+    {
+      "id": "8cdb883e-f12e-4dcc-b32c-8398de0473d1",
+      "name": "Remote Builder - Keypad",
+      "namespace": "garyjmilne",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Keypad.groovy",
+      "required": false,
+      "oauth": false,
+      "primary": false,
+      "version": "2.0.0"
     }
   ],
   "drivers": [
