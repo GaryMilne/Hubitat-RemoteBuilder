@@ -27,16 +27,16 @@
 *  Remote Builder Parent App - ChangeLog
 *  Version 1.0.0 - Limited Release
 *  Version 1.0.1 - Fixed checkLicense for handling Hub migrations
-*  Version 1.0.2 - Added Roku Module
+*  Version 1.0.2 - Added Roku Module.
+*  Version 1.1.0 - Added Saving and Removal of Remote Links for each published remote.
+*  Version 1.1.1 - Added Keypad Module
 *
-*  Gary Milne - 9/4/24 @ 7:05 AM
-*
-*  Pending Improvements: None at this time.
+*  Gary Milne - 9/20/24 @ 12:39 AM
 *
 **/
 
 import groovy.transform.Field
-@Field static final Version = "<b>Remote Builder Parent v1.0.2 (9/4/24)</b>"
+@Field static final Version = "<b>Remote Builder Parent v1.1.1 (9/20/24)</b>"
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -120,7 +120,9 @@ def mainPage() {
                     link1 = 'Click <a href="https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf" target="_blank">here</a> for more information.'
                                         
                     myString = "<b>Remote Builder Standard (Free)</b><br>"
-                    myString += "Fixed 6 Button Remote (6 commands). Button actions can be customized but the interface cannot be.<br><br>"
+                    myString += "<b>1)</b> Fixed 6 Button Remote. Button actions can be customized but the interface cannot be.<br><br>"
+					myString += "<b>2)</b> Roku Remote with 4 custom buttons.<br><br>"
+					myString += "<b>3)</b> Keypad with keys 0-9, * and #. Data can be passed to Rules, Hub variables or driver commands.<br><br>"
                     myString += "<b>Remote Builder Advanced (Donation Required)</b><br>"
                     myString += "<b>1)</b> Customizable 6 Button Remote with 3 X button groups (18 commands). Highly customizable for button color, text, tooltips and background.<br>"
 					myString += "<b>2)</b> Universal TV Remote shown earlier with user defineable buttons for quick access.<br>"
@@ -208,19 +210,23 @@ def mainPage() {
                 if (state.showCreateEdit == true) {
                     //if (true ){
                     input(name: 'btnShowCreateEdit', type: 'button', title: 'Create\\Edit Remotes ▼', backgroundColor: 'navy', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
-                    myString = '<b>Remote Builder</b> currently has three types of remotes:<br>'
+                    myString = '<b>Remote Builder</b> currently has five types of remotes:<br>'
                     myString += '<b>1)</b> Fixed 6 Button Remote. (Standard)<br>'
 					myString += '<b>2)</b> Roku Remote. (Standard)<br>'
-                    myString += '<b>3)</b> Custom 6 Button Remote with 3 x button groups for 18 unique actions. (Advanced)<br>'
-                    myString += '<b>4)</b> TV Remote with custom buttons. (Advanced)<br>'
-					myString += '<b>More remotes will be added soon.</b>'
+					myString += '<b>3)</b> Keypad. (Standard)<br>'
+					//myString += '<b>4)</b> QR Code Generator. (Standard)<br>'
+                    myString += '<b>4)</b> Custom 6 Button Remote with 3 x button groups for 18 unique actions. (Advanced)<br>'
+                    myString += '<b>5)</b> TV Remote with custom buttons. (Advanced)<br>'
+					myString += '<b>More to come.</b>'
                     paragraph note('', myString)
                     
 					//Advanced only items use the checkLicense() function to tell if they should be displayed.
                     if (!hideFixed6ButtonRemote) app (name: 'TBPA', appName: 'Remote Builder - Fixed 6 Button', namespace: 'garyjmilne', title: 'Add Fixed Six Button Remote')
 					if (!hideCustom6ButtonRemote && checkLicense() ) app (name: 'TBPA', appName: 'Remote Builder - Custom 6 Button', namespace: 'garyjmilne', title: 'Add Custom Six Button Remote')
-					//if (!hideKeypad) app (name: 'TBPA', appName: 'Remote Builder - Keypad', namespace: 'garyjmilne', title: 'Add Keypad')
+					if (!hideKeypad) app (name: 'TBPA', appName: 'Remote Builder - Keypad', namespace: 'garyjmilne', title: 'Add Keypad')
 					if (!hideRokuRemote) app (name: 'TBPA', appName: 'Remote Builder - Roku', namespace: 'garyjmilne', title: 'Add Roku Remote')
+					//if (!hideRokuRemote) app (name: 'TBPA', appName: 'Remote Builder - Roku2', namespace: 'garyjmilne', title: 'Add Roku Remote2')
+					//if (!hideQRCode) app (name: 'TBPA', appName: 'Remote Builder - QR Code', namespace: 'garyjmilne', title: 'Add QR Code')
 					if (!hideTVRemote && checkLicense() ) app (name: 'TBPA', appName: 'Remote Builder - TV', namespace: 'garyjmilne', title: 'Add TV Remote')
 					
                     }
@@ -260,7 +266,6 @@ def mainPage() {
                     paragraph body('<b>Logging Functions</b>')
                     input (name: "isLogInfo",  type: "bool", title: "<b>Enable info logging?</b>", defaultValue: false, submitOnChange: true, width: 2)
                     input (name: "isLogTrace", type: "bool", title: "<b>Enable trace logging?</b>", defaultValue: false, submitOnChange: true, width: 2)
-                    input (name: "isLogDebug", type: "bool", title: "<b>Enable debug logging?</b>", defaultValue: false, submitOnChange: true, width: 2)
                     input (name: "isLogWarn",  type: "bool", title: "<b>Enable warn logging?</b>", defaultValue: true, submitOnChange: true, width: 2)
                     input (name: "isLogError",  type: "bool", title: "<b>Enable error logging?</b>", defaultValue: true, submitOnChange: true, width: 2, newLineAfter: true)
                     paragraph line(1)
@@ -270,7 +275,7 @@ def mainPage() {
 					input (name: "hideCustom6ButtonRemote",  type: "bool", title: "<b>Hide Custom 6 Button Remote</b>", defaultValue: false, submitOnChange: true, width: 2)
 					input (name: "hideRokuRemote", type: "bool", title: "<b>Hide Roku Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
 					input (name: "hideTVRemote", type: "bool", title: "<b>Hide TV Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
-					//input (name: "hideKeypad",  type: "bool", title: "<b>Hide Keypad</b>", defaultValue: false, submitOnChange: true, width: 2)
+					input (name: "hideKeypad",  type: "bool", title: "<b>Hide Keypad</b>", defaultValue: false, submitOnChange: true, width: 2)
                     paragraph line(1)
                     
                     input(name: 'removeLicense'  , type: 'button', title: 'De-Activate Software License', backgroundColor: '#27ae61', textColor: 'white', submitOnChange: true, width: 3, newLineAfter: true)
@@ -300,6 +305,15 @@ def mainPage() {
         //refreshUI()
     }
 
+//Receives the salient properties of a remote and saves them to state.
+def saveRemoteLinks(Map inputMap){
+	def number = inputMap.number
+	def name = inputMap.name
+    def localEndpoint = inputMap.localEndpoint
+    def cloudEndpoint = inputMap.cloudEndpoint
+	state["Remote${number}"] = inputMap
+	if (isLogDebug) log.debug ("Remote: Number: $number  -  Name: $name  -  localEndpoint: $localEndpoint  -  cloudEndpoint: $cloudEndpoint ")
+}
 
 
 //Returns a short version of the Storage Device Name for this instance.
@@ -586,6 +600,7 @@ def getTileListByActivity() {
         }
 }
 
+
 //Delete a Remote Builder Tile on connected Storage Device.
 def deleteTile() {
     if (isLogTrace) log.trace ('deleteTile: Entering deleteTile')
@@ -613,6 +628,9 @@ def deleteTile() {
 		log.info ("deleteTile: Delete tile initiated for tile number ${selectedTile} on device: ${myDeviceDNI}")
 		myDevice.deleteTile(tileNumber)
 	}
+	
+	//Remove the state entry used for remote links.
+	state.remove("Remote" + tileNumber)
 }
 
 def checkLicense() {
