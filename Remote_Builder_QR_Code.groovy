@@ -575,13 +575,19 @@ def initialize() {
     }
     log.trace("<b>Running Initialize</b>")
 	
+	//Endpoints
+	app.updateSetting("displayEndpoint", [value: "Local", type: "enum"])
+	app.updateSetting("localEndpointState", [value: "Enabled", type: "enum"])
+	app.updateSetting("cloudEndpointState", [value: "Disabled", type: "enum"])
+	
 	//Customize
 	app.updateSetting("myQRURL", "https://www.google.com")
-	app.updateSetting("myQRTitle", "Google Search")
 	app.updateSetting("selectedSize", [value: "150 x 150", type: "enum"])
 	app.updateSetting("showTitle", [value: "True", type: "enum"])
+	app.updateSetting("myQRTitle", "Google Search")
+	app.updateSetting("myQRTitleColor", "#CC6E00" )
 	app.updateSetting("clickableTitle", [value: "True", type: "enum"])
-	app.updateSetting("myTitleTextColor", "#CC6E00" )
+	
 	
     //Publishing
     app.updateSetting("publishEndpoints", [value: "Local", type: "enum"])
@@ -598,7 +604,7 @@ def initialize() {
     app.updateSetting('isLogConnections', false)
 	
 	//Have all the sections collapsed to begin with except devices
-    state.hidden = [Intro: false, Endpoints: true, Display: false, Customize: false, Publish: true]
+    state.hidden = [Intro: false, Endpoints: true, Display: false, Customize: false, Publish: false]
     
     state.initialized = true
 }
