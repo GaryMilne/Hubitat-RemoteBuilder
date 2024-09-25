@@ -26,9 +26,10 @@
 *
 *  Remote Builder Roku Remote - ChangeLog
 *
-*  Gary Milne - September 5th, 2024 @ 8:58 AM
+*  Gary Milne - September 25th, 2024 @ 1:17PM PM
 *
 *  Version 1.1.3 - Initial Public Release based on Remote Builder TV skeleton version 1.1.3
+*  Version 2.0.0 - Converted everything from SVG to HTML\CSS for simplified layout. Adopted Materials Symbols for the Icon Font. Added publishing of Remote info to Remote Builder Parent for future remote sharing.
 *
 **/
 
@@ -38,8 +39,8 @@ import groovy.transform.Field
 
 static def buttonGroup() { return  }
 
-@Field static final codeDescription = "<b>Remote Builder - Roku 1.1.3 (9/4/24)</b>"
-@Field static final codeVersion = 113
+@Field static final codeDescription = "<b>Remote Builder - Roku 2.0.0 (9/25/24)</b>"
+@Field static final codeVersion = 200
 @Field static final moduleName = "Roku Remote"
 
 def deviceProfileList() { return [0:'Roku Connect (>= 2.8.2) by Armand Welsh'] }
@@ -47,7 +48,7 @@ def deviceProfileList() { return [0:'Roku Connect (>= 2.8.2) by Armand Welsh'] }
 definition(
 	    name: "Remote Builder - Roku",
         description: "Generates a TV remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
-        importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Roku.groovy",
+        importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Roku2.groovy",
         namespace: "garyjmilne", author: "Gary J. Milne", category: "Utilities", iconUrl: "", iconX2Url: "", iconX3Url: "", singleThreaded: false,
         parent: "garyjmilne:Remote Builder", 
         installOnOpen: false, oauth: true
@@ -71,7 +72,10 @@ def mainPage(){
     if (state.initialized == null) initialize()
     
     dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff;;'> Remote Builder - " + moduleName + " 📱 </div>", uninstall: true, install: true, singleThreaded:true) {
+		
 			section(hideable: true, hidden: state.hidden.Device, title: buttonLink('btnHideDevice', getSectionTitle("Device"), 20)) {
+				//Add Google Materials Symbols Support
+				paragraph "<link rel='stylesheet' href='https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200' />"
 				paragraph "<b>Select the target Roku and the Device Driver Profile.</b> Only devices with the capability 'mediaInputSource' will be listed. "
 				input ("myRoku", "capability.'mediaInputSource'", title: "<b>Default Roku Device</b> ", multiple: false, submitOnChange: true, width: 2, style: "margin-right: 50px; padding:3px") /* top right bottom left */
 				if (myRoku != null ) { 
@@ -142,7 +146,12 @@ def mainPage(){
 					//Main loop that places the control on the screen
 					(1..fixedButtonCount).each { i ->
 						index = i
-						input ("myCommand$i", "enum", title: "&nbsp<b>Command</b> (" + data.fixedButtons["button${index}"].text.toString() + ")", options: getCommandList(settings["myRoku"]), multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px")
+						myIcon = data.fixedButtons["button${index}"].iconName
+						
+						if (myIcon != null) myIconHTML = "<span class='material-symbols-outlined' style='font-size: 24px;vertical-align: bottom;'>" + myIcon.toString() + "</span>"
+						else myIconHTML = data.fixedButtons["button${index}"].text
+						input ("myCommand$i", "enum", title: "&nbsp<b>Button</b> (" + myIconHTML + ")", options: getCommandList(settings["myRoku"]), multiple: false, submitOnChange: true, width: 2, style: "margin: 2px 10px 2px 10px; padding:3px")	
+						
 						if (showParameters == "TRUE") input ("myParameter$i", "text", title: "&nbsp<b>Parameter</b>", multiple: false, submitOnChange: true, width: 1, style: "margin: 2px 60px 2px 10px; padding:3px")
 						if ( (i ) % commandsPerLine.toInteger() == 0 ) paragraph( line(1) )
 					}
@@ -236,6 +245,7 @@ def mainPage(){
     }
 }
 
+
 //Returns all the data for a given device profile in a Map
 def getProfile(){
 	
@@ -248,34 +258,35 @@ def getProfile(){
 	
 	switch(selectedProfile.toInteger()){
         case [0]: /* Roku Connect >= 2.8.2  */	
+			//myIcon = data.fixedButtons["button${index}"].iconName
 			fixedButtons = [
-				button1: [text: "Power", command: "keyPress", parameter: "Power"],
- 				button2: [text: "⬅", command: "keyPress", parameter: "Back"],
-				button3: [text: "🏠︎", command: "home", parameter: "?"],
- 				button4: [text: "▲", command: "keyPress", parameter: "Up"],
-				button5: [text: "◀", command: "keyPress", parameter: "Left"],
-				button6: [text: "▶", command: "keyPress", parameter: "Right"],
- 				button7: [text: "▼", command: "keyPress", parameter: "Down"],
- 				button8: [text: "OK", command: "keyPress", parameter: "Enter"],
+				button1: [text: "Power", command: "keyPress", parameter: "Power", iconName: "power_settings_new"],
+ 				button2: [text: "⬅", command: "keyPress", parameter: "Back", iconName: "keyboard_backspace"],
+				button3: [text: "🏠︎", command: "home", parameter: "?", iconName: "home"],
+ 				button4: [text: "▲", command: "keyPress", parameter: "Up", iconName: "keyboard_arrow_up"],
+				button5: [text: "◀", command: "keyPress", parameter: "Left", iconName: "keyboard_arrow_left"],
+				button6: [text: "▶", command: "keyPress", parameter: "Right", iconName: "keyboard_arrow_right"],
+ 				button7: [text: "▼", command: "keyPress", parameter: "Down", iconName: "keyboard_arrow_down"],
+ 				button8: [text: "OK", command: "keyPress", parameter: "Select", iconName: "keyboard_return"],
 				
-				button9: [text: "↺", command: "keyPress", parameter: "InstantReplay"],
-				button10: [text: "☽", command: "guide", parameter: "?"],
-				button11: [text: "*", command: "keyPress", parameter: "Info"],
+				button9: [text: "↺", command: "keyPress", parameter: "InstantReplay", iconName: "replay"],
+				button10: [text: "📺 ", command: "keyPress", parameter: "InputTuner", iconName: "live_tv"],
+				button11: [text: "*", command: "keyPress", parameter: "Info", iconName: "asterisk"],
 				
-				button12: [text: "◀◀", command: "keyPress", parameter: "Rev"],
- 				button13: [text: "▶ \\ ❚❚", command: "play", parameter: "?"],
- 				button14: [text: "▶▶", command: "keyPress", parameter: "Fwd"],
+				button12: [text: "◀◀", command: "keyPress", parameter: "Rev", iconName: "fast_rewind"],
+ 				button13: [text: "▶ \\ ❚❚", command: "play", parameter: "?", iconName: "play_arrow"],
+ 				button14: [text: "▶▶", command: "keyPress", parameter: "Fwd", iconName: "fast_forward"],
 				
-				button15: [text: "🔉", command: "volumeDown", parameter: "?"],
- 				button16: [text: "🔇", command: "mute", parameter: "?"],
-				button17: [text: "🔊", command: "volumeUp", parameter: "?"],
+				button15: [text: "🔉", command: "volumeDown", parameter: "?", iconName: "volume_down"],
+ 				button16: [text: "🔇", command: "mute", parameter: "?", iconName: "volume_mute"],
+				button17: [text: "🔊", command: "volumeUp", parameter: "?", iconName: "volume_up"],
  				
 				button18: [text: "NETFLIX", command: "setInputSource", parameter: "Netflix"],
  				button19: [text: "Disney+", command: "setInputSource", parameter: "Disney Plus"],
  				button20: [text: "🍎&#xFE0E tv+", command: "setInputSource", parameter: "Apple TV"],
  				button21: [text: "The Roku Channel", command: "setInputSource", parameter: "The Roku Channel"]
 			]
-			
+
 			customButtons = [
  				button51: [command: "", parameter: "?", color: "#FF0000", text: "1", textColor: "#FFFFFF"],
     			button52: [command: "", parameter: "?", color: "#FFA500", text: "2", textColor: "#FFFFFF"],
@@ -299,8 +310,6 @@ def getProfile(){
 
 //Sets the default actions for each of the buttons.
 def applyProfile(){
-	
-	
 	
 	def data = getProfile()
 	def fixedButtonCount = data.fixedButtonCount
@@ -401,11 +410,11 @@ def compile(){
     // Create separate copies of content for local and cloud versions
     def localContent = content
 	localContent = localContent.replace('#connectionIcon#', '⌂' )
-    localContent = localContent.replace("#URL#", state.localEndpoint )
+    localContent = localContent.replace("#url#", state.localEndpoint)
     
 	def cloudContent = content
 	cloudContent = cloudContent.replace('#connectionIcon#', '☁︎' )
-    cloudContent = cloudContent.replace("#URL#", state.cloudEndpoint )
+    cloudContent = cloudContent.replace("#url#", state.cloudEndpoint )
 		
     // Saves a copy of this finalized HTML\CSS\SVG\SCRIPT so that it does not have to be re-calculated.
     state.compiledLocal = localContent
@@ -440,8 +449,10 @@ def condense(String input) {
     //Replace any comments in the SCRIPT section that will be between \* and *\  Note: Comments beginning with \\ will not be removed.
     input = input.replaceAll(/(?s)\/\*.*?\*\//, "")
     if (isLogDebug) log.debug  ("After SCRIPT comments removed: " + input.size() + " bytes." )
-    if (isLogDebug) log.debug ("Before: " + String.format("%,d", initialSize) + " - After: " + String.format("%,d", input.size()) + " bytes.")
+    log.info ("Compiled Remote: Before is: " + String.format("%,d", initialSize) + " - After is: " + String.format("%,d", input.size()) + " bytes.")
 	
+	
+			
     return input 
 }
 
@@ -462,6 +473,7 @@ def condense(String input) {
 def response(){
     // Extract the body field
     def bodyJson = request.body
+	def myResult 
     
     // Parse the JSON content of the body
     def parsedBody = new JsonSlurper().parseText(bodyJson)
@@ -479,7 +491,12 @@ def response(){
 	// Record the action request
     if (isLogActions) log.info ( "Remote Builder Data Received - Remote: $myRemote - Name: $myRemoteName - Button: $i - Device: $myDevice - Command: $myCommand - Parameters: $myParameter")
 	
-	if (myDevice == null || myCommand == null) return
+	// Check for missing device or command, return HTTP 400
+    if (myDevice == null || myCommand == null) {
+        log.error("Device or command is missing. Cannot execute.")
+        render status: 400, contentType: 'application/json', data: [error: 'Device: $myDevice or Command: $myCommand is missing.']
+        return
+    }
 	
 	result = assembleCommand(myCommand, myParameter)
 	if (isLogDebug) log.info ("Command Array is: $result")
@@ -489,7 +506,6 @@ def response(){
 		case ["setLevel*"]:
 			myLevel = myDevice.currentValue('level')
 			def newValue = getNewValue( myLevel, result.parameters[0] )
-			myDevice."${result.command}"( newValue )
 			return
 		case ["setVolume*"]:
 			myLevel = myDevice.currentValue('volumeLevel')
@@ -521,23 +537,34 @@ def response(){
 			myDevice."${result.command}"( map )
 			return
         case ["*toggle"]:
-			if (myDevice.currentValue('switch') == 'on') { myDevice.off() }
-			else myDevice.on()
+			if (myDevice.currentValue('switch') == 'on') { myResult = myDevice.offX() }
+			else myResult = myDevice.onX()
+			//log.info ("myResult is: $myResult ")
             return
         default:
 			if (myDevice != null && myCommand != null ) {
 				if (myParameter == null || myParameter == "?" || myParameter == "" ) myDevice."${result.command}"()
-				if (result.parameterCount == 1 ) myDevice."${result.command}"( result.parameters[0] )
-				if (result.parameterCount == 2 ) myDevice."${result.command}"( result.parameters[0], result.parameters[1] )
-				if (result.parameterCount == 3 ) myDevice."${result.command}"( result.parameters[0], result.parameters[1], result.parameters[2] )
+				if (result.parameterCount == 1 ) myResult = myDevice."${result.command}"( result.parameters[0] )
+				if (result.parameterCount == 2 ) myResult = myDevice."${result.command}"( result.parameters[0], result.parameters[1] )
+				if (result.parameterCount == 3 ) myResult = myDevice."${result.command}"( result.parameters[0], result.parameters[1], result.parameters[2] )
 			}
-			return
+		//log.info ("myResult is: $myResult ")
+		result = render status: 200, contentType: 'application/json', data: '{"success": "Command executed successfully"}'
+   		return result
+			
+		/* myResult is null if the command does not exist and an 8 digit number if the command exists and is executed. */
+		/* Future: Change the logic to get a result from each execution and either return status 200 or status 400 to indicate success or failure. */
 		}
 }
 
 //Takes the existing value of the attribute and the parameter.  If the parameter has a leading +,- or * then the existing value will be adjusted by that much. If not then the value will be set to the integer value of the specified parameter.
 def getNewValue(oldValue, parameter) {
     if (isLogDebug) log.debug("newValue: $oldValue , $parameter")
+	if (oldValue == null ) {
+		log.warn("Warning: Unable to get existing value to perform arithmetic modification. Executing command with value of 0.")
+		return 0 
+	}
+	
     def operator = parameter.find(/[\+\-\*\/]/)
     def modifierValue = operator ? convertToNumber(parameter.replaceAll("[+\\-*/]", "")) : convertToInt(parameter)
 
@@ -589,7 +616,7 @@ def convertToInt(String input) {
 
 // Assemble the command string
 def assembleCommand(myCommand, myParameters) {
-	log.info ("assembleCommands: '$myCommand' -  '$myParameters' ")
+	if (isLogDebug) log.info ("assembleCommands: '$myCommand' -  '$myParameters' ")
     def result = [command: "", parameters: [], parameterCount: 0]
     
 	//If we have no command just return the empty map
@@ -644,10 +671,15 @@ def showApplet() {
         result = render contentType: "text/html;charset=UTF-8", data:disabledEndpointHTML(), status:200
         return result
     }
-        
+	
     //If it gets this far the interface must be enabled.
-    if( isLocal ) { result = render contentType: "text/html;charset=UTF-8", data:state.compiledLocal, status:200  }
-    if( isCloud ) { result = render contentType: "text/html;charset=UTF-8", data:state.compiledCloud, status:200  }
+    if( isLocal ) { 
+		result = render contentType: "text/html;charset=UTF-8", data:state.compiledLocal, status:200  
+	}
+	
+    if( isCloud ) { 
+		result = render contentType: "text/html;charset=UTF-8", data:state.compiledCloud, status:200  
+	}
     return result
 }
 
@@ -682,175 +714,251 @@ def HTML =
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ROKU Remote</title>
+    <title>HTML Roku Remote</title>
+	<!-- Include Material Symbols Font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 	
-	<!-- Add a small default Icon that will appear on the browser tab -->
-	<link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAC20lEQVR4nO3W60tTcRzHcSH/nQ2ndjNt08ikkqmb9CCNoPKhtwcKgRloT0ywzbTZFLQ2b+F9Yup0pnl3c+6cNam5Rk7bRZ0JEl7iE+cXBYX6Ox71UX7hxcbO+f1+bzgPzkJCTud09hiptDBULFHliiRquyhMtS2WqCEEt1YkUbGicFU2t+chDld3Cz30gJguXhFiiSr3uA//ExGuyqYGiCQq9qQCxGEqGz0gTPgz52GLxyNQ4yRRAyIjKrCXiIOE80cNuHS2CnuJOkgkf9SA2PM1oJGdE44acO1iHTi66kl8C/oJB+tC1r0OxF+oPTJqwM0oHTgtr834sRuEMq4BlolP8C4t41Z8I9obLLBOO1FbOQ55jB7v+uyo00wgRVaPzuZZGN5YYTQweFH6HonRegz3f0DpYxPZk0MNUMQ0gtOut5CA+0ltYMwueNwejBod2FgP4FXlJLmm00wi4PVi3DSPqZGPCK74kJNuQHDVh8FuO5SXm8h9bToLUqIbCWpAuqwVHEP9HFn8fXOVfBZnDmIjGMDsmBNpslaseL1gZ1xY8fmwuxMk91QUjSJN2or1VT9Gehy4E9tGfu/SW3Fb2kJQAzKuGMB528CSxQV3B7C5sYKZISccZjfW/H6UPxzF7s4aeptYrPp8YCY+w2n/QgKLMkzwe75icWEJdaXTZI+eegYP4roIakBWfB84nTUM/Ite5CT0Q1diId/1pWbMz7ixHvBjqs+JPLkRC6wHQy3zyE82wjHthtvhQYfWhsCyF0uuZXRoGbRqbMi82ktQA/ITBrGfPEEG/kINeHRjGHwVXD88asCTxDEIVcwDNeCpfAqHVSKf5I0aUJZk3n6WbMa/ypJmjk4+TX8dlydb2OcpszgZFvofEk3yXLZGYcP+5gSrUlgzqQGFUlNoldLW9VLJ4FgpbB3Nqc1nqAG/I2qUTLZWyTDaVGarOpWFENzaX3vYMnkffjr/3fwEF9B6qvp1zFIAAAAASUVORK5CYII=" type="image/png">
+    <style>
+		:root { --myGradient: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.7)); }
 	
-    <style> 
-        html, body {touch-action: manipulation; font-family: Arial, sans-serif, "Segoe UI Symbol"; overflow:hidden;}
-		.button-text { font-family: Arial; font-size: 14px; fill: white; text-anchor: middle; dominant-baseline: middle; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
-		.button-text-materials { font-family: "Material Symbols Outlined"; fill:Red; font-size: 16px; text-anchor: middle; dominant-baseline: middle; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
-		.control { cursor:pointer; }
-        .no-cursor { font-size:14px; font-weight:bold; pointer-events:none; text-anchor:middle; }
-		.shadowed-text {color: black; text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7); }
+		body, html {
+			align-items: center;
+			background-color: transparent;
+			display: flex;
+			height: 100%;
+			justify-content: center;
+			margin: 0;
+			padding:0;
+			color: white;
+		}
+
+		/* Style for the remote rectangle */
+		.rectangle {
+			background-color: #333;
+			border: 1vh solid #222;
+			border-radius: 6vh;
+			height: 90vh;
+			position: relative;
+			width: 25vh;
+		}
+
+		/* Start of Roku purple cross */
+		/* This is the rectangle effect behind the keypad */
+		.rounded-rect {
+			aspect-ratio: 1 / 1; /* This makes the height equal to the width, creating a square */
+			background: radial-gradient(circle at center, #444 20%, #333 50%, #444 80%); /* Mimicking radial gradient */
+			border: 1px solid #444; 
+			border-radius: 40%; 
+			left: 50%; 
+			opacity: 0.5;
+			position: absolute;
+			top: 33.3%; 
+			width: 80%;
+		}
+		
+		/* These are the classes for the Roku purple cross */
+		.rect-common {
+			position: absolute;
+			top: 33.3%;
+			left: 50%;
+			background-color: #724AFF;
+			border: 0px solid red;
+			border-radius: 2vh;
+		}
+
+		.rect-horizontal {width: 60%; height: 6%;}
+		.rect-vertical {width: 20%; height: 18%;}
+		
+		/* End of Roku purple cross */
+
+		/*Set the properties for any materials symbol used on the remote */
+		.material-symbols-outlined {
+			font-size: clamp(4px, 3vh, 40px) !important;
+			font-variation-settings: 'FILL' 1,'wght' 400,'GRAD' 0;
+		}
+
+		/* Base button class with shared properties */		
+		.button {
+			display: flex;
+			color: white;
+			background-color: #333; /* Solid background for the button */
+			border-radius: 5vh; /* Rounded corners */
+			cursor: pointer;
+			height: 5%;
+			padding: 0px;
+			position: absolute;
+			width: 30%;
+			z-index: 2; /* Ensure it's clickable on top of other elements */
+		}
+
+		/* Standard visible button */
+		.button-normal{
+			background-clip: padding-box, border-box; /* Clip background to show gradient on border */
+			background-image: linear-gradient(to bottom, rgba(128, 128, 128, 0.7) 0%, rgba(30, 30, 30, 0.8) 50%, rgba(128, 128, 128, 0.7) 100%),
+							  linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0%, rgba(255, 255, 255, 1) 50%, rgba(0, 0, 0, 0.3) 100%); /* Gradient for border */
+			background-origin: border-box;
+			border: 0.2vh solid transparent; /* Border will be transparent initially */
+		}
+
+		/* Transparent button - Used for the navigation pad buttons */
+		.button-transparent {
+			background-color: transparent; /* Make the background fully transparent */
+			background-image: none; /* Remove background image from .button */
+			border: transparent; /* Remove any border */
+			width: 15% !important;
+		}
+		
+		/* These are the dedicated Netflix Disney Apple TV and Roku buttons */
+		.feature-button {
+			font-weight: bold;
+			height: 5%;
+			width: 40%;
+			border-radius:1.5vh;
+		}
+
+		/* Gradient used on feature buttons */
+		.gradient {
+			background-clip: padding-box, border-box;
+			background-image: linear-gradient(white, white), var(--myGradient);
+			background-origin: border-box;
+		}
+		
+		/* Start of Feature Buttons */
+		.netflix {
+			color: red;
+			letter-spacing: -0.5px;
+			text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+		}
+
+		.disney {
+			background-image: linear-gradient(#0F0E46, #3161BD), var(--myGradient);
+			color: white;
+			font-style: italic;
+			font-weight: 200;
+		}
+
+		.appletv {
+			background-image: linear-gradient(#2F2F2F, #131313), var(--myGradient);
+			color: white;
+			font-family: 'Segoe UI Symbol';
+			font-weight: 200;
+		}
+
+		.roku {
+			background-image: linear-gradient(white, white), var(--myGradient);
+			color: #260479;
+			display: flex;
+			flex-direction: column;
+			font-weight: 900;
+		}
+		/* End of Feature Buttons */
+		
+		/* Custom Buttons */
+		.custom {
+			aspect-ratio: 1 / 1; /* This makes the height equal to the width, creating a square */
+			width:4.25vh;
+			border-radius: 50%;
+			border: 1px solid white;
+		}
 				
+		/* Start of general text formatting classes */
+		.dynamic-font {
+			font-size: clamp(4px, 2vh, 40px) !important; /* Dynamic font size */
+		}
+		.dynamic-font-large .material-symbols-outlined {
+			font-size: clamp(4px, 4vh, 60px) !important; /* Dynamic font size */
+		}	
+
+		/* Standard Text Elelement */
+		.text-element {
+            position: absolute;
+            font-size: 4vh;
+            color: #555;
+        }
+		
+		/* Used to center all objects that need it */
+		.center {
+			align-items: center;
+			justify-content: center; 
+			text-align: center;
+			transform: translate(-50%, -50%);
+		}
+		
+		/* End of general text formatting classes */
+		
 		/* Animation */
         .flicker {animation:flickerOrange 0.25s linear forwards}  
-        @keyframes flickerOrange {0%, 20%, 40%, 60%, 80%, 100% {fill:#555} 10%, 30%, 50%, 70%, 90% {fill:orange}}
-    </style>
-</head>
-
-<body>
-    <div class="container" style="display:flex; justify-content:center; align-items:center; height:98vh; overflow:hidden;">
-        <svg id="remote" viewBox="0 0 140 420" preserveAspectRatio="xMidYMid meet" style="width:100%; height:85%">
-            <!-- Define the radial gradient for the shadow effect -->
-            <defs>
-                <linearGradient id="shadow-effect" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stop-color="white" stop-opacity="0.3" />
-                    <stop offset="100%" stop-color="black" stop-opacity="0.7" />
-                </linearGradient>
-                <linearGradient id="vertical-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="20%" stop-color="#555" />
-                    <stop offset="50%" stop-color="#333" />
-					<stop offset="80%" stop-color="#555" />
-                </linearGradient>
-			    <radialGradient id="radial-gradient" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-					<stop offset="20%" stop-color="#444" />
-					<stop offset="50%" stop-color="#333" />
-					<stop offset="80%" stop-color="#444" />
-				</radialGradient>
-            </defs>
-            
-            <!-- Remote body -->
-			<rect x="10" y="10" width="120" height="400"  fill="#333" rx="20" ry="20" stroke="#222" stroke-width="5" />
-			
-			<!-- Local\\Cloud Indicator -->
-            <text class="no-cursor" x="50%" y="6%" fill="#fff" >#connectionIcon#</text>
-
-            <!-- Power button - This is more complex to do but it avoids loading the material font just to ge the power symbol -->
-			<circle cx="50%" cy="11%" r="12" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1"/>
-			<path d="M 73,40.5 A 6,6 0 1,1 67,40.5" fill="none" stroke="red" stroke-width="1" />
-            <text class="button-text control numeric-button" x="50%" y="10%" style="font-size:8px; fill:Red; font-weight:900">|</text>
-			<!-- We add this statement to make the clickable area about the same size as the button. It is made transparent for obvious reasons -->
-			<text id="text1" class="button-text control numeric-button" x="50%" y="11%" style="font-size:20px; fill:Transparent; font-weight:900">X</text>
-			
-            <!-- LED -->
-            <circle id="led1" cx="20%" cy="7%" r="2.5%" fill="#555"/>
-            <circle id="led2" cx="80%" cy="7%" r="2.5%" fill="#555"/>
-            
-			<!-- Placing this hex string (&#xFE0E) after a character forces the rendering of the character without using eMoji's which is an issue mainly of Apple Devices -->
-
-            <!-- Back Button -->
-			<rect x="16%" y="15%" width="28%" height="5%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text2" class="button-text control numeric-button" x="30%" y="18%" style="font-size:20px">⬅&#xFE0E</text>
-			
-			<!-- Home Button -->
-			<rect x="56%" y="15%" width="28%" height="5%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text3" class="button-text control numeric-button" x="70%" y="17.5%">🏠︎&#xFE0E</text>
-			
-            <!-- Navigation buttons -->
-			<!-- The shaded rectangular pad -->
-			<rect x="20" y="90" width="100" height="100" rx="40" ry="40" fill="url(#radial-gradient)" stroke="#333" stroke-width="1" />
-			<!-- The Navigation cross -->
-			<path d="M 65 95   h 10   a 10 10 0 0 1 10 10 v 20 h 20    a 10 10 0 0 1 10 10 v 10    a 10 10 0 0 1 -10 10 h -20 v 20   a 10 10 0 0 1 -10 10 h -10    a 10 10 0 0 1 -10 -10 v -20 h -20   a 10 10 0 0 1 -10 -10 v -10    a 10 10 0 0 1 10 -10 h 20 v -20   a 10 10 0 0 1 10 -10 z" fill="#3F2A87" stroke="url(#shadow-effect)" stroke-width="1"/>
-
-			<!-- Text on the top limb -->
-			<text id="text4" class="button-text control numeric-button" x="72" y="107" transform="rotate(-90, 72, 107)" style="font-size:20px" >&gt</text>
-			
-			<!-- Text on the left limb -->
-			<text id="text5" class="button-text control numeric-button" x="40" y="142" style="font-size:20px" >&lt</text>
-
-			<!-- Text on the right limb -->
-			<text id="text6" class="button-text control numeric-button" x="100" y="142" style="font-size:20px">&gt</text>
-
-			<!-- Text on the bottom limb -->
-			<text id="text7" class="button-text control numeric-button" x="72" y="170" transform="rotate(-90, 72, 170)" style="font-size:20px">&lt</text>
-            
-            <!-- OK button -->
-            <circle cx="70" cy="140" r="14" fill="#3F2A87" stroke="url(#shadow-effect)" stroke-width="1" />
-            <text id="text8" class="button-text control numeric-button" x="70" y="141" style="font-size:12px">OK</text>
-                
-			<!-- Replay Button -->
-			<rect x="12%" y="48%" width="22%" height="5%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text9" class="button-text control numeric-button" x="33" y="213"  transform="rotate(-75, 33, 213)" style="font-size:16px; font-weight:500">↺</text>
-			
-			<!-- Sleep Button -->
-			<rect x="40%" y="48%" width="20%" height="5%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text10" class="button-text control numeric-button" x="50.2%" y="50.9%" >☽</text>
-				
-			<!-- Asterisk Button -->
-			<rect x="66%" y="48%" width="22%" height="5%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text11" class="button-text control numeric-button" x="77.5%" y="52.2%" style="font-size:24px">*</text>	
-			
-			<!-- Fast Back Button -->
-			<rect x="12%" y="55%" width="18%" height="6%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text12" class="button-text control numeric-button" x="20.5%" y="58.1%" style="font-size:8px; letter-spacing:0px;" >◀&#xFE0E◀&#xFE0E</text>
-			
-			<!-- Play Button -->
-			<rect x="35%" y="55%" width="30%" height="6%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text13" class="button-text control numeric-button" x="50%" y="58.1%" text-anchor="middle" dominant-baseline="middle" style="font-size:10px; letter-spacing:0px;">▶&#xFE0E❚❚</text>
-				
-			<!-- Fast Forward Button -->
-			<rect x="70%" y="55%" width="18%" height="6%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text14" class="button-text control numeric-button" x="79.5%" y="58.1%" style="font-size:8px; letter-spacing:0px;">▶&#xFE0E▶&#xFE0E</text>	
-						
-			<!-- Volume Down Button -->
-			<rect x="12%" y="63%" width="22%" height="5%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<!-- <text id="text33" class="button-text control numeric-button" x="24%" y="66%" text-anchor="middle" dominant-baseline="middle" style="font-size:12px">🔉</text> -->
-			<text id="text15" class="button-text control numeric-button" x="24%" y="65.8%" style="font-size:12px">🔉</text>
-			
-			<!-- Mute Button -->
-			<rect x="40%" y="63%" width="20%" height="5%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text16" class="button-text control numeric-button" x="50%" y="65.8%" style="font-size:12px">🔇</text>
-				
-			<!-- Volume Up Button -->
-			<rect x="66%" y="63%" width="22%" height="5%" fill="url(#vertical-gradient)" stroke="url(#shadow-effect)" stroke-width="1" rx="10" ry="10"/>
-			<text id="text17" class="button-text control numeric-button" x="78%" y="65.8%" style="font-size:12px">🔊</text>	
-
-			<!-- Netflix Button -->
-			<rect x="12%" y="71%" width="35%" height="5%" fill="#F00" stroke="url(#shadow-effect)" stroke-width="3" rx="5" ry="5"/>
-			<text id="text18" class="button-text control numeric-button shadowed-text" x="29.5%" y="73.6%" style="font-size:9.5px; letter-spacing:-0.25px; font-weight:800">NETFLIX</text>
-			
-			<!-- Disney Button -->
-			<rect x="53%" y="71%" width="35%" height="5%" fill="#141D8E" stroke="url(#shadow-effect)" stroke-width="2" rx="5" ry="5"/>
-			<text id="text19" class="button-text control numeric-button" x="72%" y="73.8%" style="font-size:14px;font-family:'Brush Script MT' " >Disney+</text>
-			
-			<!-- Apple TV Button -->
-			<rect x="12%" y="78%" width="35%" height="5%" fill="#333" stroke="url(#shadow-effect)" stroke-width="2" rx="5" ry="5"/>
-			<text id="text20" class="button-text control numeric-button" x="29.5%" y="80.6%" style="font-size:12px; font-family:'Segoe UI Symbol' ">🍎&#xFE0E tv+</text>
+        @keyframes flickerOrange {0%, 20%, 40%, 60%, 80%, 100% {color:#555;} 10%, 30%, 50%, 70%, 90% {color:orange;} }
 		
-			<!-- Roku Channel Button -->
-			<rect x="53%" y="78%" width="35%" height="5%" fill="#FFF" stroke="url(#shadow-effect)" stroke-width="3" rx="5" ry="5"/>
-			<text id="text21" class="button-text control numeric-button" x="71%" y="79.75%" style="font-size:12px; font-weight:900; fill:#260479 !important;" >Roku</text>
-			<text id="text21" class="control button-text numeric-button" x="71%" y="81.6%" style="font-size:8px; font-weight:100; font-style:italic; fill:#260479 !important;" >Channel</text>
+		</style>
 
-            <!-- Custom Buttons - Group B -->
-            <circle id="object51" cx="20%" cy="88%" r="3.6%" fill="red" stroke="gray" stroke-width="1"/>
-            <text id="text51" class="button-text control numeric-button" x="20.3%" y="88.3%" >A</text>
-            
-            <circle id="object52" cx="40%" cy="88%" r="3.6%" fill="green" stroke="gray" stroke-width="1"/>
-            <text id="text52" class="button-text control numeric-button"x="40.3%" y="88.3%" >B</text>
-            
-            <circle id="object53" cx="60%" cy="88%" r="3.6%" fill="purple" stroke="gray" stroke-width="1"/>
-            <text id="text53" class="button-text control numeric-button" x="60.3%" y="88.3%" >C</text>
-            
-            <circle id="object54" cx="80%" cy="88%" r="3.6%" fill="blue" stroke="gray" stroke-width="1"/>
-            <text id="text54" class="button-text control numeric-button" x="80.3%" y="88.3%" >D</text>
-            
-        </svg>
+</head>
+<body>
+
+	<div class="rectangle" style="display:flex; justify-content:center; align-items:center; height:90vh; overflow:hidden;">
+		<!-- Local\\Cloud Indicator -->	
+        <div class="text-element center" style="left:50%; top:4%;" >#connectionIcon#</div>
+		
+		<div id="led1" class="text-element center" style="left:15%; top:5%">⬤</div>
+		<div id="led2" class="text-element center" style="left:85%; top:5%">⬤</div>
+
+		<div class="rectangle rect-common rect-horizontal center"></div>
+        <div class="rectangle rect-common rect-vertical center"></div>
+		
+		<div class="rounded-rect center"></div>
+
+		<!-- Customize the Power Button to make it round rather than rectangular -->
+        <button id="text1" class="myButtons button button-normal center dynamic-font-large" style="left:50%; top:10%; width:6vh !important; height:6vh !important; border-radius: 50% !important;"><span class="material-symbols-outlined" style="color:red;">power_settings_new</span></button>	
+		<button id="text2" class="myButtons button button-normal center dynamic-font-large" style="left:25%; top:18%;"><span class="material-symbols-outlined" >arrow_left_alt</span></button>	
+		<button id="text3" class="myButtons button button-normal center" style="left:75%; top:18%;"><span class="material-symbols-outlined" >home</span></button>	
+		
+		<!-- Navigation Pad -->
+		<button id="text4" class="button button-transparent center" style="left:50%; top:26.5%;"><span class="material-symbols-outlined" style="transform: rotate(-90deg);" >arrow_forward_ios</span></button>	
+		<button id="text5" class="button button-transparent center" style="left:30%; top:33.4%;"><span class="material-symbols-outlined" >arrow_back_ios</span></button>	
+		<button id="text6" class="button button-transparent center" style="left:73%; top:33.4%;"><span class="material-symbols-outlined" >arrow_forward_ios</span></button>	
+		<button id="text7" class="button button-transparent center" style="left:50%; top:40%;"><span class="material-symbols-outlined" style="transform: rotate(90deg);" >arrow_forward_ios</span></button>	
+		<button id="text8" class="button button-normal center dynamic-font" style="left:50%; top:33.4%; width:5vh !important; height:5vh !important; border-radius: 50% !important; opacity:60%">OK</button>
+		
+		<button id="text9" class="button button-normal center" style="left:20%; top:50%; width:25%"><span class="material-symbols-outlined" >replay</span></button>
+		<button id="text10" class="button button-normal center" style="left:50%; top:50%; width:25%"><span class="material-symbols-outlined" >live_tv</span></button>
+		<button id="text11" class="button button-normal center" style="left:80%; top:50%; width:25%"><span class="material-symbols-outlined" >emergency</span></button>
+		
+		<button id="text12" class="button button-normal center" style="left:20%; top:58%; width:25%"><span class="material-symbols-outlined" >fast_rewind</span></button>
+		<button id="text13" class="button button-normal center dynamic-font-large" style="left:50%; top:58%; width:30%"><span class="material-symbols-outlined" >play_pause</span></button>
+		<button id="text14" class="button button-normal center" style="left:80%; top:58%; width:25%"><span class="material-symbols-outlined" >fast_forward</span></button>
+		
+		<button id="text15" class="button button-normal center" style="left:20%; top:66%; width:25%"><span class="material-symbols-outlined" >volume_down</span></button>
+		<button id="text16" class="button button-normal center" style="left:50%; top:66%; width:30%"><span class="material-symbols-outlined" >volume_off</span></button>
+		<button id="text17" class="button button-normal center" style="left:80%; top:66%; width:25%"><span class="material-symbols-outlined" >volume_up</span></button>
+		
+		<!-- Feature Buttons -->
+		<button id="text18" class="button feature-button gradient center dynamic-font netflix" style="left:28%; top:75%">NETFLIX</button>
+		<button id="text19" class="button feature-button gradient center dynamic-font disney" style="left:72%; top:75%">Disney+</button>
+		<button id="text20" class="button feature-button gradient center dynamic-font appletv" style="left:28%; top:82%">🍎 tv+</button>	
+		<button id="text21" class="button feature-button gradient center dynamic-font roku" style="left:72%; top:82%; ">
+			<span style="line-height: 1;"><i>Roku</i></span>
+			<span style="font-size:50%; font-weight:100; font-style:italic; color:#000; line-height:1;">Channel</span>
+		</button>
+		
+		<!-- Custom Buttons -->
+        <button id="text51" class="button custom center dynamic-font" style="left:20%; top:90%; background-color:red;" >A</button>
+		<button id="text52" class="button custom center dynamic-font" style="left:40%; top:90%; background-color:green;" >B</button>
+		<button id="text53" class="button custom center dynamic-font" style="left:60%; top:90%; background-color:purple;" >C</button>
+		<button id="text54" class="button custom center dynamic-font" style="left:80%; top:90%; background-color:blue;" >D</button>
+	
     </div>
-    <script>
+		
+	    <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const numericButtons = document.querySelectorAll('.numeric-button');
+            const myButtons = document.querySelectorAll('.button');
             const led1 = document.getElementById('led1');
             const led2 = document.getElementById('led2');
-            const buttonData = #buttonData#;
+			const buttonData = #buttonData#;
             
-            numericButtons.forEach(button => {
+            myButtons.forEach(button => {
                 button.addEventListener('click', (event) => {
-                    const buttonId = event.target.id; /* Get the ID of the clicked button */
-                    console.log("EventListener: ", button)
+                    const buttonId = event.currentTarget.id; /* Get the ID of the clicked button */
+                    /*console.log("EventListener: ", button)*/
                     if (buttonId) {
                         sendData(buttonId);
                     }
@@ -861,77 +969,72 @@ def HTML =
                 buttonData.forEach(data => {
                     let textId = `text${data.index}`;
                     let textElement = document.getElementById(textId);
-                    let objectId = `object${data.index}`;
-                    let objectElement = document.getElementById(objectId);
-
+                    
                     if (textElement) {
-                        // Modify text content
+                        /* Modify text content, text color and background */
                         textElement.textContent = data.label;
-
-                        // Modify text color
-                        textElement.style.fill = data.tColor;
-
-                        // Hide the Text Content if necessary
+                        textElement.style.color = data.tColor;
+                        textElement.style.backgroundColor = data.bColor;
+                        /* Hide the Text Content if necessary */
                         if (data.bHidden === "true") textElement.style.display = "none";
                         else textElement.style.display = "block";
-                    }
-
-                    if (objectElement) {
-                        // Modify object background color
-                        objectElement.setAttribute("fill", data.bColor);
-
-                        if (data.bHidden === "true") objectElement.style.display = "none";
-                        else objectElement.style.display = "block";
                     }
                 });
             }
 
-            function sendData(buttonId) {
-				/* Trigger a vibration for 200 milliseconds if the user has selected it and it is supported by the device. */
-				if (navigator.vibrate && #hapticResponse#) { navigator.vibrate(100); } 
+			function sendData(buttonId) {
+				/* Trigger vibration if supported */
+				if (navigator.vibrate && #hapticResponse#) { navigator.vibrate(100); }
 
-                console.log("Button is: ", buttonId );
-                const url = '#URL#';
-                /* Only proceed if mode is not null */
-                if (buttonId !== null) {
-                    led1.classList.add('flicker'); /* Start flickering led1 */
-                    // Construct the request payload
-                    const payload = { button: buttonId };
-                    fetch(url, {
-                        mode: 'no-cors',
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(response => {
-                        /* console.log('Data sent:', response); */
-                        led1.classList.remove('flicker'); /* Turn off LED1 */
-                        led2.setAttribute('fill', 'green'); /* Set led2 to solid green */
-                        setTimeout(() => {
-                            led2.setAttribute('fill', '#555'); /* Reset led2 to its original color */
-                        }, 500); /* Solid for 1 seconds */
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        led1.classList.remove('flicker'); /* Turn off LED1 */
-                        led2.setAttribute('fill', 'red'); /* Set led2 to solid red */
-                        setTimeout(() => {
-                            led2.setAttribute('fill', '#555'); /* Reset led2 to its original color */
-                        }, 500); /* Solid for 1 seconds */
-                    });
-                }
-                setTimeout(() => {
-                    led1.classList.remove('flicker');
-                }, 250);
-            }
+				const url = '#url#';
 
-            /* Initialize buttons */
+				if (buttonId !== null) {
+					led1.classList.add('flicker');  /* Start flickering led1 */
+
+					/* Construct the request payload */
+					const payload = { button: buttonId };
+					
+					/* A successful execution will come back with status 200 */
+					fetch(url, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload)
+					})
+					.then(response => {
+						/* Check if the status code is 200 */
+						if (response.status !== 200) { throw new Error('Unexpected response status: ' + response.status); }
+						return response.json();  /* Parse the response body as JSON */
+					})
+					.then(data => {
+						console.log('Server response:', data);  /* This contains the success message or any other data */
+						led1.classList.remove('flicker');  /* Stop flickering led1 */
+						led2.style.color = 'green';  /* Set led2 to solid green */
+						setTimeout(() => {
+							led2.style.color = '#555';  /* Reset led2 to its original color */
+						}, 1000);
+					})
+					.catch(error => {
+						console.error('Error:', error);
+						led1.classList.remove('flicker');  /* Turn off led1 flicker */
+						led2.style.color = 'red';  /* Set led2 to red */
+						setTimeout(() => {
+							led2.style.color = '#555';  /* Reset led2 to its original color */
+						}, 1000);
+					});
+				}
+
+				setTimeout(() => {
+					led1.classList.remove('flicker');  /* Ensure led1 flicker stops */
+				}, 1000);
+			}
+
+			/* Initialize buttons */
             updateButtons();
         });
     </script>
+	
 </body>
 </html>
-
 
 '''
 return HTML
@@ -1022,6 +1125,11 @@ void publishRemote(){
 	def tileLink2 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][div]"
 		
     myStorageDevice.createTile(settings.myRemote, tileLink1, tileLink2, settings.myRemoteName)
+	
+	//Publish the Remotes to the parent for Remote Links function.
+	def inputMap = [ number: myRemote.toString(), name: myRemoteName, localEndpoint: state.localEndpoint, cloudEndpoint: state.cloudEndpoint ]
+	parent.saveRemoteLinks(inputMap)
+	
 	return
     
 }
