@@ -48,7 +48,7 @@ def deviceProfileList() { return [0:'Roku Connect (>= 2.8.2) by Armand Welsh'] }
 definition(
 	    name: "Remote Builder - Roku",
         description: "Generates a TV remote control that can operate be executed from a web browser or embedded into a Hubitat Dashboard.",
-        importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Roku2.groovy",
+        importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Roku.groovy",
         namespace: "garyjmilne", author: "Gary J. Milne", category: "Utilities", iconUrl: "", iconX2Url: "", iconX3Url: "", singleThreaded: false,
         parent: "garyjmilne:Remote Builder", 
         installOnOpen: false, oauth: true
