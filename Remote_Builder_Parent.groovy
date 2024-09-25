@@ -30,13 +30,14 @@
 *  Version 1.0.2 - Added Roku Module.
 *  Version 1.1.0 - Added Saving and Removal of Remote Links for each published remote.
 *  Version 1.1.1 - Added Keypad Module
+*  Version 1.1.2 - Added QR Code Generator
 *
-*  Gary Milne - 9/20/24 @ 12:39 AM
+*  Gary Milne - 9/25/24 @ 12:27 PM
 *
 **/
 
 import groovy.transform.Field
-@Field static final Version = "<b>Remote Builder Parent v1.1.1 (9/20/24)</b>"
+@Field static final Version = "<b>Remote Builder Parent v1.1.2 (9/25/24)</b>"
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -214,9 +215,9 @@ def mainPage() {
                     myString += '<b>1)</b> Fixed 6 Button Remote. (Standard)<br>'
 					myString += '<b>2)</b> Roku Remote. (Standard)<br>'
 					myString += '<b>3)</b> Keypad. (Standard)<br>'
-					//myString += '<b>4)</b> QR Code Generator. (Standard)<br>'
-                    myString += '<b>4)</b> Custom 6 Button Remote with 3 x button groups for 18 unique actions. (Advanced)<br>'
-                    myString += '<b>5)</b> TV Remote with custom buttons. (Advanced)<br>'
+					myString += '<b>4)</b> QR Code Generator. (Standard)<br>'
+                    myString += '<b>5)</b> Custom 6 Button Remote with 3 x button groups for 18 unique actions. (Advanced)<br>'
+                    myString += '<b>6)</b> TV Remote with custom buttons. (Advanced)<br>'
 					myString += '<b>More to come.</b>'
                     paragraph note('', myString)
                     
@@ -225,8 +226,7 @@ def mainPage() {
 					if (!hideCustom6ButtonRemote && checkLicense() ) app (name: 'TBPA', appName: 'Remote Builder - Custom 6 Button', namespace: 'garyjmilne', title: 'Add Custom Six Button Remote')
 					if (!hideKeypad) app (name: 'TBPA', appName: 'Remote Builder - Keypad', namespace: 'garyjmilne', title: 'Add Keypad')
 					if (!hideRokuRemote) app (name: 'TBPA', appName: 'Remote Builder - Roku', namespace: 'garyjmilne', title: 'Add Roku Remote')
-					//if (!hideRokuRemote) app (name: 'TBPA', appName: 'Remote Builder - Roku2', namespace: 'garyjmilne', title: 'Add Roku Remote2')
-					//if (!hideQRCode) app (name: 'TBPA', appName: 'Remote Builder - QR Code', namespace: 'garyjmilne', title: 'Add QR Code')
+					if (!hideQRCode) app (name: 'TBPA', appName: 'Remote Builder - QR Code', namespace: 'garyjmilne', title: 'Add QR Code')
 					if (!hideTVRemote && checkLicense() ) app (name: 'TBPA', appName: 'Remote Builder - TV', namespace: 'garyjmilne', title: 'Add TV Remote')
 					
                     }
@@ -276,6 +276,7 @@ def mainPage() {
 					input (name: "hideRokuRemote", type: "bool", title: "<b>Hide Roku Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
 					input (name: "hideTVRemote", type: "bool", title: "<b>Hide TV Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
 					input (name: "hideKeypad",  type: "bool", title: "<b>Hide Keypad</b>", defaultValue: false, submitOnChange: true, width: 2)
+					input (name: "hideQRCode",  type: "bool", title: "<b>Hide QR Code</b>", defaultValue: false, submitOnChange: true, width: 2)
                     paragraph line(1)
                     
                     input(name: 'removeLicense'  , type: 'button', title: 'De-Activate Software License', backgroundColor: '#27ae61', textColor: 'white', submitOnChange: true, width: 3, newLineAfter: true)
