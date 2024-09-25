@@ -49,7 +49,7 @@ definition(
         importUrl: "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_QRCode.groovy",
         namespace: "garyjmilne", author: "Gary J. Milne", category: "Utilities", iconUrl: "", iconX2Url: "", iconX3Url: "", singleThreaded: true,
         parent: "garyjmilne:Remote Builder", 
-        installOnOpen: false, oauth: false
+        installOnOpen: false, oauth: true
 )
 
 //Tells the App how to direct inbound and outbound requests.
