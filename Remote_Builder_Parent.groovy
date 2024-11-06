@@ -31,13 +31,14 @@
 *  Version 1.1.0 - Added Saving and Removal of Remote Links for each published remote.
 *  Version 1.1.1 - Added Keypad Module
 *  Version 1.1.2 - Added QR Code Generator
+*  Version 1.1.3 - Added SmartGrid
 *
-*  Gary Milne - 9/25/24 @ 12:27 PM
+*  Gary Milne - 11/6/24 @ 111:25 PM
 *
 **/
 
 import groovy.transform.Field
-@Field static final Version = "<b>Remote Builder Parent v1.1.2 (9/25/24)</b>"
+@Field static final Version = "<b>Remote Builder Parent v1.1.3 (11/6/24)</b>"
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -87,9 +88,8 @@ def mainPage() {
                 if (state.setupState != 99) titleise2(red("<b>First time setup!</b>"))
                 paragraph myString
                 
-                myString = "You are installing <b>Remote Builder Standard which is free.</b> The standard version gives access to the <b>Fixed 6 Button Remote</b> where actions can be customized but the appearance of the Remote is fixed.<br>"
-				myString += "The Advanced version gives you access to the <b>Custom 6 Button Remote</b> which support 18 buttons in three groups. All aspects of the remote appearance are also fully customizable.<br>"
-				myString += "The Advanced version also includes the TV Remote which gives you a fully configured TV Remote (shown below) which you can connect to your Hubitat TV Driver for a seamless experience. Other remotes will be added in the near future.<br>"
+                myString = "You are installing <b>Remote Builder Standard which is free.</b> The standard version gives access to the <b>Fixed 6 Button Remote, Roku Remote, Keypad and QR Code Generator</b>.<br>"
+				myString += "The Advanced version gives you access to the <b>Custom 6 Button Remote, TV Remote and SmartGrid</b>.<br>"
                 myString += "If you wish to upgrade to <b>Remote Builder Advanced</b> you can do so after setup is complete by visiting the Licensing section. The Advanced version gives you access to a variety of Remotes.<br>"
 				myString += "<b>Remote Builder</b> and <b>Tile Builder</b> are sister products. An Advanced license for either one grants you full access to the other."
                 paragraph myString
@@ -124,10 +124,12 @@ def mainPage() {
                     myString += "<b>1)</b> Fixed 6 Button Remote. Button actions can be customized but the interface cannot be.<br><br>"
 					myString += "<b>2)</b> Roku Remote with 4 custom buttons.<br><br>"
 					myString += "<b>3)</b> Keypad with keys 0-9, * and #. Data can be passed to Rules, Hub variables or driver commands.<br><br>"
+					myString += "<b>4)</b> QR Code Generator for putting QR codes on a dashboard.<br><br>"
                     myString += "<b>Remote Builder Advanced (Donation Required)</b><br>"
                     myString += "<b>1)</b> Customizable 6 Button Remote with 3 X button groups (18 commands). Highly customizable for button color, text, tooltips and background.<br>"
 					myString += "<b>2)</b> Universal TV Remote shown earlier with user defineable buttons for quick access.<br>"
-					myString += "<b>3)</b> More to come!<br><br>"
+					myString += "<b>3)</b> SmartGrid mixes elements of Tile Builder with full control of the devices.<br>"
+					myString += "<b>4)</b> More to come!<br><br>"
                     myString += titleise("Remote Builder is bundled with Tile Builder and uses the same licensing keys. If you already have Tile Builder Advanced you can use those keys to activate Remote Builder Advanced.")
                     
                     myString = myString + "To purchase the license for <b>Remote Builder \\ Tile Builder Advanced</b> you must do the following:<br>"
@@ -172,7 +174,6 @@ def mainPage() {
                     
                     input(name: 'selectedDevice', type: 'enum', title: bold('Select a Remote Builder Storage Device'), options: storageDevices(), required: false, defaultValue: 'Remote Builder Storage Device 1', submitOnChange: true, width: 3, newLineAfter:true)
                     input(name: 'createDevice', type: 'button', title: 'Create Device', backgroundColor: 'MediumSeaGreen', textColor: 'white', submitOnChange: true, width: 2)
-                    //paragraph ("isStorageConnected: $state.isStorageConnected")
                     
                     if (state.isStorageConnected == false) input(name: 'connectDevice', type: 'button', title: 'Connect Device', backgroundColor: 'Orange', textColor: 'white', submitOnChange: true, width: 2)
                     else input(name: 'doNothing', type: 'button', title: 'Connect Device', backgroundColor: 'MediumSeaGreen', textColor: 'white', submitOnChange: true, width: 2)
@@ -218,6 +219,7 @@ def mainPage() {
 					myString += '<b>4)</b> QR Code Generator. (Standard)<br>'
                     myString += '<b>5)</b> Custom 6 Button Remote with 3 x button groups for 18 unique actions. (Advanced)<br>'
                     myString += '<b>6)</b> TV Remote with custom buttons. (Advanced)<br>'
+					myString += '<b>7)</b> SmartGrid. (Advanced)<br>'
 					myString += '<b>More to come.</b>'
                     paragraph note('', myString)
                     
@@ -228,7 +230,7 @@ def mainPage() {
 					if (!hideRokuRemote) app (name: 'TBPA', appName: 'Remote Builder - Roku', namespace: 'garyjmilne', title: 'Add Roku Remote')
 					if (!hideQRCode) app (name: 'TBPA', appName: 'Remote Builder - QR Code', namespace: 'garyjmilne', title: 'Add QR Code')
 					if (!hideTVRemote && checkLicense() ) app (name: 'TBPA', appName: 'Remote Builder - TV', namespace: 'garyjmilne', title: 'Add TV Remote')
-					
+					if (!hideSmartGrid && checkLicense() ) app (name: 'TBPA', appName: 'Remote Builder - SmartGrid', namespace: 'garyjmilne', title: 'Add SmartGrid')
                     }
                 else {
                     input(name: 'btnShowCreateEdit', type: 'button', title: 'Create\\Edit Remotes ▶', backgroundColor: 'DodgerBlue', textColor: 'white', submitOnChange: true, width: 2, newLineBefore: true, newLineAfter: false)  //▼ ◀ ▶ ▲
@@ -277,6 +279,7 @@ def mainPage() {
 					input (name: "hideTVRemote", type: "bool", title: "<b>Hide TV Remote?</b>", defaultValue: false, submitOnChange: true, width: 2)
 					input (name: "hideKeypad",  type: "bool", title: "<b>Hide Keypad</b>", defaultValue: false, submitOnChange: true, width: 2)
 					input (name: "hideQRCode",  type: "bool", title: "<b>Hide QR Code</b>", defaultValue: false, submitOnChange: true, width: 2)
+					input (name: "hideSmartGrid",  type: "bool", title: "<b>Hide SmartGrid</b>", defaultValue: false, submitOnChange: true, width: 2)
                     paragraph line(1)
                     
                     input(name: 'removeLicense'  , type: 'button', title: 'De-Activate Software License', backgroundColor: '#27ae61', textColor: 'white', submitOnChange: true, width: 3, newLineAfter: true)
