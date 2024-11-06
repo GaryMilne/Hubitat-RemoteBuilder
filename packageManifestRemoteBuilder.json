@@ -3,10 +3,10 @@
   "author": "Gary J. Milne",
   "version": "104",
   "minimumHEVersion": "2.3.4.132",
-  "dateReleased": "2024-09-25",
-  "releaseNotes": "Package-104: Adds QR Code Generator. Updates Roku Remote to V 2.0.0\n\nPackage-103: Adds Keypad V2.0.0.\n\nPackage-102: Brings all remotes to Version 1.1.3 and adds Roku Remote initial release.\n\nPackage-101: Initial Release\n\n",
-  "documentationLink": "",
-  "communityLink": "",
+  "dateReleased": "2024-11-06",
+  "releaseNotes": "Package-105: Adds SmartGrid module.\n\nPackage-104: Adds QR Code Generator. Updates Roku Remote to V 2.0.0\n\nPackage-103: Adds Keypad V2.0.0.\n\nPackage-102: Brings all remotes to Version 1.1.3 and adds Roku Remote initial release.\n\nPackage-101: Initial Release\n\n",
+  "documentationLink": "https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf",
+  "communityLink": "https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices-6-remotes-available/142060",
   "apps": [
     {
       "id": "ba72af2b-020d-445e-858d-58dfdd542e73",
@@ -74,9 +74,19 @@
       "namespace": "garyjmilne",
       "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_QR_Code.groovy",
       "required": false,
-      "oauth": false,
+      "oauth": true,
       "primary": false,
       "version": "2.0.0"
+    },
+	{
+      "id": "ab101ce5-2011-4784-b117-f2f26331c680",
+      "name": "Remote Builder - SmartGrid",
+      "namespace": "garyjmilne",
+      "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_SmartGrid.groovy",
+      "required": false,
+      "oauth": true,
+      "primary": false,
+      "version": "1.3.1"
     }
   ],
   "drivers": [
