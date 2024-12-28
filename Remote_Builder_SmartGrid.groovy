@@ -38,8 +38,9 @@
 *  Version 2.7.X - Split Shades and Blinds and added support for Tilt control. Improved appearance.
 *  Version 2.8.0 - Moved Icon logic to Groovy. Added Mozilla support - untested.
 *  Version 3.0.0 - Public release
+*  Version 3.0.1 - Fix issue with old code being used for the body,html and @media sections affecting rotation. Fix bug with hiding Control C. Fan buttons resize better. Added width option for Control columns.
 * 
-*  Gary Milne - December 27th, 2024 @ 8:35 PM V 3.0.0
+*  Gary Milne - December 27th, 2024 @ 4:47 PM PM V 3.0.1
 *
 **/
 
@@ -67,6 +68,7 @@ import java.time.LocalDateTime
 
 //These are the data for the pickers used on the child forms.
 static def textScale() { return ['50', '55', '60', '65', '70', '75', '80', '85', '90', '95', '100', '105', '110', '115', '120', '125', '130', '135', '140', '145', '150', '175', '200', '250', '300', '350', '400', '450', '500'] }
+static def columnWidth() { return ['50', '60', '70', '80', '90', '100', '110', '120', '130', '140', '150', '160', '170', '180', '190', '200', '210', '220', '230', '240', '250', '260', '270', '280', '290', '300', '350', '400', '450', '500'] }
 static def textAlignment() { return ['Left', 'Center', 'Right', 'Justify'] }
 static def opacity() { return ['1', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1', '0'] }
 static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] }
@@ -88,8 +90,8 @@ static def durationFormatsList() { return durationFormatsMap().values() }
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "dID", "network", "deviceTypeName"].sort() }
 
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.0.0 (12/27/24)</b>"
-@Field static final codeVersion = 300
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.0.1 (12/28/24)</b>"
+@Field static final codeVersion = 301
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -112,6 +114,7 @@ preferences {
    page name: "mainPage"
 }
 
+
 def mainPage(){
 	
 	//app.updateSetting("pollUpdateColor", [value: "#00FF00", type: "color"])
@@ -119,11 +122,13 @@ def mainPage(){
 	//app.updateSetting("column3Header", "Name")
 	
 	if (state.variablesVersion == null || state.variablesVersion < codeVersion) updateVariables()
+	checkNulls()
 	
-    //Basic initialization for the initial release. If it is already initialized then compile the remote on each reload.
+	//Basic initialization for the initial release. If it is already initialized then compile the remote on each reload.
     if (state.initialized == null) initialize()
 	else compile()
-	    
+	
+	
     dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff;;'> Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
 			section(hideable: true, hidden: state.hidden.Devices, title: buttonLink('btnHideDevice', getSectionTitle("Devices"), 20)) {
             	
@@ -241,13 +246,11 @@ def mainPage(){
 				
 				if (settings.customizeSection == "General") {
 					input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px")
-					input(name: "defaultDateTimeFormat", title: bold("Date Time Format"), type: "enum", options: dateFormatsMap(), submitOnChange: true, defaultValue: 1, width: 2, style:"margin-right:25px")
-					input(name: "defaultDurationFormat", title: bold("Duration Format"), type: "enum", options: durationFormatsMap(), submitOnChange: true, defaultValue: "(dd):hh:mm", width: 2, style:"margin-right:25px")
-					//input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["Normal", "Large"], submitOnChange: true, defaultValue: "Normal", width: 2, style:"margin-right:25px")
+					input(name: "defaultDateTimeFormat", title: bold("Date Time Format"), type: "enum", options: dateFormatsMap(), submitOnChange: true, defaultValue: 3, width: 2, style:"margin-right:25px")
+					input(name: "defaultDurationFormat", title: bold("Duration Format"), type: "enum", options: durationFormatsMap(), submitOnChange: true, defaultValue: 21, width: 2, style:"margin-right:25px")
 					input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "17.5", width: 2, style:"margin-right:25px")
 					input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
-                    input (name: "va", type: "enum", title: bold("Vertical Alignment"), required: false, options: ["Top", "Center", "Bottom" ], defaultValue: "Top", submitOnChange: true, width: 2, style:"margin-right:25px"  )
-					input (name: "thp", type: "enum", title: bold("Horizontal Padding"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
+					input (name: "thp", type: "enum", title: bold("Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input (name: "tvp", type: "enum", title: bold("Vertical Padding"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
 				}
 				
@@ -267,20 +270,29 @@ def mainPage(){
                     input(name: "hbc", type: "color", title: bold2("Background Color", hbc), required: false, defaultValue: "#90C226", width: 2, submitOnChange: true, style:"margin-right:30px")
 					input(name: "hbo", type: "enum", title: bold("Bg Opacity"), options: opacity(), required: false, defaultValue: "1", width:2, submitOnChange: true, style:"margin-right:30px")
 					
-					input(name: "hideColumn1", type: "bool", title: bold("Hide Selection Boxes?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
-					input(name: "hideColumn2", type: "bool", title: bold("Hide Icons?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;margin-right:30px")
-					input(name: "hideColumn4", type: "bool", title: bold("Hide State?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;margin-right:30px")
-					input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true)
+					input(name: "hideColumn1", type: "bool", title: bold("Hide Column 1 - Selection Boxes?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+					input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
 					
-					input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn5 == false) input(name: "column5Header", type: "string", title: bold("Column 5 Header"), required: false, defaultValue: "Control A/B", width: 2, submitOnChange: true)
-					input(name: "hideColumn6", type: "bool", title: bold("Hide Column 6 - Control C - Color?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn6 == false) input(name: "column6Header", type: "string", title: bold("Column 6 Header"), required: false, defaultValue: "Control C", width: 2, submitOnChange: true)
-					input(name: "hideColumn7", type: "bool", title: bold("Hide Column 7 - Info 1"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+					input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+					
+					input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+										
+					input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+					if (hideColumn5 == false) {
+						input(name: "column5Header", type: "string", title: bold("Column 5 Header"), required: false, defaultValue: "Control A/B", width: 2, submitOnChange: true)
+						input(name: "column5Width", type: "enum", title: bold("Column 5 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
+					}
+					
+					input(name: "hideColumn6", type: "bool", title: bold("Hide Column 6 - Control C - Color?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+					if (hideColumn6 == false) {
+						input(name: "column6Header", type: "string", title: bold("Column 6 Header"), required: false, defaultValue: "Control C", width: 2, submitOnChange: true)
+						input(name: "column6Width", type: "enum", title: bold("Column 6 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
+					}
+					input(name: "hideColumn7", type: "bool", title: bold("Hide Column 7 - Info 1"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
 					if (hideColumn7 == false) input(name: "column7Header", type: "string", title: bold("Info 1 Header Text"), required: false, defaultValue: "Activated", width: 2, submitOnChange: true)	
-					input(name: "hideColumn8", type: "bool", title: bold("Hide Column 8 - Info 2"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+					input(name: "hideColumn8", type: "bool", title: bold("Hide Column 8 - Info 2"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
 					if (hideColumn8 == false) input(name: "column8Header", type: "string", title: bold("Info 2 Header Text"), required: false, defaultValue: "Activated", width: 2, submitOnChange: true)	
-					input(name: "hideColumn9", type: "bool", title: bold("Hide Column 9 - Info 3"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+					input(name: "hideColumn9", type: "bool", title: bold("Hide Column 9 - Info 3"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
 					if (hideColumn9 == false) input(name: "column9Header", type: "string", title: bold("Info 3 Header Text"), required: false, defaultValue: "Activated", width: 2, submitOnChange: true)	
 				}
 
@@ -373,6 +385,33 @@ def mainPage(){
         }
         //End of More Section
     }
+}
+
+//Checks for critical Null values that can be introduced by the user by clicking "No Selection" in a variety of enum dialog.
+def checkNulls() {
+    if (displayEndpoint == null) app.updateSetting("displayEndpoint", [value: "Local", type: "enum"])
+    if (localEndpointState == null ) app.updateSetting("localEndpointState", [value: "Disabled", type: "enum"])
+	if (cloudEndpointState == null ) app.updateSetting("cloudEndpointState", [value: "Disabled", type: "enum"])
+	if (pollInterval == null ) app.updateSetting("pollInterval", [value: "3", type: "enum"])
+	if (pollUpdateWidth == null ) app.updateSetting("pollUpdateWidth", [value: "3", type: "enum"])
+	if (pollUpdateDuration == null ) app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
+	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
+	if (commandTimeout == null ) app.updateSetting("commandTimeout", [value: "10", type: "enum"])
+	
+	if (tvp == null ) app.updateSetting("tvp", [value: "3", type: "enum"])
+	if (thp == null ) app.updateSetting("thp", [value: "3", type: "enum"])
+	
+	if (hts == null ) app.updateSetting("hts", [value: "100", type: "enum"])
+	if (hbo == null ) app.updateSetting("hbo", [value: "1", type: "enum"])
+	if (rts == null ) app.updateSetting("rts", [value: "100", type: "enum"])
+	if (rbo == null ) app.updateSetting("rbo", [value: "1", type: "enum"])
+	
+	if (its1 == null ) app.updateSetting("its1", [value: "80", type: "enum"])
+	if (its2 == null ) app.updateSetting("its2", [value: "80", type: "enum"])
+	if (its3 == null ) app.updateSetting("its3", [value: "80", type: "enum"])
+	if (ita1 == null ) app.updateSetting("ita1", [value: "Center", type: "enum"])
+	if (ita2 == null ) app.updateSetting("ita2", [value: "Center", type: "enum"])
+	if (ita3 == null ) app.updateSetting("ita3", [value: "Center", type: "enum"])
 }
 
 
@@ -903,11 +942,6 @@ def compile(){
 	if (ha == "Center") content = content.replace('#ha#', "center" )
 	if (ha == "Right") content = content.replace('#ha#', "flex-end" )
 	
-	//Table Vertical Alignment
-	if (va == "Top") content = content.replace('#va#', "flex-start" )
-	if (va == "Center") content = content.replace('#va#', "center" )
-	if (va == "Bottom") content = content.replace('#va#', "flex-end" )
-	
 	//Table Padding
 	content = content.replace('#thp#', thp )
 	content = content.replace('#tvp#', tvp )
@@ -917,6 +951,11 @@ def compile(){
 	content = content.replace('#column5Header#', column5Header )	// Column 5 header text
 	content = content.replace('#column6Header#', column6Header )	// Column 6 header text
 	
+	//Forced Column Widths - If the columns are marked as hidden change the width to zero.
+	if (hideColumn3) { content = content.replace('#column3Width#', '0') } else { content = content.replace('#column3Width#', column3Width.toString()) }
+	if (hideColumn5) { content = content.replace('#column5Width#', '0') } else { content = content.replace('#column5Width#', column5Width.toString()) }
+	if (hideColumn6) { content = content.replace('#column6Width#', '0') } else { content = content.replace('#column6Width#', column6Width.toString()) }
+
 	//Info Columns
 	content = content.replace('#Info1#', toHTML(column7Header) )	// Info 1 Header Text
 	content = content.replace('#its1#', its1 )	// Info 1 Text Size
@@ -958,6 +997,7 @@ def compile(){
 	//Hide unwanted columns
 	content = content.replace('#hideColumn1#', hideColumn1 ? 'none' : 'table-cell')
 	content = content.replace('#hideColumn2#', hideColumn2 ? 'none' : 'table-cell')
+	content = content.replace('#hideColumn3#', hideColumn3 ? 'none' : 'table-cell')
 	content = content.replace('#hideColumn4#', hideColumn4 ? 'none' : 'table-cell')
 	content = content.replace('#hideColumn5#', hideColumn5 ? 'none' : 'table-cell')
 	content = content.replace('#hideColumn6#', hideColumn6 ? 'none' : 'table-cell')
@@ -1486,6 +1526,7 @@ static String summary(myTitle, myText) {
     return "<details><summary>" + myTitle + "</summary>" + myText + "</details>"
 }
 
+
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  End Utility Functions
@@ -1662,18 +1703,15 @@ def HTML =
 			--tickMarks : repeating-linear-gradient(to right, transparent 0%, transparent 4%, black 5%, transparent 6%, transparent 9%);
 			//--blinds : repeating-linear-gradient(to right, transparent 0%, transparent 2%, black 2%, #ccc 4%, transparent 4%, transparent 6%, black 6%, #ccc 8%, transparent 8%), linear-gradient( to left, #FFF 0%, #FFF 30%, #111 100%);
 			--blinds : repeating-linear-gradient(to right, black 0%, #ccc 3%, black 3%, #ccc 6%, black 6%, #ccc 9%);
-			--shades : linear-gradient( 10deg, #000 0%, #333 45%, #CCC 55%, #FFF 100%);
+			--shades : linear-gradient( 3deg, #000 0%, #333 45%, #CCC 55%, #FFF 100%);
 			--dimmer : linear-gradient(to right, #000 0%, #333 15%, #666 30%, #888 45%, #AAA 60%, #DDD 75%, #FFF 100% ); 
 			--CT : linear-gradient(to right, #FF4500 0%, #FFA500 16%, #FFD700 33%, #FFFACD 49%, #FFFFE0 60%, #F5F5F5 66%, #FFF 80%,	#ADD8E6 100% ); }  
 
-	html, body { display: flex; flex-direction: column; justify-content: center; align-items: stretch; height: 100%; margin: 5px; font-family: 'Arial', 'Helvetica', sans-serif; cursor: auto;}
-	.container { width: 100%; max-width:#maxWidth#px;  margin: 20px auto;}
+	html, body { display:flex; flex-direction:column; align-items:#ha#; height:100%; margin:5px; font-family:'Arial', 'Helvetica', sans-serif; cursor:auto}
+	.container { width: 100%; max-width:#maxWidth#px; margin: 5px auto;}
 
-	/* Mobile Styles - For screens 768px or smaller. For Firefox scrollbar-width: none; eliminates scrollbars within the Dashboard */
-	@media (max-width: 768px) { 
-		.container { width: 95%; max-width: 100%; padding: 5px; margin-bottom: 20px; } 
-		html, body { justify-content: flex-start; align-items: stretch; scrollbar-width: none; overflow: hidden; } 
-		}
+	/* Mobile Styles - For screens 1024px or smaller. For Firefox scrollbar-width: none; eliminates scrollbars within the Dashboard */
+	@media (max-width: 768px) { .container { width:100%; max-width:100%; padding:5px; margin-bottom:20px;} html, body {justify-content: flex-start; align-items: stretch; scrollbar-width: none; overflow:hidden;} }
 
 	/* Eliminates scrollbars within the dashboard for Webkit browsers */
 	::-webkit-scrollbar {display: none;}
@@ -1697,19 +1735,23 @@ def HTML =
 	/*  START OF TABLE CLASSES */
 	table {width: 100%; border-collapse: collapse; table-layout: auto; }
 	th, td { padding: calc(#tvp#px + 3px) #thp#px; text-align: center; vertical-align: middle; border: 1px solid black; transition: background-color 0.3s; user-select:none;}
-		
+
+	/* Set a fixed width for any columns here. The remainder with be auto-calculated. The device name column seems to take up the majority of the slack. */
+	col:nth-child(5) { width: #column5Width#px; }
+	col:nth-child(6) { width: #column6Width#px; }
+			
 	th:nth-child(1), td:nth-child(1) { width: 6%; display:#hideColumn1#; }
 	th:nth-child(2), td:nth-child(2) { display:#hideColumn2#; }
 	th:nth-child(3) { padding-left:calc(#thp#px + 5px); text-align:left; width:auto;}, td:nth-child(3) {text-align:left; padding-left:calc(#thp#px); }
 	th:nth-child(4), td:nth-child(4) { display:#hideColumn4#; }
 	th:nth-child(5), td:nth-child(5) { display:#hideColumn5#; }
-	th:nth-child(5), td:nth-child(5) { display:#hideColumn6#; }
+	th:nth-child(6), td:nth-child(6) { display:#hideColumn6#; }
 	th:nth-child(7), td:nth-child(7) { display:#hideColumn7#; }
 	th:nth-child(8), td:nth-child(8) { display:#hideColumn8#; }
 	th:nth-child(9), td:nth-child(9) { display:#hideColumn9#; }
 
 	th { background-color: #hbc#; font-weight: bold; font-size: #hts#%; color: #htc#; margin:1px; }
-	th.clicked { text-decoration: underline; text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5); }
+	th.clicked { text-decoration: underline; font-weight:900; color:dodgerBlue;}
 	tr { background-color: #rbc#;}
 	tr:hover { background-color: #rbs#; }
 	.selected-row {	background-color: #rbs#;}
@@ -1724,7 +1766,7 @@ def HTML =
 	.material-symbols-outlined.off {color: #AAA;}
 		
 	/* Column 3 Device Names */
-	.editable-input {border: none; width: 95%;background: transparent; font-size: #rts#%; color: #rtc#;}
+	.editable-input {border: none; width: 95%; background: transparent; font-size: #rts#%; color: #rtc#;}
 		
 	/* Column 4 On/Off Switch */
 	.toggle-switch { position: relative; display: inline-block; vertical-align: middle; margin-top: calc(var(--control) / 3); margin-bottom: calc(var(--control) / 5 ); width: calc(var(--control) * 2); height: var(--control); background-color: #CCC; cursor: pointer; border-radius: calc(var(--control) / 2); transition: background-color 0.3s ease; box-shadow: 0 0 calc(var(--control) / 1.5) 0px rgba(255, 99, 71, 1); }
@@ -1784,11 +1826,11 @@ def HTML =
 	.blinking { animation: blink 1s infinite; }
 
 	.button-group { display: flex; justify-content: space-between; align-items: center; margin: 0 auto; text-align: center;}
-	.button { max-height: var(--control); padding: 5px 10px; margin: 0 3px; border-radius: 10px; background-color: #d3d3d3; text-align: center; transition: background-color 0.3s, border-color 0.3s, outline 0.3s; 
-			display: flex; align-items: center; justify-content: center; color: #FFF; font-size: calc(5 + var(--control) / 1.5); cursor: pointer; }
-	.button:hover { background-color: #62B4FF; outline: 3px solid #FFA500; }
-	.button:active { background-color: #1C86EE; outline: 3px solid #1E90FF; }
-	.button.selected { background-color: #1E90FF; outline: 3px solid #1E90FF; }
+	.button { flex:1;  max-height: var(--control); padding: 4px 8px; margin: 0 2px; border-radius: var(--control); background-color: #d3d3d3; text-align: center; transition: background-color 0.3s, border-color 0.3s, outline 0.3s; 
+			display: flex; align-items: center; justify-content: center; color: #FFF; font-size: calc(2 + var(--control) / 1.5); cursor: pointer; }
+	.button:hover { background-color: #3CB371;}
+	.button:active { background-color: #1C86EE;}
+	.button.selected { background-color: #1E90FF;}
 	.button-group.disabled { opacity: 0.75; pointer-events: none; cursor: not-allowed; }
 
 	@keyframes spin { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
@@ -1806,14 +1848,16 @@ def HTML =
 <div class="container">
 	<div class="title" id="title">#tt#</div>
 	<table id="sortableTable">
+		//Use column groups to fix some column widths even with table-layout of auto.
+    	<colgroup><col><col><col><col><col><col><col><col><col></colgroup>
 		<thead>
 			<tr>
 				<th><input type="checkbox" id="masterCheckbox" onclick="toggleAllCheckboxes(this)" onchange="updateHUB()" title="Select All/Deselect All"></th>
 				<th id="icon" class="sortLinks" onclick="sortTable(1, this);" title="Icon - Sort">Icon</th>
 				<th id="nameHeader" class="sortLinks" onclick="sortTable(2, this);">
-    				<span title="Sort Name A-Z">#column3Header#</span>
-    				<span style="float: right; font-size:inherit;" onclick="event.stopPropagation(); refreshPage(50);" title="Refresh Data">↻ </span>
-				</th>
+    			<span title="Sort Name A-Z">#column3Header#</span>
+    			<span style="float: right; font-size:inherit;" onclick="event.stopPropagation(); refreshPage(50);" title="Refresh Data"><b>↻</b></span></th>
+
 				<th id="stateHeader" class="sortLinks th" onclick="sortTable(3, this);"><span title="Sort State On-Off">State</span></th>
 				<th id="ControlAB" class="sortLinks" onclick="toggleControl()" title="Toggle Control A/B">#column5Header#</th>
 				<th id="color">#column6Header#</th> 
@@ -1839,7 +1883,7 @@ let lastCommand = "None";
 sessionStorage.removeItem('sessionID');
 let sessionID = sessionStorage.getItem('sessionID') || (sessionStorage.setItem('sessionID', (Math.abs(Math.random() * 0x7FFFFFFF | 0)).toString(16).padStart(8, '0')), sessionStorage.getItem('sessionID'));
 let isLogging = sessionStorage.getItem('isLogging') === 'true' ? true : false;
-isLogging = true;
+isLogging = false;
 
 //Polling Related variables
 let pollInterval = #pollInterval#;
@@ -1915,9 +1959,9 @@ function loadTableFromJSON(myJSON) {
     		const isDisabled = item.switch === 'off' ? 'disabled' : ''; // Determine if buttons should be disabled
     		const disabledClass = item.switch === 'off' ? 'disabled' : ''; // Add a visual class for the disabled state for the whole radio group
 			control1HTML = `<div class="button-group ${disabledClass}">
-        					<div class="button ${item.speed === 'low' ? 'selected' : ''} ${isDisabled}" data-speed="low" onclick="speed(this); updateHUB(); toggleChecked(this)">Low</div>
-        					<div class="button ${item.speed === 'medium' ? 'selected' : ''} ${isDisabled}" data-speed="medium" onclick="speed(this); updateHUB(); toggleChecked(this)">Med</div>
-        					<div class="button ${item.speed === 'high' ? 'selected' : ''} ${isDisabled}" data-speed="high" onclick="speed(this); updateHUB(); toggleChecked(this)">High</div></div>
+        					<div class="button ${item.speed === 'low' ? 'selected' : ''} ${isDisabled}" data-speed="low" onclick="speed(this); updateHUB(); toggleChecked(this)">L</div>
+        					<div class="button ${item.speed === 'medium' ? 'selected' : ''} ${isDisabled}" data-speed="medium" onclick="speed(this); updateHUB(); toggleChecked(this)">M</div>
+        					<div class="button ${item.speed === 'high' ? 'selected' : ''} ${isDisabled}" data-speed="high" onclick="speed(this); updateHUB(); toggleChecked(this)">H</div></div>
 			`};
 
 		//Garage Door
@@ -1972,7 +2016,7 @@ function loadTableFromJSON(myJSON) {
         tbody.appendChild(row);
 
     });
-	underlineColumnHeader();
+	markColumnHeader();
 	updateAllTiltIndicators();
 }
 
@@ -2118,7 +2162,7 @@ function toggleControl() {
 
 
 //Underline the last active column header
-function underlineColumnHeader() {
+function markColumnHeader() {
     const headers = document.querySelectorAll('#sortableTable thead th');
     
     // Remove the 'clicked' class from all headers
@@ -2342,7 +2386,7 @@ function sortTable(columnIndex) {
     });
 
     tbody.append(...rows);
-    underlineColumnHeader();
+    markColumnHeader();
 }
 
 //***********************************************  Initialization  and Miscellaneous  **************************************************
