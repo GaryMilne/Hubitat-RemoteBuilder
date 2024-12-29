@@ -39,8 +39,9 @@
 *  Version 2.8.0 - Moved Icon logic to Groovy. Added Mozilla support - untested.
 *  Version 3.0.0 - Public release
 *  Version 3.0.1 - Fix issue with old code being used for the body,html and @media sections affecting rotation. Fix bug with hiding Control C. Fan buttons resize better. Added width option for Control columns.
-* 
-*  Gary Milne - December 27th, 2024 @ 4:47 PM PM V 3.0.1
+*  Version 3.0.2 - Improved screen sizing for mobile devices. Added scrollbars when neccessary. Fixed sorting of State column and added directional indicators.
+*
+*  Gary Milne - December 29th, 2024 @ 10:21 AM V 3.0.2
 *
 **/
 
@@ -90,8 +91,8 @@ static def durationFormatsList() { return durationFormatsMap().values() }
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "dID", "network", "deviceTypeName"].sort() }
 
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.0.1 (12/28/24)</b>"
-@Field static final codeVersion = 301
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.0.2 (12/29/24)</b>"
+@Field static final codeVersion = 302
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -114,7 +115,6 @@ preferences {
    page name: "mainPage"
 }
 
-
 def mainPage(){
 	
 	//app.updateSetting("pollUpdateColor", [value: "#00FF00", type: "color"])
@@ -127,8 +127,7 @@ def mainPage(){
 	//Basic initialization for the initial release. If it is already initialized then compile the remote on each reload.
     if (state.initialized == null) initialize()
 	else compile()
-	
-	
+		
     dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff;;'> Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
 			section(hideable: true, hidden: state.hidden.Devices, title: buttonLink('btnHideDevice', getSectionTitle("Devices"), 20)) {
             	
@@ -390,20 +389,20 @@ def mainPage(){
 //Checks for critical Null values that can be introduced by the user by clicking "No Selection" in a variety of enum dialog.
 def checkNulls() {
     if (displayEndpoint == null) app.updateSetting("displayEndpoint", [value: "Local", type: "enum"])
-    if (localEndpointState == null ) app.updateSetting("localEndpointState", [value: "Disabled", type: "enum"])
+    if (localEndpointState == null ) app.updateSetting("localEndpointState", [value: "Enabled", type: "enum"])
 	if (cloudEndpointState == null ) app.updateSetting("cloudEndpointState", [value: "Disabled", type: "enum"])
 	if (pollInterval == null ) app.updateSetting("pollInterval", [value: "3", type: "enum"])
 	if (pollUpdateWidth == null ) app.updateSetting("pollUpdateWidth", [value: "3", type: "enum"])
 	if (pollUpdateDuration == null ) app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
-	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
+	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "2", type: "enum"])
 	if (commandTimeout == null ) app.updateSetting("commandTimeout", [value: "10", type: "enum"])
 	
 	if (tvp == null ) app.updateSetting("tvp", [value: "3", type: "enum"])
-	if (thp == null ) app.updateSetting("thp", [value: "3", type: "enum"])
+	if (thp == null ) app.updateSetting("thp", [value: "5", type: "enum"])
 	
 	if (hts == null ) app.updateSetting("hts", [value: "100", type: "enum"])
 	if (hbo == null ) app.updateSetting("hbo", [value: "1", type: "enum"])
-	if (rts == null ) app.updateSetting("rts", [value: "100", type: "enum"])
+	if (rts == null ) app.updateSetting("rts", [value: "90", type: "enum"])
 	if (rbo == null ) app.updateSetting("rbo", [value: "1", type: "enum"])
 	
 	if (its1 == null ) app.updateSetting("its1", [value: "80", type: "enum"])
@@ -412,8 +411,10 @@ def checkNulls() {
 	if (ita1 == null ) app.updateSetting("ita1", [value: "Center", type: "enum"])
 	if (ita2 == null ) app.updateSetting("ita2", [value: "Center", type: "enum"])
 	if (ita3 == null ) app.updateSetting("ita3", [value: "Center", type: "enum"])
+	
+	if (state.compiledLocal == null) state.compiledLocal = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
+	if (state.compiledCloud == null) state.compiledCloud = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
 }
-
 
 //Used to update variables when upgrading software versions.
 def updateVariables() {
@@ -924,6 +925,8 @@ def getDuration(long lastActiveEvent, long lastInactiveEvent) {
 
 //Compress the fixed components text output and generate the version that will be used by the browser.
 def compile(){
+	
+	try{
 	if (isLogTrace) log.trace("<b>Entering: Compile</b>")
 	if (isLogDebug) log.debug("Running Compile")
 		
@@ -931,9 +934,7 @@ def compile(){
 	def content = condense(html1)
 	def localContent
 	def cloudContent
-	
-	//if (controlSize == "Normal") content = content.replace('#controlSize#', "15" )
-	//if (controlSize == "Large") content = content.replace('#controlSize#', "20" )
+		
 	content = content.replace('#controlSize#', controlSize.toString() )
 	
 	//Table Horizontal Alignment
@@ -1043,6 +1044,9 @@ def compile(){
 	
 	def now = new Date()
 	state.compiledDataTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
+	}
+	
+	catch(e){}
 }
 
 //Remove any wasted space from the compiled version to shorten load times.
@@ -1661,6 +1665,8 @@ def initialize() {
     state.hidden = [Device: false, Endpoints: true, Polling: true, Design: false, Publish: false]
     state.updatedSessionList = []
     state.initialized = true
+	state.compiledLocal = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
+	state.compiledCloud = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
 	
 }
 
@@ -1707,14 +1713,17 @@ def HTML =
 			--dimmer : linear-gradient(to right, #000 0%, #333 15%, #666 30%, #888 45%, #AAA 60%, #DDD 75%, #FFF 100% ); 
 			--CT : linear-gradient(to right, #FF4500 0%, #FFA500 16%, #FFD700 33%, #FFFACD 49%, #FFFFE0 60%, #F5F5F5 66%, #FFF 80%,	#ADD8E6 100% ); }  
 
-	html, body { display:flex; flex-direction:column; align-items:#ha#; height:100%; margin:5px; font-family:'Arial', 'Helvetica', sans-serif; cursor:auto}
-	.container { width: 100%; max-width:#maxWidth#px; margin: 5px auto;}
+	html, body { display:flex; flex-direction:column; align-items:#ha#; height:99%; margin:5px; font-family:'Arial', 'Helvetica', sans-serif; cursor:auto;flex-grow: 1; overflow:auto;box-sizing: border-box;}
+	.container { width: 99%; max-width:#maxWidth#px; margin: 10px auto; padding: 3px;}
 
-	/* Mobile Styles - For screens 1024px or smaller. For Firefox scrollbar-width: none; eliminates scrollbars within the Dashboard */
-	@media (max-width: 768px) { .container { width:100%; max-width:100%; padding:5px; margin-bottom:20px;} html, body {justify-content: flex-start; align-items: stretch; scrollbar-width: none; overflow:hidden;} }
+	/* Mobile Styles - For screens 768px or smaller. For Firefox scrollbar-width: none; eliminates scrollbars within the Dashboard */
+	@media (max-width: 768px) { 
+			.container {max-width:100%; margin-bottom:20px;} 
+			html, body {justify-content: flex-start; align-items: stretch; background:#F5F5DC;} 
+			}
 
 	/* Eliminates scrollbars within the dashboard for Webkit browsers */
-	::-webkit-scrollbar {display: none;}
+	//::-webkit-scrollbar {display: none;}
 
 	/* Suppress the defaults for sliders on each browser platform */
 	input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
@@ -1751,7 +1760,7 @@ def HTML =
 	th:nth-child(9), td:nth-child(9) { display:#hideColumn9#; }
 
 	th { background-color: #hbc#; font-weight: bold; font-size: #hts#%; color: #htc#; margin:1px; }
-	th.clicked { text-decoration: underline; font-weight:900; color:dodgerBlue;}
+	th.clicked { text-decoration: underline; font-weight:900; color:dodgerBlue; font-size: 0.8em;}
 	tr { background-color: #rbc#;}
 	tr:hover { background-color: #rbs#; }
 	.selected-row {	background-color: #rbs#;}
@@ -1792,7 +1801,6 @@ def HTML =
 	.tilt-indicator {font-size: var(--control); line-height: var(--control); transform-origin: center center; transition: transform 0.1s ease-in-out;}
 	
 	/* Add Mozilla Browser Support - Untested */
-	/* Custom properties for Mozilla Firefox */
 	.CT-slider::-moz-range-track { background: var(--CT); height: 100%; }
 	.level-slider::-moz-range-track { background: var(--dimmer); height: 100%; }   
 	.blinds-slider::-moz-range-track { background: var(--blinds); height: 100%; background-size: 100% 100%, 100% 100%; border: 0px solid #DDD; }
@@ -1853,22 +1861,21 @@ def HTML =
 		<thead>
 			<tr>
 				<th><input type="checkbox" id="masterCheckbox" onclick="toggleAllCheckboxes(this)" onchange="updateHUB()" title="Select All/Deselect All"></th>
-				<th id="icon" class="sortLinks" onclick="sortTable(1, this);" title="Icon - Sort">Icon</th>
+				<th id="icon" class="sortLinks" onclick="sortTable(1, this);" title="Icon - Sort"><span id="iconHeader">Icon</span></th>
 				<th id="nameHeader" class="sortLinks" onclick="sortTable(2, this);">
-    			<span title="Sort Name A-Z">#column3Header#</span>
-    			<span style="float: right; font-size:inherit;" onclick="event.stopPropagation(); refreshPage(50);" title="Refresh Data"><b>↻</b></span></th>
-
+    				<span title="Sort Name A-Z">#column3Header#</span>
+    				<span id="refreshIcon" style="float:right; font-size:inherit;" onclick="event.stopPropagation(); refreshPage(50);" title="Refresh Data"><b>↻</b></span></th>
 				<th id="stateHeader" class="sortLinks th" onclick="sortTable(3, this);"><span title="Sort State On-Off">State</span></th>
 				<th id="ControlAB" class="sortLinks" onclick="toggleControl()" title="Toggle Control A/B">#column5Header#</th>
 				<th id="color">#column6Header#</th> 
-				<th id="info1" class="sortLinks" onclick="sortTable(6, this);" title="Info1 - Alpha Sort">#Info1#</th>
-				<th id="info2" class="sortLinks" onclick="sortTable(7, this);" title="Info2 - Alpha Sort">#Info2#</th>
-				<th id="info3" class="sortLinks" onclick="sortTable(8, this);" title="Info3 - Alpha Sort">#Info3#</th>
+				<th id="info1" class="sortLinks" onclick="sortTable(6, this);" title="Info1 - Alpha Sort"><span id="info1Header">#Info1#</span></th>
+				<th id="info2" class="sortLinks" onclick="sortTable(7, this);" title="Info2 - Alpha Sort"><span id="info2Header">#Info2#</span></th>
+				<th id="info3" class="sortLinks" onclick="sortTable(8, this);" title="Info3 - Alpha Sort"><span id="info3Header">#Info3#</span></th>
 			</tr>
 		</thead>
 		<tbody><!-- Table rows will be dynamically loaded from JSON --></tbody>
 	</table>
-	<div id="shuttle"><br></div>
+	<div id="shuttle"> </div>  //We have an invisible Null character on the bottom here which forces a gap after the shuttle at the end of the table.
 </div>
 <script>
 														  
@@ -2161,18 +2168,6 @@ function toggleControl() {
 //**************************************************************************************************************************************
 
 
-//Underline the last active column header
-function markColumnHeader() {
-    const headers = document.querySelectorAll('#sortableTable thead th');
-    
-    // Remove the 'clicked' class from all headers
-    headers.forEach(header => { header.classList.remove('clicked'); });
-
-    // Add the 'clicked' class to the active header (the one that was clicked)
-    if (sortDirection.activeColumn >= 0 && sortDirection.activeColumn < headers.length) {
-        headers[sortDirection.activeColumn].classList.add('clicked');
-    } else { console.error('Invalid active column index'); }
-}
 
 //***********************************************  CheckBox Handling   *****************************************************************
 //**************************************************************************************************************************************
@@ -2357,36 +2352,90 @@ function handleTransaction(action) {
 //***********************************************  Sorting   ***************************************************************************
 //**************************************************************************************************************************************
 
-// Sort table by column with optional secondary sort on Device Name
-function sortTable(columnIndex) {
+//Sorts various columns based on the content of the cells. Some columns use Device Name column as a secondary index.
+function sortTable(columnIndex, header) {
     const tbody = document.querySelector("#sortableTable tbody");
     const rows = Array.from(tbody.rows);
 
-    // Update sort state
-    sortDirection.activeColumn = columnIndex === -1 ? sortDirection.activeColumn : columnIndex;
-    sortDirection.direction = sortDirection.direction === 'asc' ? 'desc' : 'asc';
+    // Load sorting state or update it
+    if (columnIndex === -1) {
+        columnIndex = sortDirection.activeColumn; // Use saved active column
+    } else {
+        // Update the active column and toggle the sort direction
+        sortDirection.activeColumn = columnIndex;
+        sortDirection.direction = sortDirection.direction === 'asc' ? 'desc' : 'asc';
+        sessionStorage.setItem("activeColumn", columnIndex);
+    }
+
+    const direction = sortDirection.direction;
+
+    // Save updated state to localStorage
     localStorage.setItem("sortDirection", JSON.stringify(sortDirection));
-    sessionStorage.setItem("activeColumn", sortDirection.activeColumn);
 
-    const direction = sortDirection.direction === 'asc' ? 1 : -1;
-
+    // Sort rows with primary and secondary logic embedded
     rows.sort((a, b) => {
-        const getCellData = (row, idx) => idx === 3
-            ? row.cells[idx]?.querySelector('.toggle-switch')?.dataset.state || ""
-            : row.cells[idx]?.querySelector('input')?.value?.toLowerCase() || row.cells[idx]?.textContent?.trim().toLowerCase() || "";
+        let primaryA, primaryB, secondaryA, secondaryB;
 
-        const primaryA = getCellData(a, columnIndex);
-        const primaryB = getCellData(b, columnIndex);
-        const secondaryA = getCellData(a, 2);
-        const secondaryB = getCellData(b, 2);
+        // Handle specific sorting logic based on column index
+        if (columnIndex === 3) {
+            // Sorting by State column (primary) and Name column (secondary)
+            primaryA = a.cells[3]?.querySelector('.toggle-switch')?.dataset.state || "";
+            primaryB = b.cells[3]?.querySelector('.toggle-switch')?.dataset.state || "";
+        } else {
+            // Default sorting for other columns (alphabetical or numerical)
+            primaryA = a.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
+            primaryB = b.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
+        }
 
-        return primaryA !== primaryB
-            ? direction * (primaryA > primaryB ? 1 : -1)
-            : secondaryA > secondaryB ? 1 : secondaryA < secondaryB ? -1 : 0;
+        // Handle secondary sorting logic for column 2 (Name column)
+        // Ensure comparison uses both input values and text content
+        secondaryA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || a.cells[2]?.textContent?.trim().toLowerCase() || "";
+        secondaryB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || b.cells[2]?.textContent?.trim().toLowerCase() || "";
+
+        // Compare primary keys
+        if (primaryA > primaryB) return direction === 'asc' ? 1 : -1;
+        if (primaryA < primaryB) return direction === 'asc' ? -1 : 1;
+
+        // Compare secondary keys (always ascending)
+        if (secondaryA > secondaryB) return direction === 'asc' ? 1 : -1; // Reversing order here for secondary sort
+        if (secondaryA < secondaryB) return direction === 'asc' ? -1 : 1;
+
+        return 0;
     });
 
+    // Append sorted rows back to the table
     tbody.append(...rows);
+
+    // Save the last sorted header
+    // sessionStorage.setItem('lastSortHeader', header);
+
     markColumnHeader();
+}
+
+// Underline the last active column header and apply direction indicators
+function markColumnHeader() {
+    const headers = document.querySelectorAll('#sortableTable thead th');
+
+    // Remove the 'clicked' class from all headers
+    headers.forEach(header => header.classList.remove('clicked'));
+
+    // Reset all column headers and remove previous direction indicators
+    headers.forEach(header => {
+        const span = header.querySelector('span');
+        if (span && span.id !== 'refreshIcon') { span.textContent = span.textContent.replace(/[▲▼]*$/, ''); }
+    });
+
+    // Add the 'clicked' class to the active column header
+    headers[sortDirection.activeColumn].classList.add('clicked');
+
+    // Find the span within the header that should display the sort indicator (avoid refreshIcon)
+    const columnHeader = headers[sortDirection.activeColumn].querySelector('span');
+        
+    // If it's not the refresh icon, add the direction indicator
+    if (columnHeader && columnHeader.id !== 'refreshIcon') {
+		const directionIndicator = sortDirection.direction === 'asc' ? '▲' : '▼';
+		columnHeader.textContent = columnHeader.textContent.replace(/[▲▼]*$/, '') + directionIndicator;
+	}
 }
 
 //***********************************************  Initialization  and Miscellaneous  **************************************************
