@@ -2269,9 +2269,6 @@ let isLogging = sessionStorage.getItem(storageKey('isLogging')) === 'true' ? tru
 
 // Force Enable or Disable logging
 sessionStorage.setItem(storageKey('isLogging'), 'false');
-
-// Force Enable or Disable logging
-sessionStorage.setItem(storageKey('isLogging'), 'false');
 isLogging = false;
 
 //Polling Related variables
