@@ -4,7 +4,7 @@
 *  Download: See importUrl in definition
 *  Description: Used in conjunction with child apps to generate tabular reports on device data and publishes them to a dashboard.
 *
-*  Copyright 2024 Gary J. Milne  
+*  Copyright 2025 Gary J. Milne  
 *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
 *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
 *  for the specific language governing permissions and limitations under the License.
@@ -40,8 +40,16 @@
 *  Version 3.0.0 - Public release
 *  Version 3.0.1 - Fix issue with old code being used for the body,html and @media sections affecting rotation. Fix bug with hiding Control C. Fan buttons resize better. Added width option for Control columns.
 *  Version 3.0.2 - Improved screen sizing for mobile devices. Added scrollbars when neccessary. Fixed sorting of State column and added directional indicators.
-*
-*  Gary Milne - December 29th, 2024 @ 10:21 AM V 3.0.2
+*  Version 3.0.3 - Reduced the amount of data in the packets sent from JS to the Hub. Lookup of device name from the ID is now performed on the Hub.
+*  Version 3.0.4 - Improved handling of icons and classes. These are determined on the Hub and sent to the client.
+*  Version 3.0.5 - Added support for contacts, leak and temperature along with filtering. Only open contacts or only wet sensors.
+*  Version 3.0.6 - Added ability to pin controls. 
+*  Version 3.0.7 - Added options and controls for selecting the selectedRow and pinnedRow colors. Combined the Info and Columns\Headers sections.
+*  Version 3.0.8 - Re-worked logic for the gathering of information for info columns to eliminate unneccessary calls.
+*  Version 3.0.9 - Added missing variables to updateVariables(). Added mid points for tilePreviewWidth. Made all pinned objects remain visible regardless of any filter setting.
+*  Version 3.1.0 - Split Devices into Controls and Sensors. Added halfTone for sort column header box. Flipped definition of Lock to open == active.
+* 
+*  Gary Milne - January 8th, 2025 @ 9:10 AM V 3.1.0
 *
 **/
 
@@ -49,14 +57,19 @@
 None
 */
 
+/* Known Issues 
+Any items saved to local storage in JS within the same browser window become shared. Thus, placing a number of SmartGrids within the same Hubitat Dashboard will result on some settings to be shared, such as the sort order.
+This will be corrected in a future release.
+*/
+
 /* Ideas for future releases
 Add support for Thermostats
-Add Sensors as dType 0 and use State\Control columns for data.
 Add pause-play for polling and\or variable speed polling.
 Add Scene Selector Control
 Add Media Control
-Add alternate polling indicator
+Add alternate\additional polling indicator
 Look into EventSocket\WebSocket
+Add Link options
 */
 
 import groovy.json.JsonSlurper
@@ -66,6 +79,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.TimeZone
 
 //These are the data for the pickers used on the child forms.
 static def textScale() { return ['50', '55', '60', '65', '70', '75', '80', '85', '90', '95', '100', '105', '110', '115', '120', '125', '130', '135', '140', '145', '150', '175', '200', '250', '300', '350', '400', '450', '500'] }
@@ -73,26 +87,27 @@ static def columnWidth() { return ['50', '60', '70', '80', '90', '100', '110', '
 static def textAlignment() { return ['Left', 'Center', 'Right', 'Justify'] }
 static def opacity() { return ['1', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1', '0'] }
 static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] }
+static def unitsMap() { return ['°F', ' °F', '°C', ' °C']}
 
 static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: HH:mm", 3: "To: h:mm a", 4: "To: HH:mm:ss", 5: "To: h:mm:ss a", 6: "To: E HH:mm", 7: "To: E h:mm a", 8: "To: EEEE HH:mm", 9: "To: EEEE h:mm a", \
 								10: "To: MM-dd HH:mm", 11: "To: MM-dd h:mm a", 12: "To: MMMM dd HH:mm", 13: "To: MMMM dd h:mm a", 14: "To: yyyy-MM-dd HH:mm", 15: "To: dd-MM-yyyy h:mm a", 16: "To: MM-dd-yyyy h:mm a", 17: "To: E @ h:mm a" ] }
 static def dateFormatsList() { return dateFormatsMap().values() }
 
 static def createDeviceTypeMap() {
-    def dTypeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume" ]
+    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak" ]
     // Create the inverse map for name-to-number lookups
-    def nameToNumberMap = dTypeMap.collectEntries { key, value -> [value, key] }
-    return [dTypeMap: dTypeMap, nameToNumberMap: nameToNumberMap]
+    def nameToNumberMap = typeMap.collectEntries { key, value -> [value, key] }
+    return [typeMap: typeMap, nameToNumberMap: nameToNumberMap]
 }
 
 static def durationFormatsMap() { return [21: "To: Elapsed Time (dd):hh:mm:ss", 22: "To: Elapsed Time (dd):hh:mm"] }
 static def durationFormatsList() { return durationFormatsMap().values() }
 
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
-static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "dID", "network", "deviceTypeName"].sort() }
+static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature"].sort() }
 
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.0.2 (12/29/24)</b>"
-@Field static final codeVersion = 302
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.0 (1/7/25)</b>"
+@Field static final codeVersion = 310
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -117,10 +132,6 @@ preferences {
 
 def mainPage(){
 	
-	//app.updateSetting("pollUpdateColor", [value: "#00FF00", type: "color"])
-	//app.updateSetting("pollUpdateWidth", [value: "5", type: "enum"])
-	//app.updateSetting("column3Header", "Name")
-	
 	if (state.variablesVersion == null || state.variablesVersion < codeVersion) updateVariables()
 	checkNulls()
 	
@@ -129,54 +140,91 @@ def mainPage(){
 	else compile()
 		
     dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff;;'> Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
-			section(hideable: true, hidden: state.hidden.Devices, title: buttonLink('btnHideDevice', getSectionTitle("Devices"), 20)) {
-            	
+			section(hideable: true, hidden: state.hidden.Devices, title: buttonLink('btnHideControls', getSectionTitle("Controls"), 20)) {
+				            	
 				// Input for selecting filter criteria
-				input(name: "filter", type: "enum", title: bold("Filter Devices"), options: ["All Selectable Devices", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "Switch Devices", submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px")
+				input(name: "filter", type: "enum", title: bold("Filter Controls (optional)"), options: ["All Selectable Controls", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "All Selectable Controls", submitOnChange: true, width: 2, style:"margin-right: 20px")
+				input "myPinnedControls", "enum", title: "<b>Pin These Controls</b>", options: getPinnedItems(myDevices), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false, style:"margin-right: 20px"
+				input (name: "isShowDeviceNameModification", type: "enum", title: "<b>Show Device Name Modification</b>", options: ["True", "False"], required: false, multiple: false, defaultValue: "False", submitOnChange: true, width: 2)    
 				// Apply switch-case logic based on the filter value
     			switch (filter) {
-        			case "All Selectable Devices":
-						input "myDevices", "capability.powerMeter, capability.switch, capability.valve, capability.lock, capability.garageDoorControl, capability.fanControl, capability.audioVolume, capability.windowShade, capability.windowBlind", title: "<b>Select Devices</b>", multiple: true, submitOnChange: true
+        			case "All Selectable Controls":
+						input "myDevices", "capability.powerMeter, capability.switch, capability.valve, capability.lock, capability.garageDoorControl, capability.doorControl, capability.fanControl, capability.audioVolume, capability.windowShade, capability.windowBlind", title: "<b>Select Controls</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right:25px", newLine:true
             			break
 					case "Power Meters":
-						input "myDevices", "capability.powerMeter", title: "<b>Select Power Meter Devices</b>", multiple: true, submitOnChange: true
+						input "myDevices", "capability.powerMeter", title: "<b>Select Power Meter Devices</b>", multiple: true, submitOnChange: true, newLine: true, width:2, style:"margin-right:25px"
             			break
 					case "Switches":
-						input "myDevices", "capability.switch", title: "<b>Select Switch Devices</b>", multiple: true, submitOnChange: true
+						input "myDevices", "capability.switch", title: "<b>Select Switch Devices</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
 			        case "Color Temperature Devices":
-						input "myDevices", "capability.colorTemperature", title: "<b>Select Color Temperature Devices</b>", multiple: true, submitOnChange: true
+						input "myDevices", "capability.colorTemperature", title: "<b>Select Color Temperature Devices</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
         			case "Color Devices":
-            			input "myDevices", "capability.colorControl", title: "<b>Select Color Devices</b>", multiple: true, submitOnChange: true
+            			input "myDevices", "capability.colorControl", title: "<b>Select Color Devices</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
         			case "Dimmable Devices":
-            			input "myDevices", "capability.switchLevel", title: "<b>Select Dimmable Devices</b>", multiple: true, submitOnChange: true
+            			input "myDevices", "capability.switchLevel", title: "<b>Select Dimmable Devices</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
 					case "Valves":
-            			input "myDevices", "capability.valve", title: "<b>Select Valves</b>", multiple: true, submitOnChange: true
+            			input "myDevices", "capability.valve", title: "<b>Select Valves</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
 					case "Fans":
-            			input "myDevices", "capability.fanControl", title: "<b>Select Fans</b>", multiple: true, submitOnChange: true
+            			input "myDevices", "capability.fanControl", title: "<b>Select Fans</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
 					case "Garage Doors":
-            			input "myDevices", "capability.garageDoorControl", title: "<b>Select Garage Doors</b>", multiple: true, submitOnChange: true
+            			input "myDevices", "capability.garageDoorControl", title: "<b>Select Garage Doors</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
 					case "Locks":
-            			input "myDevices", "capability.lock", title: "<b>Select Locks</b>", multiple: true, submitOnChange: true
+            			input "myDevices", "capability.lock", title: "<b>Select Locks</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
 					case "Shades & Blinds":
-            			input "myDevices", "capability.windowShade, capability.windowBlind", title: "<b>Select Shades & Blinds</b>", multiple: true, submitOnChange: true
+            			input "myDevices", "capability.windowShade, capability.windowBlind", title: "<b>Select Shades & Blinds</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
             			break
         			default:
             			if (isLogDebug) log.debug "No filter option selected."
     			}
-				paragraph "<b>Important: If you change the selected devices you must do a " + red("Publish and Subscribe") + " for SmartGrid to work correctly.</b><br>"
+				
+				//Allow users to rename devices that fit certain patterns
+				if (isShowDeviceNameModification == "True") {
+					paragraph("<hr>")
+					input (name: "mySearchText1", title: "<b>Search Device Text #1</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
+					input (name: "myReplaceText1", title: "<b>Replace Device Text #1</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
+					input (name: "mySearchText2", title: "<b>Search Device Text #2</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
+					input (name: "myReplaceText2", title: "<b>Replace Device Text #2</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
+					input (name: "mySearchText3", title: "<b>Search Device Text #3</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
+					input (name: "myReplaceText3", title: "<b>Replace Device Text #3</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
+					input (name: "mySearchText4", title: "<b>Search Device Text #4</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
+					input (name: "myReplaceText4", title: "<b>Replace Device Text #4</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
+					input (name: "mySearchText5", title: "<b>Search Device Text #5</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
+					input (name: "myReplaceText5", title: "<b>Replace Device Text #5</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
+				}
+				paragraph line(1)
+				myText =  "<b>Important: If you change the selected devices you must do a " + red("Publish and Subscribe") + " for SmartGrid to work correctly.</b><br>"
+				paragraph myText + "<b>Note:</b> Pinned items always remain at the top of the table sorted A-Z regardless of any other state or sort order applied.<br>"
 			}
-        
+		
+			//Start of Sensors Section
+			section(hideable: true, hidden: state.hidden.Sensors, title: buttonLink('btnHideSensors', getSectionTitle("Sensors"), 20)) {
+				input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
+				input "myPinnedContacts", "enum", title: "<b>Pin These Contact Sensors</b>", options: getPinnedItems(myContacts).sort(), multiple: true, submitOnChange: true, width: 2, required: false
+				input(name: "onlyOpenContacts", type: "enum", title: bold("Unpinned: Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				
+				input "myTemps", "capability.temperatureMeasurement", title: "<b>Select Temp Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
+				input ("myPinnedTemps", "enum", title: "<b>Pin These Temp Sensors</b>", options: getPinnedItems(myTemps), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false)
+				input(name: "onlyReportOutsideRange", type: "enum", title: bold("Unpinned: Only Report Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				input (name: "minTemp", title: "<b>Lower Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "50", newLine:false)
+				input (name: "maxTemp", title: "<b>Upper Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "90", newLine:false)
+				
+				input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
+				input "myPinnedLeaks", "enum", title: "<b>Pin These Water Sensors</b>", options: getPinnedItems(myLeaks), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
+				input(name: "onlyWetSensors", type: "enum", title: bold("Unpinned: Only Report Wet Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				
+			}
+							      
 			//Start of Endpoints Section
             section(hideable: true, hidden: state.hidden.Endpoints, title: buttonLink('btnHideEndpoints', getSectionTitle("Endpoints"), 20)) {
-                input(name: "localEndpointState", type: "enum", title: bold("Local Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
+				input(name: "localEndpointState", type: "enum", title: bold("Local Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
                 input(name: "cloudEndpointState", type: "enum", title: bold("Cloud Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Disabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
 				paragraph line (1)
 				
@@ -228,29 +276,31 @@ def mainPage(){
 			//Start of Design Section
             section(hideable: true, hidden: state.hidden.Design, title: buttonLink('btnHideDesign', getSectionTitle("Design"), 20)) {
                 input(name: "displayEndpoint", type: "enum", title: bold("Endpoint to Display"), options: ["Local", "Cloud"], required: false, defaultValue: "Local", submitOnChange: true, width: 2, style:"margin-right:25px")
-				input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 2, 3, 4, 5, 6, 7, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
+				input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
                 input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 2, 3, 4, 5, 6, 7, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
 				input(name: "tilePreviewBackground", type: "color", title: bold2("Preview Background Color", tb), required: false, defaultValue: "#000000", width: 3, submitOnChange: true, style: "margin-right:25px")
 				if (myRemoteName != null && myRemote != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:20px;margin-right:25px")
 				
 				//Add extra space for the padding.
-				def maxWidth = (tilePreviewWidth.toInteger() * 200) + 50
-            	def maxHeight = (tilePreviewHeight.toInteger() * 190) + 50
+				def maxWidth = (tilePreviewWidth.toFloat() * 200) + 50
+            	def maxHeight = (tilePreviewHeight.toFloat() * 190) + 50
 				
 				if ( displayEndpoint == "Local" ) paragraph "<iframe src='${state.localEndpoint}' width='${maxWidth}' height='${maxHeight}' style='border:solid; margin-left:50px; padding:25px; background-color:${tilePreviewBackground};' scrolling='no' ></iframe>"
 				if ( displayEndpoint == "Cloud" ) paragraph "<iframe src='${state.cloudEndpoint}' width='${maxWidth}' height='${maxHeight}' style='border:solid; margin-left:50px; padding:25px; background-color:${tilePreviewBackground};' scrolling='no'></iframe>"
 								
 				paragraph line(1)
-				input (name: "customizeSection", type: "enum", title: bold("Customize"), required: false, options: ["General", "Title", "Headers & Columns", "Rows", "Info" ], defaultValue: "Table", submitOnChange: true, width: 2, newLineAfter:true)
+				input (name: "customizeSection", type: "enum", title: bold("Customize"), required: false, options: ["General", "Title", "Headers & Columns", "Rows", "Experimental" ], defaultValue: "Table", submitOnChange: true, width: 2, newLineAfter:true)
 				
 				if (settings.customizeSection == "General") {
-					input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px")
+					
 					input(name: "defaultDateTimeFormat", title: bold("Date Time Format"), type: "enum", options: dateFormatsMap(), submitOnChange: true, defaultValue: 3, width: 2, style:"margin-right:25px")
 					input(name: "defaultDurationFormat", title: bold("Duration Format"), type: "enum", options: durationFormatsMap(), submitOnChange: true, defaultValue: 21, width: 2, style:"margin-right:25px")
 					input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "17.5", width: 2, style:"margin-right:25px")
 					input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
 					input (name: "thp", type: "enum", title: bold("Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input (name: "tvp", type: "enum", title: bold("Vertical Padding"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
+					input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
+					input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false)
 				}
 				
 				if (settings.customizeSection == "Title") {
@@ -269,64 +319,65 @@ def mainPage(){
                     input(name: "hbc", type: "color", title: bold2("Background Color", hbc), required: false, defaultValue: "#90C226", width: 2, submitOnChange: true, style:"margin-right:30px")
 					input(name: "hbo", type: "enum", title: bold("Bg Opacity"), options: opacity(), required: false, defaultValue: "1", width:2, submitOnChange: true, style:"margin-right:30px")
 					
-					input(name: "hideColumn1", type: "bool", title: bold("Hide Column 1 - Selection Boxes?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
-					input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+					input(name: "hideColumn1", type: "bool", title: bold("Hide Column 1 - Selection Boxes?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px; margin-left:10px", newLine:true)
+					input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;", newLine:false)
+					input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:20px;", newLine:false)
 					
-					input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
-					
-					input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+					input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:false)
 										
-					input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+					input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
 					if (hideColumn5 == false) {
 						input(name: "column5Header", type: "string", title: bold("Column 5 Header"), required: false, defaultValue: "Control A/B", width: 2, submitOnChange: true)
 						input(name: "column5Width", type: "enum", title: bold("Column 5 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
 					}
 					
-					input(name: "hideColumn6", type: "bool", title: bold("Hide Column 6 - Control C - Color?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
+					input(name: "hideColumn6", type: "bool", title: bold("Hide Column 6 - Control C - Color?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
 					if (hideColumn6 == false) {
 						input(name: "column6Header", type: "string", title: bold("Column 6 Header"), required: false, defaultValue: "Control C", width: 2, submitOnChange: true)
 						input(name: "column6Width", type: "enum", title: bold("Column 6 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
 					}
-					input(name: "hideColumn7", type: "bool", title: bold("Hide Column 7 - Info 1"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
-					if (hideColumn7 == false) input(name: "column7Header", type: "string", title: bold("Info 1 Header Text"), required: false, defaultValue: "Activated", width: 2, submitOnChange: true)	
-					input(name: "hideColumn8", type: "bool", title: bold("Hide Column 8 - Info 2"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
-					if (hideColumn8 == false) input(name: "column8Header", type: "string", title: bold("Info 2 Header Text"), required: false, defaultValue: "Activated", width: 2, submitOnChange: true)	
-					input(name: "hideColumn9", type: "bool", title: bold("Hide Column 9 - Info 3"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:true)
-					if (hideColumn9 == false) input(name: "column9Header", type: "string", title: bold("Info 3 Header Text"), required: false, defaultValue: "Activated", width: 2, submitOnChange: true)	
+
+					input(name: "hideColumn7", type: "bool", title: bold("Hide Column 7 - Info 1"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+					if (hideColumn7 == false) {
+						input(name: "column7Header", type: "string", title: bold("Info 1 Header Text"), required: false, width: 2, submitOnChange: true)	
+						input(name: "its1", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
+						input(name: "ita1", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
+						input(name: "info1Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "lastActive", options: devicePropertiesList(), submitOnChange: true, width: 2)
+					}
+					input(name: "hideColumn8", type: "bool", title: bold("Hide Column 8 - Info 2"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+					if (hideColumn8 == false) {
+						input(name: "column8Header", type: "string", title: bold("Info 2 Header Text"), required: false, width: 2, submitOnChange: true)
+						input(name: "its2", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
+						input(name: "ita2", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
+						input(name: "info2Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "lastActiveDuration", options: devicePropertiesList(), submitOnChange: true, width: 2)
+					}
+					input(name: "hideColumn9", type: "bool", title: bold("Hide Column 9 - Info 3"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+					if (hideColumn9 == false) {
+						input(name: "column9Header", type: "string", title: bold("Info 3 Header Text"), required: false, width: 2, submitOnChange: true)
+						input(name: "its3", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
+						input(name: "ita3", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
+						input(name: "info3Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "roomName", options: devicePropertiesList(), submitOnChange: true, width: 2)
+					}	
+					input(name: "hideColumn10", type: "bool", title: bold("Hide Column 10 - Pin"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
 				}
 
 				if (settings.customizeSection == "Rows") {
 					input(name: "rts", type: "enum", title: bold("Text Size %"), options: textScale(), required: false, defaultValue: "100", submitOnChange: true, width:1)
                     input(name: "rtc", type: "color", title: bold2("Text Color", rtc), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
                     input(name: "rbc", type: "color", title: bold2("Background Color", rbc), required: false, defaultValue: "#DDEEBB", submitOnChange: true, width:2)
-					input(name: "rbo", type: "enum", title: bold("Background Opacity"), options: opacity(), required: false, defaultValue: "1", submitOnChange: true, width:2)
-					input(name: "rbs", type: "color", title: bold2("Background Color - Selected Row", rbs), required: false, defaultValue: "#BFE373", submitOnChange: true, width:3)
-				}
-							
-				if (settings.customizeSection == "Info") {
-					input(name: "hideColumn7", type: "bool", title: bold("Hide Info Column 1"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn7 == false) {
-						input(name: "column7Header", type: "string", title: bold("Info 1 Header Text"), required: false, width: 2, submitOnChange: true)	
-						input(name: "its1", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 1, submitOnChange: true)
-						input(name: "ita1", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
-						input(name: "info1Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "lastActive", options: devicePropertiesList(), submitOnChange: true, width: 2)
-					}
-					input(name: "hideColumn8", type: "bool", title: bold("Hide Info Column 2"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn8 == false) {
-						input(name: "column8Header", type: "string", title: bold("Info 2 Header Text"), required: false, width: 2, submitOnChange: true)
-						input(name: "its2", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 1, submitOnChange: true)
-						input(name: "ita2", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
-						input(name: "info2Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "lastActiveDuration", options: devicePropertiesList(), submitOnChange: true, width: 2)
-					}
-					input(name: "hideColumn9", type: "bool", title: bold("Hide Info Column 3"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn9 == false) {
-						input(name: "column9Header", type: "string", title: bold("Info 3 Header Text"), required: false, width: 2, submitOnChange: true)
-						input(name: "its3", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 1, submitOnChange: true)
-						input(name: "ita3", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
-						input(name: "info3Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "roomName", options: devicePropertiesList(), submitOnChange: true, width: 2)
-					}
+					input(name: "rbo", type: "enum", title: bold("Background Opacity"), options: opacity(), required: false, defaultValue: "1", submitOnChange: true, width:2)	
+					
+					input(name: "highlightSelectedRows", type: "enum", title: bold("Highlight Selected Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px")
+					if (highlightSelectedRows == "True" ) input(name: "rbs", type: "color", title: bold2("Selected Row - Background Color", rbs), required: false, defaultValue: "#FFE18F", submitOnChange: true, width:3)
+					
+					input(name: "highlightPinnedRows", type: "enum", title: bold("Highlight Pinned Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px")
+					if (highlightPinnedRows == "True") input(name: "rbpc", type: "color", title: bold2("Pinned Row - Background Color", rbpc), required: false, defaultValue: "#A7C7FB", submitOnChange: true, width: 3, style:"margin-right:25px" )
 				}
 				
+				if (settings.customizeSection == "Experimental") {
+					paragraph "<b>There are no experimental settings at this time!<b>"
+				}
+							
 				paragraph line(2)
 				paragraph "<b>Important: You must do a " + red("Publish and Subscribe") + " for SmartGrid to receive updates and work correctly in polling mode or to update automatically in the above window!</b><br>"
             }
@@ -378,13 +429,15 @@ def mainPage(){
 			myText = '<div style="display: flex; justify-content: space-between;">'
             myText += '<div style="text-align:left;font-weight:small;font-size:12px"> <b>Documentation:</b> ' + myDocURL + '</div>'
             myText += '<div style="text-align:center;font-weight:small;font-size:12px">Version: ' + codeDescription + '</div>'
-            myText += '<div style="text-align:right;font-weight:small;font-size:12px">Copyright 2022 - 2024</div>'
+            myText += '<div style="text-align:right;font-weight:small;font-size:12px">Copyright 2022 - 2025</div>'
             myText += '</div>'
             paragraph myText
         }
         //End of More Section
     }
 }
+
+// Functions pertaining to the internal handling of the Groovy Parent application
 
 //Checks for critical Null values that can be introduced by the user by clicking "No Selection" in a variety of enum dialog.
 def checkNulls() {
@@ -396,22 +449,18 @@ def checkNulls() {
 	if (pollUpdateDuration == null ) app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
 	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "2", type: "enum"])
 	if (commandTimeout == null ) app.updateSetting("commandTimeout", [value: "10", type: "enum"])
-	
 	if (tvp == null ) app.updateSetting("tvp", [value: "3", type: "enum"])
 	if (thp == null ) app.updateSetting("thp", [value: "5", type: "enum"])
-	
 	if (hts == null ) app.updateSetting("hts", [value: "100", type: "enum"])
 	if (hbo == null ) app.updateSetting("hbo", [value: "1", type: "enum"])
 	if (rts == null ) app.updateSetting("rts", [value: "90", type: "enum"])
 	if (rbo == null ) app.updateSetting("rbo", [value: "1", type: "enum"])
-	
 	if (its1 == null ) app.updateSetting("its1", [value: "80", type: "enum"])
 	if (its2 == null ) app.updateSetting("its2", [value: "80", type: "enum"])
 	if (its3 == null ) app.updateSetting("its3", [value: "80", type: "enum"])
 	if (ita1 == null ) app.updateSetting("ita1", [value: "Center", type: "enum"])
 	if (ita2 == null ) app.updateSetting("ita2", [value: "Center", type: "enum"])
 	if (ita3 == null ) app.updateSetting("ita3", [value: "Center", type: "enum"])
-	
 	if (state.compiledLocal == null) state.compiledLocal = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
 	if (state.compiledCloud == null) state.compiledCloud = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
 }
@@ -428,12 +477,27 @@ def updateVariables() {
     if (state.variablesVersion < codeVersion) {
         log.info("Updating Variables to $codeVersion")
         //Add the newly created variables here such as:
-		//app.updateSetting("pollUpdateColor", [value: "#00FF00", type: "color"])
-        //Make the variablesVersion the same as the codeVersion
+		app.updateSetting("highlightPinnedRows", "True")
+		app.updateSetting("rbpc", [value: "#A7C7FB", type: "color"])
+		app.updateSetting("highlightSelectedRows", "True")
+		app.updateSetting("column9Header", "Room")
+		app.updateSetting("column10Header", "Pin")
+		app.updateSetting("hideColumn10", true)
+		app.updateSetting("shuttleColor", [value: "#99C5FF", type: "color"])
+		app.updateSetting("tempUnits", [value: "°F", type: "enum"])
 		state.variablesVersion = codeVersion
 		//Now re-compile the endpoints with the new variables
 		compile()
     }
+}
+
+// Receives a list of items and allows them to be selected for pinning
+def getPinnedItems(collection) {
+    def itemList = []
+    collection.each { item ->
+        itemList << item.displayName + " (" + item.getId() + ")"
+    }
+    return itemList
 }
 
 // Gets the state of the various lights that are being tracked and puts them into a JSON format for inclusion with the script 
@@ -446,222 +510,365 @@ def getJSON() {
 		    
     // Iterate through each device
     myDevices.each { device ->
-        // Use LinkedHashMap to maintain the order of fields
+		// Use LinkedHashMap to maintain the order of fields
         def deviceData = new LinkedHashMap()
-		//Use a shared variable for the switchState
-		def mySwitch = device.currentValue("switch")
-        
-        // Ensure 'name' and 'dID' are added first in the correct order
-        deviceData.put("name", device.displayName)
-        deviceData.put("dID", device.getId())
+		def deviceID = device.getId().toString()
+		deviceData.put("ID", device.getId())
 		
-		//Check if the device has "Switch" capability. Attributes are switch - ENUM ["on", "off"]
-		if (device.hasCapability("Switch")) {
-			deviceData.put("dType", 1)
-            deviceData.put("switch", mySwitch)
-			deviceData.put("icon", getIcon(1, mySwitch))
-        }		       
-
-        // Check if the device has "SwitchLevel" capability. Attributes are: level - NUMBER, unit:%
-        if (device.hasCapability("SwitchLevel")) {
-			deviceData.put("dType", 2)
-			def status = device.currentValue("level")?.toInteger() ?: 100
-			deviceData.put("level", status)
-			deviceData.put("icon", getIcon(2, mySwitch))
-        }
-
-		//If the device has ColorTemperature but NOT ColorControl then it is a CT only device. Attributes are: colorName - STRING colorTemperature - NUMBER, unit:°K
-        if ( device.hasCapability("ColorTemperature") && !device.hasCapability("ColorControl") ) {
-			deviceData.put("dType", 3)
-			def status = device.currentValue("colorTemperature")?.toInteger() ?: 2000
-			deviceData.put("CT", status)
-			deviceData.put("icon", getIcon(3, mySwitch))
-        }
-
-		//If the device has ColorControl but NOT ColorTemperature then it is an RGB device. Attributes are: RGB - STRING color - STRING colorName - STRING hue - NUMBER saturation - NUMBER, unit:%
-		if (device.hasCapability("ColorControl") && !device.hasCapability("ColorTemperature") ) {
-			deviceData.put("dType", 4)
-			def hsvMap = [hue: device.currentValue("hue") ?: 100, saturation: device.currentValue("saturation") ?: 100, value: device.currentValue("level")?.toInteger() ?: 100 ]
-			def color = getHEXfromHSV(hsvMap)	
-			deviceData.put("color", color)
-			deviceData.put("icon", getIcon(4, mySwitch))
-		}
-		
-		//If the device has ColorControl AND ColorTemperature then it is a RGBW device. Attributes are: RGB - STRING color - STRING colorName - STRING hue - NUMBER saturation - NUMBER, unit:% +++++ colorTemperature - NUMBER, unit:°K
-        if ( device.hasCapability("ColorControl") && device.hasCapability("ColorTemperature") ) {
-			deviceData.put("dType", 5)
-			def hsvMap = [hue: device.currentValue("hue") ?: 100, saturation: device.currentValue("saturation") ?: 100, value: device.currentValue("level")?.toInteger() ?: 100 ]
-			def color = getHEXfromHSV(hsvMap)	
-			deviceData.put("color", color)
-			deviceData.put("CT", (device.currentValue("colorTemperature")?.toInteger() ?: 2000))
-			deviceData.put("colorMode", device.currentValue("colorMode"))
-			deviceData.put("icon", getIcon(5, mySwitch))
-        }
-		
-		//Check for valves - ENUM ["open", "closed"]
-        if ( device.hasCapability("Valve") ) { 
-			deviceData.put("dType", 10) 
-			deviceData.put("switch", device.currentValue("valve") == "open" ? "on" : "off")
-			deviceData.put("icon", getIcon(10, deviceData.get("switch")))
-		}
-		
-		//Check for locks - states for lock are: ENUM ["locked", "unlocked with timeout", "unlocked", "unknown"]  //Only locked and unlocked are implemented.
-        if ( device.hasCapability("Lock") ) { 
-			deviceData.put("dType", 11) 	
-			deviceData.put("switch", device.currentValue("lock") == "locked" ? "on" : "off")
-			deviceData.put("icon", getIcon(11, deviceData.get("switch")))
-		}
-		
-		//Check for Fans - States for speed are: ENUM ["low","medium-low","medium","medium-high","high","on","off","auto"]
-        if ( device.hasCapability("FanControl") ) { 
-			deviceData.put("dType", 12) 
-			def status = device.currentValue("speed")
-			deviceData.put("speed", status)
-			deviceData.put("switch", device.currentValue("speed") == "off" ? "off" : "on")
-			deviceData.put("icon", getIcon(12, deviceData.get("switch")))
-		}
-		
-		//Check for Garage Doors - States are: ENUM ["unknown", "open", "closing", "closed", "opening"]
-        if ( device.hasCapability("GarageDoorControl") ) { 
-			deviceData.put("dType", 13) 
-			def status = device.currentValue("door")
-			deviceData.put("switch", status == "closed" ? "on" : "off")
-			deviceData.put("door", status)
-			deviceData.put("icon", getIcon(13, status))	
-		}
+		//Get the cached version of the name which may be short from device name modification
+		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
 				
-		// Check for Shades and exclude blinds - States for windowShade are: ENUM ["opening", "partially open", "closed", "open", "closing", "unknown"]
-		if (device.hasCapability("WindowShade") && !device.hasCapability("WindowBlind")) {
-			deviceData.put("dType", 14) 
-			def status = device.currentValue("windowShade")
-			deviceData.put("windowShade", status)
-			deviceData.put("position", device.currentValue("position"))
-			deviceData.put("switch", status == "closed" ? "off" : "on")
-			deviceData.put("icon", getIcon(14, status ) )
+		def mySwitch = device.currentValue("switch")
+		deviceData.put("switch", mySwitch)
+		if ( containsDeviceID(myPinnedControls, deviceID) ) deviceData.put("pin", "on")
+		
+        //Get the device Type from cache so we don't have to calculate it every time. Makes the code on this end simpler.
+		deviceType = state.deviceList.find { it.ID == deviceID }?.type
+		deviceData.put("type", deviceType)
+        		
+		switch (deviceType) {
+			case 1: //Attributes are switch - ENUM ["on", "off"]
+				deviceData.put("icon", getIcon(1, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(1, mySwitch)?.class)
+				break
+			case 2: //Attributes are: level - NUMBER, unit:%
+				//def status = 
+				deviceData.put("level", device.currentValue("level")?.toInteger() ?: 100)
+				deviceData.put("icon", getIcon(2, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(2, mySwitch)?.class)
+				break
+			case 3: //If the device has ColorTemperature but NOT ColorControl then it is a CT only device. Attributes are: colorName - STRING colorTemperature - NUMBER, unit:°K
+				deviceData.put("level", device.currentValue("level")?.toInteger() ?: 100)
+				deviceData.put("CT", device.currentValue("colorTemperature")?.toInteger() ?: 2000)
+				deviceData.put("icon", getIcon(3, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(3, mySwitch)?.class)
+				break
+			case 4: //If the device has ColorControl but NOT ColorTemperature then it is an RGB device. Attributes are: RGB - STRING color - STRING colorName - STRING hue - NUMBER saturation - NUMBER, unit:%
+				deviceData.put("level", device.currentValue("level")?.toInteger() ?: 100)
+				deviceData.put("CT", device.currentValue("colorTemperature")?.toInteger() ?: 2000)
+				def hsvMap = [hue: device.currentValue("hue") ?: 100, saturation: device.currentValue("saturation") ?: 100, value: device.currentValue("level")?.toInteger() ?: 100 ]
+				def color = getHEXfromHSV(hsvMap)	
+				deviceData.put("color", color)
+				deviceData.put("icon", getIcon(4, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(4, mySwitch)?.class)
+				break
+			case 5: //If the device has ColorControl AND ColorTemperature then it is a RGBW device. Attributes are: RGB - STRING color - STRING colorName - STRING hue - NUMBER saturation - NUMBER, unit:% +++++ colorTemperature - NUMBER, unit:°K
+				deviceData.put("level", device.currentValue("level")?.toInteger() ?: 100)
+				deviceData.put("CT", (device.currentValue("colorTemperature")?.toInteger() ?: 2000))
+				def hsvMap = [hue: device.currentValue("hue") ?: 100, saturation: device.currentValue("saturation") ?: 100, value: device.currentValue("level")?.toInteger() ?: 100 ]
+				def color = getHEXfromHSV(hsvMap)	
+				deviceData.put("color", color)
+				deviceData.put("colorMode", device.currentValue("colorMode"))
+				deviceData.put("icon", getIcon(5, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(5, mySwitch)?.class)
+				break
+			case 10: //Check for valves - ENUM ["open", "closed"]
+				myValve = device.currentValue("valve")
+				mySwitch = (myValve == "open") ? "on" : "off"
+				deviceData.put("switch", mySwitch)
+				deviceData.put("icon", getIcon(10, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(10, mySwitch)?.class)
+				break
+			case 11: //Check for locks - states for lock are: ENUM ["locked", "unlocked with timeout", "unlocked", "unknown"]  //Only locked and unlocked are implemented.
+				myLock = device.currentValue("lock")
+				mySwitch = (myLock == "locked") ? "on" : "off"
+				deviceData.put("switch", mySwitch)
+				deviceData.put("icon", getIcon(11, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(11, mySwitch)?.class)
+				break
+			case 12: //Check for Fans - States for speed are: ENUM ["low","medium-low","medium","medium-high","high","on","off","auto"]
+				mySpeed = device.currentValue("speed")
+				mySwitch = (mySpeed == "off") ? "off" : "on"
+				deviceData.put("speed", mySpeed)
+				deviceData.put("switch", mySwitch)
+				deviceData.put("icon", getIcon(12, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(12, mySpeed)?.class)
+				break
+			case 13: //Check for Garage Doors - States are: ENUM ["unknown", "open", "closing", "closed", "opening"]
+				myDoor = device.currentValue("door")
+				mySwitch = (myDoor == "closed") ? "on" : "off"
+				deviceData.put("door", myDoor)
+				deviceData.put("switch", mySwitch)
+				deviceData.put("icon", getIcon(13, myDoor)?.icon)
+				deviceData.put("cl", getIcon(13, myDoor)?.class)
+				break
+			case 14: // Check for Shades and exclude blinds - States for windowShade are: ENUM ["opening", "partially open", "closed", "open", "closing", "unknown"]
+				myStatus = device.currentValue("windowShade")
+				myPosition = device.currentValue("position")
+				mySwitch = (myStatus == "closed") ? "off" : "on"
+				deviceData.put("windowShade", myStatus)
+				deviceData.put("position", myPosition)
+				deviceData.put("switch", mySwitch)
+				deviceData.put("icon", getIcon(14, myStatus)?.icon)
+				deviceData.put("cl", getIcon(14, myStatus)?.class)				
+				break
+			case 15: // Check for Blinds - States for windowBlind are: ENUM ["opening", "partially open", "closed", "open", "closing", "unknown"]
+				myStatus = device.currentValue("windowShade")
+				myPosition = device.currentValue("position")
+				mySwitch = (myStatus == "closed") ? "off" : "on"
+				deviceData.put("position", device.currentValue("position"))
+				deviceData.put("tilt", Math.round(device.currentValue("tilt") * 0.9)) 
+				deviceData.put("switch", mySwitch)
+				deviceData.put("icon", getIcon(15, myStatus)?.icon)
+				deviceData.put("cl", getIcon(15, myStatus)?.class)
+				break
+			case 16: //Check for Audio Volume - States for Mute are: ENUM ["unmuted", "muted"]
+				def myStatus = device.currentValue("mute")
+				mySwitch = (myStatus == "muted") ? "off" : "on"
+				deviceData.put("switch", mySwitch)
+				deviceData.put("volume", device.currentValue("volume"))
+				deviceData.put("icon", getIcon(16, mySwitch)?.icon)
+				deviceData.put("cl", getIcon(16, mySwitch)?.class)
+				break
+			default:
+				break		
 		}
-		
-		// Check for Blinds - States for windowBlind are: ENUM ["opening", "partially open", "closed", "open", "closing", "unknown"]
-		if (device.hasCapability("WindowBlind")) {
-			deviceData.put("dType", 15) 
-			def status = device.currentValue("windowShade")
-			deviceData.put("windowShade", status)
-			deviceData.put("position", device.currentValue("position"))
-			deviceData.put("tilt", Math.round(device.currentValue("tilt") * 0.9)) 
-			deviceData.put("switch", status == "closed" ? "off" : "on")
-			deviceData.put("icon", getIcon(15, status))
-		}
-		
-		//Check for Audio Volume - States for Mute are: ENUM ["unmuted", "muted"]
-        if ( device.hasCapability("AudioVolume") ) { 
-			deviceData.put("dType", 16) 
-			def status = device.currentValue("mute")
-			deviceData.put("switch", status == "muted" ? "off" : "on")
-			deviceData.put("volume", device.currentValue("volume"))
-			deviceData.put("icon", getIcon(16, deviceData.get("switch")))
-		}
-		
-		//Used for Icon debugging
-		//log.info ("Status is: $status")
-		//log.info ("Icon is: " + getIcon(15, status))
-		
-		deviceDetails = getDeviceInfo(device, deviceData.get("dType") )
+
+		deviceDetails = getDeviceInfo(device, deviceData.get("type") )
 						
 		//Gather event information if needed for either of the two columns.
-		if (hideColumn7 == false ) deviceData.put("info1", deviceDetails."${info1Source}")
-		if (hideColumn8 == false ) deviceData.put("info2", deviceDetails."${info2Source}")
-		if (hideColumn9 == false ) deviceData.put("info3", deviceDetails."${info3Source}")
+		if (hideColumn7 == false ) deviceData.put("i1", deviceDetails."${info1Source}")
+		if (hideColumn8 == false ) deviceData.put("i2", deviceDetails."${info2Source}")
+		if (hideColumn9 == false ) deviceData.put("i3", deviceDetails."${info3Source}")
 			
         // Add device data to the list
         deviceAttributesList << deviceData
-		//log.info("Device: $deviceData.name is dType: $deviceData.dType and data is: $deviceData")
+		//log.info("Device: $deviceData.name is type: $deviceData.type and data is: $deviceData")
     }
-	    
-    // Convert the list of device attributes to JSON format
-    def jsonOutput = JsonOutput.toJson(deviceAttributesList)
+	
+	myContacts.each { device ->
+        def deviceData = new LinkedHashMap()
+		def deviceID = device.getId().toString()
+		deviceData.put("ID", deviceID)
+		//Get the cached version of the name which may be short from device name modification
+		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
+		deviceData.put("type", 31)
+		
+		def myContact = device.currentValue("contact")
+		deviceData.put("switch", myContact)
+		deviceData.put("icon", getIcon(31, myContact)?.icon)
+		deviceData.put("cl", getIcon(31, myContact)?.class)
+		
+		//See if it is in the pinned list. If it is then it is always shown ragardless of the state
+		if ( containsDeviceID(myPinnedContacts, device.getId() )) { deviceData.put("pin", "on")	; deviceAttributesList << deviceData }
+		else {
+			if (onlyOpenContacts == "False" ) deviceAttributesList << deviceData
+			if (onlyOpenContacts == "True" && myContact == "open") deviceAttributesList << deviceData	
+		}
+				
+		//Gather event information if needed for either of the two columns.
+		deviceDetails = getDeviceInfo(device, 31 )
+		if (hideColumn7 == false ) deviceData.put("i1", deviceDetails."${info1Source}")
+		if (hideColumn8 == false ) deviceData.put("i2", deviceDetails."${info2Source}")
+		if (hideColumn9 == false ) deviceData.put("i3", deviceDetails."${info3Source}")
+	}
+	
+	myTemps.each { device ->
+		def deviceData = new LinkedHashMap()
+		def deviceID = device.getId().toString()
+		deviceData.put("ID", deviceID)
+		//Get the cached version of the name which may be short from device name modification
+		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
+		deviceData.put("type", 32)
+		
+		def myTemperature = device.currentValue("temperature")
+		def roundedValue = Math.round(myTemperature) // Returns a long
+		myTemperature = roundedValue.toInteger()
+		
+		deviceData.put("switch", myTemperature.toString() + tempUnits)
+		deviceData.put("icon", getIcon(32, "temp")?.icon)
+		deviceData.put("cl", getIcon(32, "temp")?.class)
+		
+		//See if it is in the pinned list. If it is then it is always shown ragardless of the state
+		if ( containsDeviceID(myPinnedTemps, device.getId() )) { deviceData.put("pin", "on")	; deviceAttributesList << deviceData }
+		else {
+			if (onlyReportOutsideRange == "False" ) deviceAttributesList << deviceData
+			if ( onlyReportOutsideRange == "True" && ( myTemperature < minTemp.toInteger() || myTemperature > maxTemp.toInteger() ) ) deviceAttributesList << deviceData
+		}
+						
+		//Gather event information if needed for either of the two columns.
+		deviceDetails = getDeviceInfo(device, 32 )
+		if (hideColumn7 == false ) deviceData.put("i1", deviceDetails."${info1Source}")
+		if (hideColumn8 == false ) deviceData.put("i2", deviceDetails."${info2Source}")
+		if (hideColumn9 == false ) deviceData.put("i3", deviceDetails."${info3Source}")
+	}
+	
+	myLeaks.each { device ->
+		// Use LinkedHashMap to maintain the order of fields
+        def deviceData = new LinkedHashMap()
+		def deviceID = device.getId().toString()
+		deviceData.put("ID", deviceID)
+		//Get the cached version of the name which may be short from device name modification
+		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
+		deviceData.put("type", 33)
+		
+		def myLeak = device.currentValue("water")
+		deviceData.put("switch", myLeak)
+		deviceData.put("icon", getIcon(33, myLeak)?.icon)
+		deviceData.put("cl", getIcon(33, myLeak)?.class)
+		
+				
+		//See if it is in the pinned list. If it is then it is always shown ragardless of the state
+		if ( containsDeviceID(myPinnedLeaks, device.getId() )) { deviceData.put("pin", "on") ; deviceAttributesList << deviceData }
+		else {
+			if (onlyWetSensors == "False" ) deviceAttributesList << deviceData
+			if (onlyWetSensors == "True" && myLeak == "wet") deviceAttributesList << deviceData
+		}
+				
+		//Gather event information if needed for either of the two columns.
+		deviceDetails = getDeviceInfo(device, 33 )
+		if (hideColumn7 == false ) deviceData.put("i1", deviceDetails."${info1Source}")
+		if (hideColumn8 == false ) deviceData.put("i2", deviceDetails."${info2Source}")
+		if (hideColumn9 == false ) deviceData.put("i3", deviceDetails."${info3Source}")
 
-    // Pretty print the JSON output
-    def updatedJson = JsonOutput.prettyPrint(jsonOutput)
-    
-	if (isLogDebug) log.debug("getJSON Output: $updatedJson")
-    state.JSON = updatedJson
+	}
+		    
+    // Convert the list of device attributes to JSON format
+    def compactJSON = JsonOutput.toJson(deviceAttributesList)
+	    
+	if (isLogDebug) {
+		// Pretty print the JSON output
+    	def prettyJSON = JsonOutput.prettyPrint(compactJSON)
+		log.debug("getJSON Output: $prettyJSON")
+	}
+	
+	//Save the compact JSON. This is the version that is collected by the client.
+    state.JSON = compactJSON
 }
 
+//Checks the cached list to see if the received deviceID is part of that list.  This is used to determine whether something is pinned or not.
+def containsDeviceID(deviceList, deviceID) {
+    def pattern = /\((\d+)\)/ // Regular expression to extract the ID in parentheses
+    return deviceList.any { item ->
+        def matcher = (item =~ pattern)
+        matcher && matcher[0][1] == deviceID.toString()
+    }
+}
 
-// Return the appropriate icon to match the dType and deviceState
-def getIcon(dType, deviceState) {
+// Return the appropriate icon and class to match the type and deviceState
+def getIcon(type, deviceState) {
+	//log.info ("Received: $type $deviceState)")
     def icons = [
-        1  : [on: "toggle_on", off: "toggle_off"],
-        2  : [on: "lightbulb", off: "light_off"],
-        3  : [on: "lightbulb", off: "light_off"],
-        4  : [on: "lightbulb", off: "light_off"],
-        5  : [on: "lightbulb", off: "light_off"],
-        10 : [on: "water_pump", off: "valve"],
-        11 : [on: "lock", off: "lock_open"],
-        12 : [on: "mode_fan", off: "mode_fan_off"],
-        13 : [open: "garage", closed: "garage_door", opening: "arrow_upward", closing: "arrow_downward"],
-        14 : [open: "window_closed", closed: "roller_shades_closed", opening: "arrow_upward", closing: "arrow_downward", 'partially open': "roller_shades"],
-        15 : [open: "window_closed", closed: "blinds_closed", opening: "arrow_upward", closing: "arrow_downward", 'partially open': "blinds"],
-        16 : [on: "volume_up", off: "volume_off"],
-        20 : [on: "mode_cool", off: "mode_cool_off"], // Thermostat in cool mode
-        21 : [on: "mode_heat", off: "mode_heat_off"], // Thermostat in heat mode
-        22 : [on: "mode_dual", off: "mode_dual_off"], // Thermostat in dual mode
-        23 : [on: "emergency_heat", off: "emergency_heat"] // Thermostat in emergency mode
+        1  : [on: [icon: "toggle_on", class: "on"], off: [icon: "toggle_off", class: "off"]],
+        2  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
+        3  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
+        4  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
+        5  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
+        10 : [on: [icon: "water_pump", class: "on"], off: [icon: "valve", class: "off"]],
+        11 : [on: [icon: "lock", class: "good"], off: [icon: "lock_open", class: "warn"]],
+        12 : [on: [icon: "mode_fan", class: "spinning"], off: [icon: "mode_fan_off", class: "off"], low: [icon: "mode_fan", class: "spin-low"], medium: [icon: "mode_fan", class: "spin-medium"], high: [icon: "mode_fan", class: "spin-high"]],
+        13 : [closed: [icon: "garage_door", class: "good"], open: [icon: "garage", class: "warn"], opening: [icon: "arrow_upward", class: "blinking"], closing: [icon: "arrow_downward", class: "blinking"]],
+        14 : [open: [icon: "window_closed", class: "on"], closed: [icon: "roller_shades_closed", class: "off"], opening: [icon: "arrow_upward", class: "blinking"], closing: [icon: "arrow_downward", class: "blinking"], 'partially open': [icon: "roller_shades", class: "partial"]],
+        15 : [open: [icon: "window_closed", class: "on"], closed: [icon: "blinds_closed", class: "off"], opening: [icon: "arrow_upward", class: "blinking"], closing: [icon: "arrow_downward", class: "blinking"], 'partially open': [icon: "blinds", class: "on"]],
+        16 : [on: [icon: "volume_up", class: "on"], off: [icon: "volume_off", class: "off"]],
+        20 : [on: [icon: "mode_cool", class: "cooling"], off: [icon: "mode_cool_off", class: "inactive"]],
+        21 : [on: [icon: "mode_heat", class: "heating"], off: [icon: "mode_heat_off", class: "inactive"]],
+        22 : [on: [icon: "mode_dual", class: "dual-mode"], off: [icon: "mode_dual_off", class: "inactive"]],
+        23 : [on: [icon: "emergency_heat", class: "emergency"], off: [icon: "emergency_heat", class: "inactive"]],
+        // Sensors start at 31
+        31 : [open: [icon: "expand_content", class: "warn"], closed: [icon: "collapse_content", class: "off"]],
+		32 : [temp: [icon: "device_thermostat", class: "off"]],
+		33 : [wet: [icon: "water_drop", class: "warn"], dry: [icon: "format_color_reset", class: "off"] ]
     ]
 
-    // Access the icon using get to avoid the call method issue
-    return icons[dType]?.get(deviceState)
+    // Retrieve the entry for the given type and deviceState
+    def result = icons[type]?.get(deviceState)
+    
+    // Return the result if found, otherwise return a default structure
+	//log.info ("Returning: $result")
+    return result ?: [icon: "default_icon", class: "contact_support"]
 }
 
 
+//Check to see if a given infoSource is in use across all three possibilities
+def isInfoSource(source){
+	//log.info("Request: $source  --  info1Source: $info1Source - info2Source: $info2Source - info3Source: $info3Source")
+	def match = false
+	if (info1Source == source) match = true
+	if (info2Source == source) match = true
+	if (info3Source == source) match = true
+	//if (match == true) log.info("Match for source: $source")
+	return match
+}
+
 //Gets information about the lastActive, lastInactive etc and and put it into a map. Data from selected fields will be mapped into the Info columns.
-def getDeviceInfo(device, dType){
+def getDeviceInfo(device, type){
 	def lastActiveEvent
 	def lastInactiveEvent
 	def lastActive
 	def lastInactive
 	def lastActiveInstant
 	def lastInactiveInstant
+	def lastSeen
+	def lastSeenElapsed
 	
-	def dID = device?.getId()
-	def roomName = device?.getRoomName()
-	def colorName = device?.currentValue("colorName")
-	def colorMode = device?.currentValue("colorMode")
-	def power = device?.currentValue("power")
-	def healthStatus = device?.currentValue("healthStatus")
-	def energy = device?.currentValue("energy")
-	def dni = device?.getDeviceNetworkId()
+	def roomName
+	def colorName
+	def colorMode
+	def power
+	def healthStatus
+	def energy
 	def network
-	def deviceTypeName = getDeviceTypeInfo(dType)
+
+	def deviceTypeName
+	def lastActivity
+	def battery
+	def temperature
+	def ID = device?.getId()
+	def deviceName = device.getLabel()
+   
+	//Get the appropriate piece of information only if it has been requested.
+	if (isInfoSource("roomName")) roomName = device?.getRoomName()
+	if (isInfoSource("colorName")) colorName = device?.currentValue("colorName")
+	if (isInfoSource("colorMode")) colorMode = device?.currentValue("colorMode")
+	if (isInfoSource("power")) power = device?.currentValue("power")
+	if (isInfoSource("healthStatus")) healthStatus = device?.currentValue("healthStatus")
+	if (isInfoSource("energy")) energy = device?.currentValue("energy")
+	if (isInfoSource("network")) network = getNetworkType(device?.getDeviceNetworkId())
+	if (isInfoSource("deviceTypeName")) deviceTypeName = getDeviceTypeInfo(type)
+	if (isInfoSource("battery") && device.hasCapability("Battery") ) battery = device?.currentValue("battery") + "%"
+	if (isInfoSource("temperature") && device.hasCapability("TemperatureMeasurement") ) {
+		myTemp = device?.currentValue("temperature")
+		def roundedValue = Math.round(myTemp) // Returns a long
+		temperature = roundedValue.toInteger().toString() + tempUnits
+	}
+		
+	//log.info("deviceName: $deviceName  type: $type")
+	if (isInfoSource("lastActive") || isInfoSource("lastActiveDuration") || isInfoSource("lastInactive") || isInfoSource("lastInactiveDuration") ) {
 	
-	try {
-		if (device.hasCapability("Switch")) {
-			lastActiveEvent = device.events(max: 500) .findAll { it.name == "switch" && it?.value == "on" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-			lastInactiveEvent = device.events(max: 500) .findAll { it.name == "switch" && it?.value == "off" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-		}
-	
-		if (device.hasCapability("Valve")) {
-			lastActiveEvent = device.events(max: 500) .findAll { it.name == "valve" && it?.value == "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-			lastInactiveEvent = device.events(max: 500) .findAll { it.name == "valve" && it?.value == "closed" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-		}
-		
-		if (device.hasCapability("Lock")) {
-			lastActiveEvent = device.events(max: 500) .findAll { it.name == "lock" && it?.value == "locked" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-			lastInactiveEvent = device.events(max: 500) .findAll { it.name == "lock" && it?.value == "unlocked" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-		}
-		
-		if (device.hasCapability("FanControl")) {
-			lastActiveEvent = device.events(max: 500) .findAll { it.name == "speed" && it?.value != "off" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-			lastInactiveEvent = device.events(max: 500) .findAll { it.name == "speed" && it?.value == "off" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-		}
-		
-		if (device.hasCapability("GarageDoorControl")) {
-			lastActiveEvent = device.events(max: 500) .findAll { it.name == "door" && it?.value == "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-			lastInactiveEvent = device.events(max: 500) .findAll { it.name == "door" && it?.value != "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-		}
-		
-		if (device.hasCapability("WindowShade")) {
-			lastActiveEvent = device.events(max: 500) .findAll { it.name == "windowShade" && it?.value == "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
-			lastInactiveEvent = device.events(max: 500) .findAll { it.name == "windowShade" && it?.value != "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+		switch(type){
+			case [1,2,3,4,5]:  //Lights
+				lastActiveEvent = device.events(max: 500) .findAll { it.name == "switch" && it?.value == "on" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				lastInactiveEvent = device.events(max: 500) .findAll { it.name == "switch" && it?.value == "off" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				break
+			case 10: //Valve
+				lastActiveEvent = device.events(max: 500) .findAll { it.name == "valve" && it?.value == "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				lastInactiveEvent = device.events(max: 500) .findAll { it.name == "valve" && it?.value == "closed" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				break
+			case 11: //Lock
+				lastActiveEvent = device.events(max: 500) .findAll { it.name == "lock" && it?.value == "locked" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				lastInactiveEvent = device.events(max: 500) .findAll { it.name == "lock" && it?.value == "unlocked" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				break
+			case 12: //Fan
+				lastActiveEvent = device.events(max: 500) .findAll { it.name == "speed" && it?.value != "off" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				lastInactiveEvent = device.events(max: 500) .findAll { it.name == "speed" && it?.value == "off" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				break
+			case 13: //Garage Door
+				lastActiveEvent = device.events(max: 500) .findAll { it.name == "door" && it?.value == "closed" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				lastInactiveEvent = device.events(max: 500) .findAll { it.name == "door" && it?.value != "closed" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				break
+			case [14,15]: //Shades and Blinds
+				lastActiveEvent = device.events(max: 500) .findAll { it.name == "windowShade" && it?.value == "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				lastInactiveEvent = device.events(max: 500) .findAll { it.name == "windowShade" && it?.value != "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				break
+			case 31: //Contact Sensor
+				lastActiveEvent = device.events(max: 500) .findAll { it.name == "contact" && it?.value == "open" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				lastInactiveEvent = device.events(max: 500) .findAll { it.name == "contact" && it?.value == "closed" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				break
+			case 33: //Water Sensor
+				lastActiveEvent = device.events(max: 500) .findAll { it.name == "water" && it?.value == "wet" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				lastInactiveEvent = device.events(max: 500) .findAll { it.name == "water" && it?.value == "dry" } .sort { -it.date.time } ?.with { it.isEmpty() ? null : it.first() }
+				break
 		}
 		
 		if (lastActiveEvent != null) {
@@ -669,32 +876,36 @@ def getDeviceInfo(device, dType){
 			lastActiveDuration = formatTime(lastActiveEvent?.getDate(), defaultDurationFormat.toInteger()  ?: 21 )
 			lastActiveInstant = formatTime(lastActiveEvent?.getDate(), 0 )
 		}
-		
+
 		if (lastInactiveEvent != null) {
 			lastInactive = formatTime(lastInactiveEvent?.getDate(), defaultDateTimeFormat.toInteger() ?: 3)
 			lastInactiveDuration = formatTime(lastInactiveEvent?.getDate(), defaultDurationFormat.toInteger()  ?: 21 )
 			lastInactiveInstant = formatTime(lastInactiveEvent?.getDate(), 0 )
 		}
-		
+
 		if (lastInactive != null && lastActive != null) {
 			def durations = getDuration(lastActiveInstant, lastInactiveInstant)
 			lastActiveDuration = durations.lastActiveDuration
 			lastInactiveDuration = durations.lastInactiveDuration
 		}
-		
-		network = getNetworkType(dni)
-		
 	}
-	    
-	catch (Exception exception) { log.error ("Exception is: $exception") }
+		
+	if (isInfoSource("lastSeen") || isInfoSource("lastSeenElapsed") ) {
+		lastActivity = device?.getLastActivity()
+		if (lastActivity != null) {
+			def timestamp = lastActivity.time
+			lastSeen = formatTime(timestamp, defaultDateTimeFormat.toInteger() ?: 3)
+			def durations = getDuration(timestamp, now())
+			lastSeenElapsed = durations.lastActiveDuration
+		}
+	}
 	
-	def result = [lastInactive: lastInactive, lastInactiveInstant: lastInactiveInstant, lastActive: lastActive, lastActiveInstant: lastActiveInstant, lastActiveDuration: lastActiveDuration, 
+	def result = [lastActive: lastActive, lastInactive: lastInactive, lastInactiveInstant: lastInactiveInstant, lastActiveInstant: lastActiveInstant, lastActiveDuration: lastActiveDuration, 
 				  lastInactiveDuration: lastInactiveDuration, roomName: roomName, colorName: colorName, colorMode: colorMode, power: power, healthStatus: healthStatus, 
-				  energy: energy, dID: dID, network: network, deviceTypeName: deviceTypeName ].collectEntries { key, value -> [key, value != null ? value : invalidAttribute.toString()] }
+				  energy: energy, ID: ID, network: network, deviceTypeName: deviceTypeName, lastSeen: lastSeen, lastSeenElapsed: lastSeenElapsed, battery: battery, temperature: temperature ].collectEntries { key, value -> [key, value != null ? value : invalidAttribute.toString()] }
 	
 	//log.info("Returning map: $result")
     return result
-	
 }
 
 // Function to determine network type based on DNI length
@@ -708,13 +919,13 @@ def getNetworkType(dni) {
     return networkTypes[dni?.length()] ?: "Other"
 }
 
-//Can return either a dType name or a dType number
+//Can return either a type name or a type number
 def getDeviceTypeInfo(input) {
     def maps = createDeviceTypeMap()
-    def dTypeMap = maps.dTypeMap
+    def typeMap = maps.typeMap
     def nameToNumberMap = maps.nameToNumberMap
 
-    if (input instanceof Number) { return dTypeMap[input] ?: "Unknown device type number" } 
+    if (input instanceof Number) { return typeMap[input] ?: "Unknown device type number" } 
 	else if (input instanceof String) { return nameToNumberMap[input] ?: "Unknown device type name" } 
 	else { return "Invalid input" }
 }
@@ -725,21 +936,21 @@ def applyChangesToDevices(changes) {
     if (isLogDeviceInfo) log.debug("Changes are: $changes")
 
     // Define a map of actions
-    def commandMap = [ 'switch' : { dID, dType, newValue -> handleSwitch(dID, dType, newValue) }, 'level' : { dID, _, newValue -> dID.setLevel(newValue, 0.4) }, 'volume' : { dID, _, newValue -> dID.setVolume(newValue) },
-        'position': { dID, _, newValue -> dID.setPosition(newValue) }, 'tilt' : { dID, _, newValue -> dID.setTiltLevel(Math.round(newValue * (100 / 90))) }, 'speed' : { dID, _, newValue -> dID.setSpeed(newValue) },
-        'name'    : { dID, _, newValue -> dID.setLabel(newValue) }, 'CT' : { dID, _, newValue -> dID.setColorTemperature(newValue, null, 0.2) }, 'color' : { dID, _, newValue -> setDeviceColor(dID, newValue) }
+    def commandMap = [ 'switch' : { ID, type, newValue -> handleSwitch(ID, type, newValue) }, 'level' : { ID, _, newValue -> ID.setLevel(newValue, 0.4) }, 'volume' : { ID, _, newValue -> ID.setVolume(newValue) },
+        'position': { ID, _, newValue -> ID.setPosition(newValue) }, 'tilt' : { ID, _, newValue -> ID.setTiltLevel(Math.round(newValue * (100 / 90))) }, 'speed' : { ID, _, newValue -> ID.setSpeed(newValue) },
+        'name'    : { ID, _, newValue -> ID.setLabel(newValue) }, 'CT' : { ID, _, newValue -> ID.setColorTemperature(newValue, null, 0.2) }, 'color' : { ID, _, newValue -> setDeviceColor(ID, newValue) }
     ]
 
     // Iterate over changes
     changes.each { change ->
-        def device = findDeviceById(change.dID)
+        def device = findDeviceById(change.ID)
         if (device) {
-            def dType = change.dType
+            def type = change.type
             change.changes.each { key, values ->
                 def newValue = values[1] // Get the new value for each property
                 def command = commandMap[key]
 
-                if (command) { command(device, dType, newValue) } 
+                if (command) { command(device, type, newValue) } 
 				else { if (isLogDebug) log.warn("Unhandled change: $key") }
             }
         }
@@ -747,7 +958,7 @@ def applyChangesToDevices(changes) {
 }
 
 // Handles switch-type actions for different device types
-def handleSwitch(device, dType, newValue) {
+def handleSwitch(device, type, newValue) {
     def actionMap = [
         [1, 2, 3, 4, 5]: { value -> value == "on" ? device.on() : device.off() },
         [10]: { value -> value == "on" ? device.open() : device.close() },
@@ -760,7 +971,7 @@ def handleSwitch(device, dType, newValue) {
     
     // Iterate over the map to find the matching key
     actionMap.each { keys, action ->
-        if (keys.contains(dType as Integer)) {
+        if (keys.contains(type as Integer)) {
             action(newValue) // Execute the action if keys match
             return
         }
@@ -781,7 +992,7 @@ def setDeviceColor(device, hexColor) {
 //**************
 //*******************************************************************************************************************************************************************************************
 
-//This is derived from the formatTime function used in Grid but in this case the only Time format received is from Events which are always "java.sql.Timestamp".
+//This is derived from the formatTime function used in Grid but in this case the only Time format received is from Events which are always "java.sql.Timestamp" or from lastActivity which are of type Long.
 //Receives a time as an event timestamp and converts it into one of many alternate time formats.
 def formatTime(timeValue, int format) {
 	def isLogDateTime = false
@@ -791,8 +1002,11 @@ def formatTime(timeValue, int format) {
     // N/A means the requested attribute was not found.
     if (timeValue == "N/A") return 0
 	
-	myLongTime = timeValue.getTime()
-    if (isLogDateTime) log.info("<b>Received timestamp: $timeValue  -  Converted to: $myLongTime")
+	def myClass = getObjectClassName(timeValue)
+	if (myClass == "java.sql.Timestamp" ) myLongTime = timeValue.getTime()
+	else myLongTime = timeValue
+	
+	if (isLogDateTime) log.info("<b>Received timestamp: $timeValue  -  Converted to: $myLongTime")
 
     Date myDateTime = new Date(myLongTime)
     if (myDateTime == null || myDateTime == "null") return "N/A"
@@ -831,7 +1045,7 @@ def formatTime(timeValue, int format) {
         return formattedDateTime
     }
     catch (Exception ignored) {
-        return timeValue
+    	return timeValue
     }
 }
 
@@ -915,138 +1129,145 @@ def getDuration(long lastActiveEvent, long lastInactiveEvent) {
 	return result
 }
 
-
-
 //*******************************************************************************************************************************************************************************************
 //**************
-//**************  Compile Functions
+//**************  Compile Time Functions
 //**************
 //*******************************************************************************************************************************************************************************************
 
 //Compress the fixed components text output and generate the version that will be used by the browser.
 def compile(){
-	
 	try{
-	if (isLogTrace) log.trace("<b>Entering: Compile</b>")
-	if (isLogDebug) log.debug("Running Compile")
-		
-	def html1 = myHTML()
-	def content = condense(html1)
-	def localContent
-	def cloudContent
-		
-	content = content.replace('#controlSize#', controlSize.toString() )
-	
-	//Table Horizontal Alignment
-	if (ha == "Stretch") content = content.replace('#ha#', "stretch" )
-	if (ha == "Left") content = content.replace('#ha#', "flex-start" )
-	if (ha == "Center") content = content.replace('#ha#', "center" )
-	if (ha == "Right") content = content.replace('#ha#', "flex-end" )
-	
-	//Table Padding
-	content = content.replace('#thp#', thp )
-	content = content.replace('#tvp#', tvp )
-	
-	//Column Headers
-	content = content.replace('#column3Header#', column3Header )	// Column 3 header text
-	content = content.replace('#column5Header#', column5Header )	// Column 5 header text
-	content = content.replace('#column6Header#', column6Header )	// Column 6 header text
-	
-	//Forced Column Widths - If the columns are marked as hidden change the width to zero.
-	if (hideColumn3) { content = content.replace('#column3Width#', '0') } else { content = content.replace('#column3Width#', column3Width.toString()) }
-	if (hideColumn5) { content = content.replace('#column5Width#', '0') } else { content = content.replace('#column5Width#', column5Width.toString()) }
-	if (hideColumn6) { content = content.replace('#column6Width#', '0') } else { content = content.replace('#column6Width#', column6Width.toString()) }
+		if (isLogTrace) log.trace("<b>Entering: Compile</b>")
+		if (isLogDebug) log.debug("Running Compile")
 
-	//Info Columns
-	content = content.replace('#Info1#', toHTML(column7Header) )	// Info 1 Header Text
-	content = content.replace('#its1#', its1 )	// Info 1 Text Size
-	content = content.replace('#ita1#', ita1 )	// Info 1 Text Alignment
-	
-	content = content.replace('#Info2#', toHTML(column8Header) )	// Info 2 Header Text
-	content = content.replace('#its2#', its2 )	// Info 2 Text Size
-	content = content.replace('#ita2#', ita2 )	// Info 2 Text Alignment
-	
-	content = content.replace('#Info3#', toHTML(column9Header) )	// Info 3 Header Text
-	content = content.replace('#its3#', its3 )	// Info 3 Text Size
-	content = content.replace('#ita3#', ita3 )	// Info 3 Text Alignment
-	
-	if (tt == "?") { content = content.replace('#titleDisplay#', 'none' ) }
-	else {
-		content = content.replace('#titleDisplay#', 'block' )	// Display Title or not
-		content = content.replace('#tt#', toHTML(tt) )	// Title Text
-		content = content.replace('#ts#', ts )	// Title Size
-		content = content.replace('#tp#', tp )	// Title Padding
-		content = content.replace('#ta#', ta )	// Title Alignment
-		content = content.replace('#tc#', tc )	// Title Color
-		def mytb = convertToHex8(tb, to.toFloat())  //Calculate the new color including the opacity.
-		content = content.replace('#tb#', mytb )	// Title Background Color// Display Title or not
-	}
-	
-	content = content.replace('#hts#', hts )	// Header Text Size
-	content = content.replace('#htc#', htc )	// Header Text Color
-	
-	def myhbc = convertToHex8(hbc, hbo.toFloat())  //Calculate the new color including the opacity.
-	content = content.replace('#hbc#', myhbc )	// Header Background Color
+		def html1 = myHTML()
+		def content = condense(html1)
+		def localContent
+		def cloudContent
 
-	content = content.replace('#rts#', rts )	// Row Text Size
-	content = content.replace('#rtc#', rtc )	// Row Text Color
-	
-	def myrbc = convertToHex8(rbc, rbo.toFloat())  //Calculate the new color including the opacity.
-	content = content.replace('#rbc#', myrbc )	// Row Background Color
-	content = content.replace('#rbs#', rbs )	// Row Background Color Selected
-	
-	//Hide unwanted columns
-	content = content.replace('#hideColumn1#', hideColumn1 ? 'none' : 'table-cell')
-	content = content.replace('#hideColumn2#', hideColumn2 ? 'none' : 'table-cell')
-	content = content.replace('#hideColumn3#', hideColumn3 ? 'none' : 'table-cell')
-	content = content.replace('#hideColumn4#', hideColumn4 ? 'none' : 'table-cell')
-	content = content.replace('#hideColumn5#', hideColumn5 ? 'none' : 'table-cell')
-	content = content.replace('#hideColumn6#', hideColumn6 ? 'none' : 'table-cell')
-	content = content.replace('#hideColumn7#', hideColumn7 ? 'none' : 'table-cell')
-	content = content.replace('#hideColumn8#', hideColumn8 ? 'none' : 'table-cell')
-	content = content.replace('#hideColumn9#', hideColumn9 ? 'none' : 'table-cell')
+		content = content.replace('#controlSize#', controlSize.toString() )
 		
-	content = content.replace('#BrowserTitle#', myRemoteName)
-	
-	content = content.replace('#pollInterval#', (pollInterval.toInteger() * 1000).toString() )
-	content = content.replace('#pollUpdateColorSuccess#', pollUpdateColorSuccess)
-	content = content.replace('#pollUpdateColorFail#', pollUpdateColorFail)
-	content = content.replace('#pollUpdateWidth#', pollUpdateWidth)
-	content = content.replace('#pollUpdateDuration#', (pollUpdateDuration.toInteger() * 1000).toString() )
-	content = content.replace('#commandTimeout#', (commandTimeout.toInteger() * 1000).toString() )
-	
-	if (isPollingEnabled == "Enabled") content = content.replace('#isPollingEnabled#', "true")
-	if (isPollingEnabled == "Disabled") content = content.replace('#isPollingEnabled#', "false")
-	
-	content = content.replace('#shuttleColor#', shuttleColor)
-	content = content.replace('#shuttleHeight#', shuttleHeight)
-	
-	//Put the proper statement in for the Materials Font. It's done this way because the cleaning of comments catches the // in https://
-	content = content.replace('#MaterialsFont#', "<link href='https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined' rel='stylesheet'>")
-	
-	content = content.replace('#maxWidth#', ( (tilePreviewWidth.toInteger() * 200).toString()) )
+		//Table Horizontal Alignment
+		if (ha == "Stretch") content = content.replace('#ha#', "stretch" )
+		if (ha == "Left") content = content.replace('#ha#', "flex-start" )
+		if (ha == "Center") content = content.replace('#ha#', "center" )
+		if (ha == "Right") content = content.replace('#ha#', "flex-end" )
+
+		//Table Padding
+		content = content.replace('#thp#', thp )
+		content = content.replace('#tvp#', tvp )
+
+		//Column Headers
+		content = content.replace('#column3Header#', toHTML(column3Header) )	// Column 3 header text
+		content = content.replace('#column5Header#', toHTML(column5Header) )	// Column 5 header text
+		content = content.replace('#column6Header#', toHTML(column6Header) )	// Column 6 header text
+
+		//Forced Column Widths - If the columns are marked as hidden change the width to zero.
+		if (hideColumn3) { content = content.replace('#column3Width#', '0') } else { content = content.replace('#column3Width#', column3Width.toString()) }
+		if (hideColumn5) { content = content.replace('#column5Width#', '0') } else { content = content.replace('#column5Width#', column5Width.toString()) }
+		if (hideColumn6) { content = content.replace('#column6Width#', '0') } else { content = content.replace('#column6Width#', column6Width.toString()) }
+		if ( highlightPinnedRows == "True" ) content = content.replace('#rbpc#', rbpc )
+		if ( highlightSelectedRows == "True" ) content = content.replace('#rbs#', rbs ) 
+		else content = content.replace('#rbs#', "00000000" ) 
 		
-	if ( localEndpointState == "Enabled" ) localContent = content 
-	if ( localEndpointState == "Disabled" ) localContent = "Local Endpoint Disabled" 
-	if ( cloudEndpointState == "Enabled" ) cloudContent = content 
-	if ( cloudEndpointState == "Disabled" ) cloudContent = "Cloud Endpoint Disabled" 
+		//Info Columns
+		content = content.replace('#Info1#', toHTML(column7Header) )	// Info 1 Header Text
+		content = content.replace('#its1#', its1 )	// Info 1 Text Size
+		content = content.replace('#ita1#', ita1 )	// Info 1 Text Alignment
+
+		content = content.replace('#Info2#', toHTML(column8Header) )	// Info 2 Header Text
+		content = content.replace('#its2#', its2 )	// Info 2 Text Size
+		content = content.replace('#ita2#', ita2 )	// Info 2 Text Alignment
+
+		content = content.replace('#Info3#', toHTML(column9Header) )	// Info 3 Header Text
+		content = content.replace('#its3#', its3 )	// Info 3 Text Size
+		content = content.replace('#ita3#', ita3 )	// Info 3 Text Alignment
+
+		if (tt == "?") { content = content.replace('#titleDisplay#', 'none' ) }
+		else {
+			content = content.replace('#titleDisplay#', 'block' )	// Display Title or not
+			content = content.replace('#tt#', toHTML(tt) )	// Title Text
+			content = content.replace('#ts#', ts )	// Title Size
+			content = content.replace('#tp#', tp )	// Title Padding
+			content = content.replace('#ta#', ta )	// Title Alignment
+			content = content.replace('#tc#', tc )	// Title Color
+			def mytb = convertToHex8(tb, to.toFloat())  //Calculate the new color including the opacity.
+			content = content.replace('#tb#', mytb )	// Title Background Color// Display Title or not
+		}
+
+		content = content.replace('#hts#', hts )	// Header Text Size
+		content = content.replace('#htc#', htc )	// Header Text Color
+
+		def myhbc = convertToHex8(hbc, hbo.toFloat())  //Calculate the new color including the opacity.
+		content = content.replace('#hbc#', myhbc )	// Header Background Color
+		content = content.replace('#hbc-halftone#', calculateHalftone(myhbc, 35) )	//Sets the Header Background Color for the sorted header to be a lighter shade of the same color.
+
+		content = content.replace('#rts#', rts )	// Row Text Size
+		content = content.replace('#rtc#', rtc )	// Row Text Color
+
+		def myrbc = convertToHex8(rbc, rbo.toFloat())  //Calculate the new color including the opacity.
 	
-	localContent = localContent.replace("#URL#", state.localEndpointData )
-	localContent = localContent.replace("#URL1#", state.localEndpointPoll )
+		content = content.replace('#rbc#', myrbc )	// Row Background Color
+		content = content.replace('#rbs#', rbs )	// Row Background Color Selected
+
+		//Hide unwanted columns
+		content = content.replace('#hideColumn1#', hideColumn1 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn2#', hideColumn2 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn3#', hideColumn3 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn4#', hideColumn4 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn5#', hideColumn5 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn6#', hideColumn6 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn7#', hideColumn7 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn8#', hideColumn8 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn9#', hideColumn9 ? 'none' : 'table-cell')
+		content = content.replace('#hideColumn10#', hideColumn10 ? 'none' : 'table-cell')
+
+		content = content.replace('#BrowserTitle#', myRemoteName)
+
+		content = content.replace('#pollInterval#', (pollInterval.toInteger() * 1000).toString() )
+		content = content.replace('#pollUpdateColorSuccess#', pollUpdateColorSuccess)
+		content = content.replace('#pollUpdateColorFail#', pollUpdateColorFail)
+		content = content.replace('#pollUpdateWidth#', pollUpdateWidth)
+		content = content.replace('#pollUpdateDuration#', (pollUpdateDuration.toInteger() * 1000).toString() )
+		content = content.replace('#commandTimeout#', (commandTimeout.toInteger() * 1000).toString() )
 	
-	cloudContent = cloudContent.replace("#URL#", state.cloudEndpointData )
-	cloudContent = cloudContent.replace("#URL1#", state.cloudEndpointPoll )
+		if (isPollingEnabled == "Enabled") content = content.replace('#isPollingEnabled#', "true")
+		if (isPollingEnabled == "Disabled") content = content.replace('#isPollingEnabled#', "false")
+
+		content = content.replace('#shuttleColor#', shuttleColor)
+		content = content.replace('#shuttleHeight#', shuttleHeight)
+
+		//Put the proper statement in for the Materials Font. It's done this way because the cleaning of comments catches the // in https://
+		content = content.replace('#MaterialsFont#', "<link href='https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined' rel='stylesheet'>")
+		content = content.replace('#maxWidth#', ( (tilePreviewWidth.toFloat() * 200).toString()) )
+
+		if ( localEndpointState == "Enabled" ) localContent = content 
+		if ( localEndpointState == "Disabled" ) localContent = "Local Endpoint Disabled" 
+		if ( cloudEndpointState == "Enabled" ) cloudContent = content 
+		if ( cloudEndpointState == "Disabled" ) cloudContent = "Cloud Endpoint Disabled" 
 	
-	// Saves a copy of this finalized HTML\CSS\SVG\SCRIPT so that it does not have to be re-calculated. Everything else is done via the loading of JSON data.
-    state.compiledLocal = localContent
-    state.compiledCloud = cloudContent
-    state.compiledSize = state.compiledLocal.size()
-	
-	def now = new Date()
-	state.compiledDataTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
+		localContent = localContent.replace("#URL#", state.localEndpointData )
+		localContent = localContent.replace("#URL1#", state.localEndpointPoll )
+
+		cloudContent = cloudContent.replace("#URL#", state.cloudEndpointData )
+		cloudContent = cloudContent.replace("#URL1#", state.cloudEndpointPoll )
+
+		// Saves a copy of this finalized HTML\CSS\SVG\SCRIPT so that it does not have to be re-calculated. Everything else is done via the loading of JSON data.
+		state.compiledLocal = localContent
+		state.compiledCloud = cloudContent
+		state.compiledSize = state.compiledLocal.size()
+
+		def now = new Date()
+		state.compiledDataTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
 	}
+		
+	catch (Exception exception) { log.error ("Exception is: $exception") }
 	
-	catch(e){}
+	
+	
+	//Assign the device types
+	cacheDeviceInfo()
 }
 
 //Remove any wasted space from the compiled version to shorten load times.
@@ -1088,6 +1309,84 @@ def condense(String input) {
     return input 
 }
 
+//Determines the deviceInfo (type) for each device and saves it in state along with the deviceID and the short device name as these can only change at compile time. 
+//This function only runs at compile() so it reduces the amount of work being performed by the Hub by caching these results vs calculating them each time.
+def cacheDeviceInfo(){
+	def myDeviceList = []
+	myDevices.each { device ->
+		def deviceInfo = new LinkedHashMap()
+		deviceID = device.getId()
+		deviceInfo.put("ID", deviceID)
+		deviceInfo.put("name", getShortName(device.displayName))
+		
+		//Check if the device has "Switch" capability. Attributes are switch - ENUM ["on", "off"]
+		if (device.hasCapability("Switch")) { deviceInfo.put("type", 1) }		       
+        // Check if the device has "SwitchLevel" capability. Attributes are: level - NUMBER, unit:%
+        if (device.hasCapability("SwitchLevel")) { deviceInfo.put("type", 2) }
+		//If the device has ColorTemperature but NOT ColorControl then it is a CT only device. Attributes are: colorName - STRING colorTemperature - NUMBER, unit:°K
+        if ( device.hasCapability("ColorTemperature") && !device.hasCapability("ColorControl") ) { deviceInfo.put("type", 3) }
+		//If the device has ColorControl but NOT ColorTemperature then it is an RGB device. Attributes are: RGB - STRING color - STRING colorName - STRING hue - NUMBER saturation - NUMBER, unit:%
+		if (device.hasCapability("ColorControl") && !device.hasCapability("ColorTemperature") ) { deviceInfo.put("type", 4) }
+		//If the device has ColorControl AND ColorTemperature then it is a RGBW device. Attributes are: RGB - STRING color - STRING colorName - STRING hue - NUMBER saturation - NUMBER, unit:% +++++ colorTemperature - NUMBER, unit:°K
+        if ( device.hasCapability("ColorControl") && device.hasCapability("ColorTemperature") ) { deviceInfo.put("type", 5) }
+		//Check for valves - ENUM ["open", "closed"]
+        if ( device.hasCapability("Valve") ) { deviceInfo.put("type", 10) }
+		//Check for locks - states for lock are: ENUM ["locked", "unlocked with timeout", "unlocked", "unknown"]  //Only locked and unlocked are implemented.
+        if ( device.hasCapability("Lock") ) { deviceInfo.put("type", 11) }
+		//Check for Fans - States for speed are: ENUM ["low","medium-low","medium","medium-high","high","on","off","auto"]
+        if ( device.hasCapability("FanControl") ) { deviceInfo.put("type", 12) }
+		//Check for Garage Doors - States are: ENUM ["unknown", "open", "closing", "closed", "opening"]
+        if ( device.hasCapability("GarageDoorControl") || device.hasCapability("DoorControl")) { deviceInfo.put("type", 13) }
+		// Check for Shades and exclude blinds - States for windowShade are: ENUM ["opening", "partially open", "closed", "open", "closing", "unknown"]
+		if (device.hasCapability("WindowShade") && !device.hasCapability("WindowBlind")) { deviceInfo.put("type", 14) }
+		// Check for Blinds - States for windowBlind are: ENUM ["opening", "partially open", "closed", "open", "closing", "unknown"]
+		if (device.hasCapability("WindowBlind")) { deviceInfo.put("type", 15) }
+		//Check for Audio Volume - States for Mute are: ENUM ["unmuted", "muted"]
+        if ( device.hasCapability("AudioVolume") ) { deviceInfo.put("type", 16) }
+		myDeviceList << deviceInfo
+    }
+		
+	//Now go through each of the sensor lists and get the Name, deviceID and type and put it into the deviceInfo
+	def mySensorMap = [ myContacts: 31, myTemps: 32, myLeaks: 33]
+
+	mySensorMap.each { sensorKey, type ->
+    	def deviceList = this."$sensorKey" // Dynamically get the list by its name
+    	deviceList.each { device ->
+        	def deviceInfo = new LinkedHashMap()
+        	def deviceID = device.getId()
+        	deviceInfo.put("ID", deviceID)
+			deviceInfo.put("name", getShortName(device.displayName))
+        	deviceInfo.put("type", type)
+        	myDeviceList << deviceInfo
+    	}
+	}
+		
+	// Add device data to the list
+    state.deviceList = myDeviceList
+	//log.info ( "deviceList is: $deviceList")
+}
+
+//Perform any Device Renaming requested using the Device Name Modification Fields
+def getShortName(myDevice){
+	//log.info("Receiving Name: $myDevice")
+	def shortName = myDevice
+		
+	//Handle any null values.
+	if (myReplaceText1 == null || myReplaceText1 == "?" ) myReplaceText1 = ""
+	if (myReplaceText2 == null || myReplaceText2 == "?" ) myReplaceText2 = ""
+	if (myReplaceText3 == null || myReplaceText3 == "?" ) myReplaceText3 = ""
+	if (myReplaceText4 == null || myReplaceText4 == "?" ) myReplaceText4 = ""
+	if (myReplaceText5 == null || myReplaceText5 == "?" ) myReplaceText5 = ""
+        
+	//Replaces any undesireable characters in the devicename - Case Sensitive
+	if (mySearchText1 != null  && mySearchText1 != "?") shortName = shortName.replace(mySearchText1, myReplaceText1)
+	if (mySearchText2 != null  && mySearchText2 != "?") shortName = shortName.replace(mySearchText2, myReplaceText2)
+	if (mySearchText3 != null  && mySearchText3 != "?") shortName = shortName.replace(mySearchText3, myReplaceText3)
+	if (mySearchText4 != null  && mySearchText4 != "?") shortName = shortName.replace(mySearchText4, myReplaceText4)
+	if (mySearchText5 != null  && mySearchText5 != "?") shortName = shortName.replace(mySearchText5, myReplaceText5)
+	//log.info("returning shortName: $shortName")
+	return shortName
+}
 
 //*******************************************************************************************************************************************************************************************
 //**************
@@ -1139,7 +1438,7 @@ def disabledEndpointHTML(){
     return myHTML
 }
 
-// Allows the client to send the changed Device List and JSON to the Hub. dTypes are 1: switch, 2: switchLevel (dimmer), 3: colorTemperature, 4: colorControl - HSL, 5: colorControl - HSV
+// Allows the client to send the changed Device List and JSON to the Hub. types are 1: switch, 2: switchLevel (dimmer), 3: colorTemperature, 4: colorControl - HSL, 5: colorControl - HSV
 def toHub() {
 	def sessionID = params.sessionID
 	if (isLogTrace) log.trace ("<b>Entering toHub:</b> Session ID: $sessionID")
@@ -1158,22 +1457,22 @@ def toHub() {
     if (isLogDebug) log.debug ("state.JSON is: $group1")
     if (isLogDebug) log.debug ("Device Data is: $group2")
 	
-    // Map the second group by 'dID' for easier comparison
-    def group2Map = group2.collectEntries { [(it.dID): it] }
+    // Map the second group by 'ID' for easier comparison
+    def group2Map = group2.collectEntries { [(it.ID): it] }
     
     // Find changes
     def changes = []
 
-    // Compare devices using dID as the constant
+    // Compare devices using ID as the constant
     group1.each { item1 ->
-        def item2 = group2Map[item1.dID]
-        if (item2) {  // If a matching dID is found
+        def item2 = group2Map[item1.ID]
+        if (item2) {  // If a matching ID is found
             def diff = [:]
             
-            // Compare each key except for the dID and dType (which are constants)
+            // Compare each key except for the ID and type (which are constants)
             item1.each { key, value ->
                 // Only compare if the key exists in both group1 and group2
-                if (item2.containsKey(key) && key != "dID" && key != "dType") {
+                if (item2.containsKey(key) && key != "ID" && key != "type") {
                     if (key == "CT") {
                         // Calculate the percentage difference
                         def oldTemp = item1.CT ?: 0
@@ -1192,16 +1491,20 @@ def toHub() {
 					
             // If there are differences, add them to the changes array
             if (!diff.isEmpty()) {
-                changes << [name: item2.name, dID: item1.dID, dType: item1.dType, changes: diff]  // Include dID and changes
+                changes << [ID: item1.ID, type: item1.type, changes: diff]  // Include ID and changes
             }
         }
     }
 
 	// Print changes for each device one at a time
 	changes.each { change ->
+        
+        def myDeviceName = findDeviceById(change.ID)
+        log.info ("My deviceName is: $myDeviceName")
+            
     	def key = change.changes.keySet().first()  // Get the key of the change (since there's only one)
     	def values = change.changes[key]           // Get the old and new values
-    	if (isLogActions) log.info dodgerBlue("<b>Action: ${change.name} (ID: ${change.dID}): $key: ${values[0]} ---> ${values[1]} </b>")
+    	if (isLogActions) log.info dodgerBlue("<b>Action: ${myDeviceName} (ID: ${change.ID}): $key: ${values[0]} ---> ${values[1]} </b>")
 	}
 
     // Apply all the changes to the devices.
@@ -1230,10 +1533,9 @@ def fromHub(){
 //Receives a poll request from a session and 
 def poll() {
     def sessionID = params.sessionID
-
+	def result
+	
     if (isLogTrace) log.trace("<b>Entering poll():</b> Session ID: $sessionID")
-    
-    def result
     if (!state.updatedSessionList.contains(sessionID)) {
         // If the list does NOT contain the sessionID then an update is needed.
 		state.updatedSessionList << sessionID
@@ -1281,8 +1583,11 @@ def appButtonHandler(btn) {
 		case "Compile":
             compile()
             break
-        case "btnHideDevice":
-            state.hidden.Devices = state.hidden.Devices ? false : true
+        case "btnHideControls":
+            state.hidden.Controls = state.hidden.Controls ? false : true
+            break
+		case "btnHideSensors":
+            state.hidden.Sensors = state.hidden.Sensors ? false : true
             break
         case "btnHideEndpoints":
             state.hidden.Endpoints = state.hidden.Endpoints ? false : true
@@ -1307,24 +1612,13 @@ def appButtonHandler(btn) {
 
 //Returns a formatted title for a section header based on whether the section is visible or not.
 def getSectionTitle(section) {
-	if (section == "Introduction") {
-        if (state.hidden.Intro == true) return sectionTitle("Introduction ▶") else return sectionTitle("Introduction ▼")
-    }
-	if (section == "Devices") {
-        if (state.hidden.Devices == true) return sectionTitle("Devices ▶") else return sectionTitle("Devices ▼")
-    }
-    if (section == "Endpoints") {
-        if (state.hidden.Endpoints == true) return sectionTitle("Endpoints ▶") else return sectionTitle("Endpoints ▼")
-    }
-	if (section == "Polling") {
-        if (state.hidden.Polling == true) return sectionTitle("Polling ▶") else return sectionTitle("Polling ▼")
-    }
-    if (section == "Design") {
-        if (state.hidden.Design == true) return sectionTitle("Design SmartGrid ▶") else return sectionTitle("Design SmartGrid ▼")
-    }
-    if (section == "Publish") {
-        if (state.hidden.Publish == true) return sectionTitle("Publish Remote ▶") else return sectionTitle("Publish Remote ▼")
-    }
+	if (section == "Introduction") { if (state.hidden.Intro == true) return sectionTitle("Introduction ▶") else return sectionTitle("Introduction ▼") }
+	if (section == "Controls") { if (state.hidden.Controls == true) return sectionTitle("Controls ▶") else return sectionTitle("Controls ▼") }
+	if (section == "Sensors") { if (state.hidden.Sensors == true) return sectionTitle("Sensors ▶") else return sectionTitle("Sensors ▼") }
+    if (section == "Endpoints") { if (state.hidden.Endpoints == true) return sectionTitle("Endpoints ▶") else return sectionTitle("Endpoints ▼") }
+	if (section == "Polling") { if (state.hidden.Polling == true) return sectionTitle("Polling ▶") else return sectionTitle("Polling ▼") }
+    if (section == "Design") { if (state.hidden.Design == true) return sectionTitle("Design SmartGrid ▶") else return sectionTitle("Design SmartGrid ▼") }
+    if (section == "Publish") { if (state.hidden.Publish == true) return sectionTitle("Publish Remote ▶") else return sectionTitle("Publish Remote ▼") }
 }
 
 String buttonLink(String btnName, String linkText, int buttonNumber) {
@@ -1361,19 +1655,37 @@ void publishSubscribe() {
     unsubscribe()
     
 	// List of attributes you want to subscribe to
-	def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature","valve","lock","speed","door","windowShade","position", "tilt", "mute","volume"]
+	def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature","valve","lock","speed","door","windowShade","position", "tilt", "mute","volume","contact","water"]
 	deleteSubscription()
 	
 	// Configure subscriptions
-	myDevices.each { device ->
-    	attributesToSubscribe.each { attribute ->
-        	// Check if the device supports the attribute before subscribing
-        	if (device.hasAttribute(attribute)) {
-            	subscribe(device, attribute, handler)
-        	} 
-    	}
+	myDevices?.each { device ->
+		attributesToSubscribe.each { attribute ->
+			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
+		}
 	}
-
+	
+	// Configure subscriptions
+	myContacts?.each { device ->
+		attributesToSubscribe.each { attribute ->
+			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
+		}
+	}
+	
+	// Configure subscriptions
+	myTemps?.each { device ->
+		attributesToSubscribe.each { attribute ->
+			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
+		}
+	}
+	
+	// Configure subscriptions
+	myLeaks?.each { device ->
+		attributesToSubscribe.each { attribute ->
+			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
+		}
+	}
+	
     //Now we call the publishRemote routine to push the new information to the device attribute.
     publishRemote()
 }
@@ -1488,18 +1800,6 @@ def getHEXfromHSV(hsvMap){
     return HEX
 }
 
-// Iterate over each device in myDevices and check if dID matches. If it does match return that device.
-def findDeviceById(dID) {
-    def foundDevice = null  // Variable to store the found device
-    myDevices.each { device ->
-        if (device.getId() == dID) {
-            foundDevice = device
-            return foundDevice
-        }
-    }
-    return foundDevice
-}
-
 //Receives a 6 digit hex color and an opacity and converts them to HEX8
 def convertToHex8(String hexColor, float opacity) {
     if (isLogTrace) log.trace("<b>Entering convertToHex8: With $hexColor  $opacity</b>")
@@ -1516,6 +1816,18 @@ def convertToHex8(String hexColor, float opacity) {
     return Hex8
 }
 
+// Iterate over each device in myDevices and check if ID matches. If it does match return that device.
+def findDeviceById(ID) {
+    def foundDevice = null  // Variable to store the found device
+    myDevices.each { device ->
+        if (device.getId() == ID) {
+            foundDevice = device
+            return foundDevice
+        }
+    }
+    return foundDevice
+}
+
 //Convert [HTML] tags to <HTML> for display.
 def toHTML(HTML) {
     if (HTML == null) return ""
@@ -1528,6 +1840,43 @@ def toHTML(HTML) {
 static String summary(myTitle, myText) {
     myTitle = dodgerBlue(myTitle)
     return "<details><summary>" + myTitle + "</summary>" + myText + "</details>"
+}
+
+// Function to calculate a halftone color by lightening or darkening
+def calculateHalftone(hexColor, percentage) {
+    // Convert hex to RGBA
+    def rgba = hexToRgba(hexColor)
+
+    // Calculate the halftone by adjusting the brightness
+    def r = adjustBrightness(rgba.r, percentage)
+    def g = adjustBrightness(rgba.g, percentage)
+    def b = adjustBrightness(rgba.b, percentage)
+    def a = rgba.a  // Alpha remains unchanged
+
+    // Return the adjusted RGBA as a hex color
+    return rgbaToHex(r, g, b, a)
+}
+
+// Function to convert 8-digit hex to RGBA
+def hexToRgba(hex) {
+    hex = hex.replace("#", "")
+    def r = Integer.parseInt(hex.substring(0, 2), 16)
+    def g = Integer.parseInt(hex.substring(2, 4), 16)
+    def b = Integer.parseInt(hex.substring(4, 6), 16)
+    def a = Integer.parseInt(hex.substring(6, 8), 16)
+    return [r: r, g: g, b: b, a: a]
+}
+
+// Function to adjust brightness by the percentage
+def adjustBrightness(colorValue, percentage) {
+    def factor = percentage / 100.0
+    def newColor = colorValue + ((255 - colorValue) * factor)
+    return Math.round(Math.max(0.0, Math.min(newColor, 255.0))).toInteger()  // Clamp and convert to integer
+}
+
+// Function to convert RGBA to 8-digit hex
+def rgbaToHex(r, g, b, a) {
+    return String.format("#%02X%02X%02X%02X", r, g, b, a)
 }
 
 
@@ -1555,7 +1904,7 @@ def initialize() {
     log.trace("<b>Running Initialize</b>")
 	
 	//Device Selection
-	app.updateSetting("filter", [value: "All Switch Devices", type: "enum"])
+	app.updateSetting("filter", [value: "All Selectable Controls", type: "enum"])
 
 	//Endpoints and Polling
     createAccessToken()
@@ -1586,44 +1935,49 @@ def initialize() {
 	app.updateSetting("defaultDurationFormat", 21)
 	
 	//Table Properties
-	//app.updateSetting("controlSize", [value: "Normal", type: "enum"])
 	app.updateSetting("controlSize", [value: "15", type: "enum"])
 	app.updateSetting("thp", "5")
 	app.updateSetting("tvp", "3")
 	app.updateSetting("ha", [value: "Stretch", type: "enum"])
 	app.updateSetting("va", [value: "Center", type: "enum"])
 	
-	// Column Properties
+	//General Properties
+	app.updateSetting("tempUnits", [value: "°F", type: "enum"])
+		
+	//Column Properties
 	app.updateSetting("column2Header", "Icon")
 	app.updateSetting("column3Header", "Name")
 	app.updateSetting("column4Header", "State")
 	app.updateSetting("column5Header", "Control A/B")
 	app.updateSetting("column6Header", "Control C")
-		
-	//Info Column Properties
+	app.updateSetting("column7Header", "Last Active")
+	app.updateSetting("column8Header", "Duration")
+	app.updateSetting("column9Header", "Room")
+	app.updateSetting("column10Header", "Pin")
+	
+	//Hidden Columns
 	app.updateSetting("hideColumn1", false)
 	app.updateSetting("hideColumn2", false)
 	app.updateSetting("hideColumn3", false)
 	app.updateSetting("hideColumn4", false)
 	app.updateSetting("hideColumn5", false)
 	app.updateSetting("hideColumn6", false)
-	
 	app.updateSetting("hideColumn7", true)
-	app.updateSetting("column7Header", "Last Active")
+	app.updateSetting("hideColumn8", true)
+	app.updateSetting("hideColumn9", true)
+	app.updateSetting("hideColumn10", true)
+	
+	//Info Column Properties
 	app.updateSetting("info1Source", "lastActive")
 	app.updateSetting("its1", "80")
 	app.updateSetting("ita1", "Center")
-	app.updateSetting("hideColumn8", true)
-	app.updateSetting("column8Header", "Duration")
 	app.updateSetting("info2Source", "lastActiveDuration")
 	app.updateSetting("its2", "80")
 	app.updateSetting("ita2", "Center")
-	app.updateSetting("hideColumn9", true)
-	app.updateSetting("column9Header", "Room")
 	app.updateSetting("info3Source", "roomName")
 	app.updateSetting("its3", "80")
 	app.updateSetting("ita3", "Center")
-		
+			
 	 //Title Properties
     app.updateSetting("tt", "?")
     app.updateSetting("ts", "125")
@@ -1638,15 +1992,19 @@ def initialize() {
 	app.updateSetting("htc", [value: "#000000", type: "color"])
 	app.updateSetting("hbc", [value: "#8FC126", type: "color"])
 	app.updateSetting("hbo", "1")
-	app.updateSetting("column3Header", "Name")
-    
+	    
 	//Row Properties
 	app.updateSetting("rts", "90")
 	app.updateSetting("rtc", [value: "#000000", type: "color"])
     app.updateSetting("rbc", [value: "#D9ECB1", type: "color"])
-	app.updateSetting("rbs", [value: "#FFFFC2", type: "color"])
 	app.updateSetting("rbo", "1")
-	    
+	
+	app.updateSetting("highlightSelectedRows", "True")
+	app.updateSetting("rbs", [value: "#FFE18F)", type: "color"])
+	
+	app.updateSetting("highlightPinnedRows", "True")
+	app.updateSetting("rbpc", [value: "#A7C7FB", type: "color"])
+	
     //Publishing
 	app.updateSetting("mySelectedRemote", "")
     app.updateSetting("publishEndpoints", [value: "Local", type: "enum"])
@@ -1662,12 +2020,11 @@ def initialize() {
     app.updateSetting('isLogTrace', false)
     
 	//Have all the sections collapsed to begin with except devices
-    state.hidden = [Device: false, Endpoints: true, Polling: true, Design: false, Publish: false]
+    state.hidden = [Controls: false, Sensors: true, Endpoints: true, Polling: true, Design: false, Publish: false]
     state.updatedSessionList = []
     state.initialized = true
 	state.compiledLocal = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
 	state.compiledCloud = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
-	
 }
 
 def updated(){
@@ -1716,13 +2073,13 @@ def HTML =
 	html, body { display:flex; flex-direction:column; align-items:#ha#; height:99%; margin:5px; font-family:'Arial', 'Helvetica', sans-serif; cursor:auto;flex-grow: 1; overflow:auto;box-sizing: border-box;}
 	.container { width: 99%; max-width:#maxWidth#px; margin: 10px auto; padding: 3px;}
 
-	/* Mobile Styles - For screens 768px or smaller. For Firefox scrollbar-width: none; eliminates scrollbars within the Dashboard */
+	/* Mobile Styles - For screens 1024px or smaller. */
 	@media (max-width: 768px) { 
-			.container {max-width:100%; margin-bottom:20px;} 
-			html, body {justify-content: flex-start; align-items: stretch; background:#F5F5DC;} 
+			.container {max-width:95%; margin-bottom:20px;} 
+			html, body {justify-content: flex-start; align-items: stretch; height:auto; overflow:auto;} 
 			}
 
-	/* Eliminates scrollbars within the dashboard for Webkit browsers */
+	/* Eliminates scrollbars within the dashboard for Webkit browsers. For Firefox scrollbar-width: none; eliminates scrollbars within the Dashboard */
 	//::-webkit-scrollbar {display: none;}
 
 	/* Suppress the defaults for sliders on each browser platform */
@@ -1743,7 +2100,7 @@ def HTML =
 			
 	/*  START OF TABLE CLASSES */
 	table {width: 100%; border-collapse: collapse; table-layout: auto; }
-	th, td { padding: calc(#tvp#px + 3px) #thp#px; text-align: center; vertical-align: middle; border: 1px solid black; transition: background-color 0.3s; user-select:none;}
+	th, td { padding: calc(#tvp#px + 3px) #thp#px; text-align:center; vertical-align:middle; border:1px solid black; transition:background-color 0.3s; user-select:none;}
 
 	/* Set a fixed width for any columns here. The remainder with be auto-calculated. The device name column seems to take up the majority of the slack. */
 	col:nth-child(5) { width: #column5Width#px; }
@@ -1758,9 +2115,10 @@ def HTML =
 	th:nth-child(7), td:nth-child(7) { display:#hideColumn7#; }
 	th:nth-child(8), td:nth-child(8) { display:#hideColumn8#; }
 	th:nth-child(9), td:nth-child(9) { display:#hideColumn9#; }
+	th:nth-child(10), td:nth-child(10) { display:#hideColumn10#; }
 
 	th { background-color: #hbc#; font-weight: bold; font-size: #hts#%; color: #htc#; margin:1px; }
-	th.clicked { text-decoration: underline; font-weight:900; color:dodgerBlue; font-size: 0.8em;}
+	th.clicked { text-decoration: underline; font-weight:900; color:black; font-size: 0.8em; background: #hbc-halftone#; }
 	tr { background-color: #rbc#;}
 	tr:hover { background-color: #rbs#; }
 	.selected-row {	background-color: #rbs#;}
@@ -1773,6 +2131,9 @@ def HTML =
 	.material-symbols-outlined {padding:3px; border-radius: 50%; font-size:calc(var(--control) * 1.5 )}
 	.material-symbols-outlined.on { background-color:rgba(255,255,0, 0.3); color: #333333;}
 	.material-symbols-outlined.off {color: #AAA;}
+	.open { background-color:rgba(255,213,128, 0.7); color:#333333;}
+	.warn { background-color:rgba(255,0,0, 0.7); color:#333333;}
+	.good { background-color:rgba(0,255,0, 0.7); color:#333333;}
 		
 	/* Column 3 Device Names */
 	.editable-input {border: none; width: 95%; background: transparent; font-size: #rts#%; color: #rtc#;}
@@ -1786,7 +2147,7 @@ def HTML =
 	/* Column 5 - Control Group 1 - Level and Kelvin Sliders */
 	.control-container {display:flex;position: relative; width: 95%; display: flex; justify-content: center; align-items: center; background-color:#rbc#; margin:auto; }
 	.CT-slider, .level-slider, .blinds-slider, .shades-slider, .volume-slider, .tilt-slider { width: 90%; opacity:0.75; border-radius:0px; height:var(--control); outline: 2px solid #888; cursor: pointer;}
-	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value {position:absolute; top:50%; transform:translateY(-50%); font-size:90%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:2px;}
+	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value {position:absolute; top:50%; transform:translateY(-50%); font-size:90%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;}
 
 	/* Custom properties for WebKit-based browsers (Chrome, Safari) */
 	.CT-slider::-webkit-slider-runnable-track { background: var(--CT); height: 100% }
@@ -1846,6 +2207,7 @@ def HTML =
 	.spin-medium {animation: spin 1.5s linear infinite;}
 	.spin-high {animation: spin 0.75s linear infinite;}
 
+	.pinned-row {background-color: #rbpc#;}
 </style>
 </head>
 
@@ -1862,15 +2224,16 @@ def HTML =
 			<tr>
 				<th><input type="checkbox" id="masterCheckbox" onclick="toggleAllCheckboxes(this)" onchange="updateHUB()" title="Select All/Deselect All"></th>
 				<th id="icon" class="sortLinks" onclick="sortTable(1, this);" title="Icon - Sort"><span id="iconHeader">Icon</span></th>
-				<th id="nameHeader" class="sortLinks" onclick="sortTable(2, this);">
-    				<span title="Sort Name A-Z">#column3Header#</span>
-    				<span id="refreshIcon" style="float:right; font-size:inherit;" onclick="event.stopPropagation(); refreshPage(50);" title="Refresh Data"><b>↻</b></span></th>
+				<th id="nameHeader" class="sortLinks" onclick="sortTable(2, this);"> <div style="display: flex; justify-content: space-between; align-items: center;">
+	        		<span title="Sort Name A-Z">#column3Header#</span><span id="refreshIcon" style="font-size: 1.5em; cursor: pointer;" onclick="event.stopPropagation(); refreshPage(50);" 
+					title="Refresh Data"><b>↻</b></span></div></th>
 				<th id="stateHeader" class="sortLinks th" onclick="sortTable(3, this);"><span title="Sort State On-Off">State</span></th>
 				<th id="ControlAB" class="sortLinks" onclick="toggleControl()" title="Toggle Control A/B">#column5Header#</th>
 				<th id="color">#column6Header#</th> 
-				<th id="info1" class="sortLinks" onclick="sortTable(6, this);" title="Info1 - Alpha Sort"><span id="info1Header">#Info1#</span></th>
-				<th id="info2" class="sortLinks" onclick="sortTable(7, this);" title="Info2 - Alpha Sort"><span id="info2Header">#Info2#</span></th>
-				<th id="info3" class="sortLinks" onclick="sortTable(8, this);" title="Info3 - Alpha Sort"><span id="info3Header">#Info3#</span></th>
+				<th id="i1" class="sortLinks" onclick="sortTable(6, this);" title="Info1 - Alpha Sort"><span id="info1Header">#Info1#</span></th>
+				<th id="i2" class="sortLinks" onclick="sortTable(7, this);" title="Info2 - Alpha Sort"><span id="info2Header">#Info2#</span></th>
+				<th id="i3" class="sortLinks" onclick="sortTable(8, this);" title="Info3 - Alpha Sort"><span id="info3Header">#Info3#</span></th>
+				<th id="pin" title="Pinned Items"><span id="pinHeader">Pin</span></th>
 			</tr>
 		</thead>
 		<tbody><!-- Table rows will be dynamically loaded from JSON --></tbody>
@@ -1923,46 +2286,40 @@ function loadTableFromJSON(myJSON) {
     myJSON.forEach((item, index) => {
         const row = document.createElement('tr');
 
+		let stateHTML = "";		//Holds the HTML for the state control column
 		let control1HTML = "";	//Holds HTML for the first controls column
 		let control2HTML = "";   //Holds HTML for the second controls column
-
+		let pinHTML = ""; //Holds HTML for the Pin column
+		
 		// Data mapping for row dataset
-		const dataMap = { dID: item.dID, dType: item.dType, speed: item.speed, position: item.position, tilt: item.tilt, volume: item.volume, colorMode: item.colorMode || "None", info1: item.info1, info2: item.info2, info3: item.info3 };
-
+		const dataMap = { ID: item.ID, type: item.type, speed:item.speed, level:item.level, position:item.position, tilt:item.tilt, volume:item.volume, colorMode:item.colorMode || "None", info1:item.i1, info2:item.i2, info3:item.i3, icon:item.icon, class:item.cl, pin:item.pin };
+		
 		// Apply each property to the row dataset using a loop and map
 		Object.entries(dataMap).forEach(([key, value]) => { row.dataset[key] = value; });
 
         // Ensure color is defined and in the correct format
         const colorValue = item.color && /^#[0-9A-F]{6}$/i.test(item.color) ? item.color : "#FFF";
-		
+	
 		//Configure the Icon text.
-		let iconText = (item.switch === 'on' || item.switch === 'off') ? `<i class='material-symbols-outlined ${item.switch === 'on' ? 'on' : 'off'}'>${item.icon}</i>` : `<i class='material-symbols-outlined blinking'>${item.icon}</i>`;
+		let iconText = `<i class='material-symbols-outlined ${item.cl}'>${item.icon}</i>`;
 
-	     // Sliders for dType <= 5 which is all kinds of bulbs and switches. 
-		if (item.dType <= 5 ){
+	     // Sliders for type <= 5 which is all kinds of bulbs and switches. 
+		if (item.type <= 5 ){
 			control1HTML = `<div class="control-container">
                	<input type="range" class="level-slider" min="0" max="100" value="${item.level}"
-                style="display: ${showSlider === 'A' && [2, 3, 4, 5].includes(item.dType) ? 'block' : 'none'}"
+                style="display: ${showSlider === 'A' && [2, 3, 4, 5].includes(item.type) ? 'block' : 'none'}"
                 oninput="updateSliderValue(this, 'level')" onchange="updateHUB()">
              	<span class="level-value" style="display: ${showSlider === 'A' ? 'block' : 'none'}">${item.level}%</span>
 
 				<input type="range" class="CT-slider ${item.colorMode === 'CT' ? 'glow-EffectCT' : ''}" min="2000" max="6500" value="${item.CT}"
-       			style="display: ${showSlider === 'B' && [3,5].includes(item.dType) ? 'block' : 'none'}"
+       			style="display: ${showSlider === 'B' && [3,5].includes(item.type) ? 'block' : 'none'}"
        			oninput="updateSliderValue(this, 'CT')" onchange="updateHUB()">
-				<span class="CT-value" style="color:black; display: ${showSlider === 'B' && [3,5].includes(item.dType) ? 'block' : 'none'}">${item.CT}°K</span>
+				<span class="CT-value" style="color:black; display: ${showSlider === 'B' && [3,5].includes(item.type) ? 'block' : 'none'}">${item.CT}°K</span>
             </div>`;
 		};
 
-		// dTypes 10, 11 and 13 are a valve, lock and Garage Door Controller respectively and are treated as simple switches.
-		iconText = (item.switch === 'on' || item.switch === 'off') ? `<i class='material-symbols-outlined ${item.switch === 'on' ? 'on' : 'off'}'>${item.icon}</i>` : `<i class='material-symbols-outlined blinking'>${item.icon}</i>`;
-
 		// Buttons for Fan (Radio buttons did not size properly)
-		if (item.dType === 12) {
-			let spinClass = '';
-			if (item.dType === 12 && item.switch === 'on') 
-				{ spinClass = item.speed === 'low' ? 'spin-low' : item.speed === 'medium' ? 'spin-medium' : item.speed === 'high' ? 'spin-high' : ''; } 
-			
-			iconText = (item.switch === 'on' || item.switch === 'off') ? `<i class='material-symbols-outlined ${item.switch === 'on' ? 'on' : 'off'} ${spinClass}'>${item.icon}</i>` : `<i class='material-symbols-outlined blinking'>${item.icon}</i>`;
+		if (item.type === 12) {
     		const isDisabled = item.switch === 'off' ? 'disabled' : ''; // Determine if buttons should be disabled
     		const disabledClass = item.switch === 'off' ? 'disabled' : ''; // Add a visual class for the disabled state for the whole radio group
 			control1HTML = `<div class="button-group ${disabledClass}">
@@ -1971,57 +2328,58 @@ function loadTableFromJSON(myJSON) {
         					<div class="button ${item.speed === 'high' ? 'selected' : ''} ${isDisabled}" data-speed="high" onclick="speed(this); updateHUB(); toggleChecked(this)">H</div></div>
 			`};
 
-		//Garage Door
-		if (item.dType === 13){ iconText = (item.door === 'open' || item.door === 'closed' ) ? `<i class='material-symbols-outlined ${item.switch === 'on' ? 'on' : 'off'}'>${item.icon}</i>` : `<i class='material-symbols-outlined blinking'>${item.icon}</i>`; };
-
 		//Shade
-		if (item.dType === 14){
-			iconText = (item.windowShade === 'open' || item.windowShade === 'closed' || item.windowShade === 'partially open') ? `<i class='material-symbols-outlined ${item.switch === 'on' ? 'on' : 'off'}'>${item.icon}</i>` : `<i class='material-symbols-outlined blinking'>${item.icon}</i>`;
+		if (item.type === 14 || item.type === 15){
 			control1HTML = `<div class="control-container"><input type="range" class="shades-slider" min="0" max="100" value="${item.position}" oninput="updateSliderValue(this, 'position')" onchange="updateHUB()">
                 			<span class="shades-value" style="display: ${showSlider === 'A' ? 'block' : 'none'}"><b>${item.position}%</b></span></div>`;
 		};
 
 		//Blind
-		if (item.dType === 15){
-			iconText = (item.windowShade === 'open' || item.windowShade === 'closed' || item.windowShade === 'partially open') ? `<i class='material-symbols-outlined ${item.switch === 'on' ? 'on' : 'off'}'>${item.icon}</i>` : `<i class='material-symbols-outlined blinking'>${item.icon}</i>`;
-			control1HTML = `<div class="control-container"><input type="range" class="blinds-slider" min="0" max="100" value="${item.position}" oninput="updateSliderValue(this, 'position')" onchange="updateHUB()">
-                			<span class="blinds-value" style="display: ${showSlider === 'A' ? 'block' : 'none'}"><b>${item.position}%</b></span></div>`;
-
+		if (item.type === 15){
 			control2HTML = `<div style="display: flex; align-items: center;"> <div class="control-container" style="display: flex; align-items: center;">
-      		<input type="range" class="tilt-slider" min="0" max="90" value="${item.tilt}" oninput="updateSliderValue(this, 'tilt')" onchange="updateHUB()"> 
-      		<span class="tilt-value" style=" display: ${showSlider === 'A' ? 'block' : 'none'}">${item.tilt}°</span>
-    		</div><div id="tilt-indicator" class="tilt-indicator" style="margin-left: 20px; margin-right: 10px; display: inline-block; vertical-align: middle;"> | </div></div>`;
+      						<input type="range" class="tilt-slider" min="0" max="90" value="${item.tilt}" oninput="updateSliderValue(this, 'tilt')" onchange="updateHUB()"> 
+      						<span class="tilt-value" style=" display: ${showSlider === 'A' ? 'block' : 'none'}">${item.tilt}°</span>
+    						</div><div id="tilt-indicator" class="tilt-indicator" style="margin-left: 20px; margin-right: 10px; display: inline-block; vertical-align: middle;"> | </div></div>`;
     	};   
 		
 		//Volume
-		if (item.dType === 16 ){
-			control1HTML = `<div class="control-container">
-               	<input type="range" class="volume-slider" min="0" max="100" value="${item.volume}"
-                oninput="updateSliderValue(this, 'volume') " onchange="updateHUB()">
-             	<span class="volume-value" style="display: ${showSlider === 'A' ? 'block' : 'none'}">${item.volume}%</span>
-            </div>`;
+		if (item.type === 16 ){
+			control1HTML = `<div class="control-container"><input type="range" class="volume-slider" min="0" max="100" value="${item.volume}"
+                			oninput="updateSliderValue(this, 'volume') " onchange="updateHUB()"><span class="volume-value" style="display: ${showSlider === 'A' ? 'block' : 'none'}">${item.volume}%</span></div>`;
 		};
 
 		// Control 2 - Color Picker
-		if (item.dType === 4 || item.dType === 5) { control2HTML = `<input type="color" class="colorPicker ${item.colorMode === 'RGB' ? 'glow-EffectRGB' : ''}" id="colorInput${index}" value="${colorValue}" onchange="updateColor(this); updateHUB()">` }
+		if (item.type === 4 || item.type === 5) { control2HTML = `<input type="color" class="colorPicker ${item.colorMode === 'RGB' ? 'glow-EffectRGB' : ''}" id="colorInput${index}" value="${colorValue}" onchange="updateColor(this); updateHUB()">` }
+
+		//Insert a switch if it is a control type, i.e. < 30
+		if (item.type <= 30) { stateHTML = `<div class="toggle-switch ${item.switch === 'on' ? 'on' : ''}" data-state="${item.switch}" onclick="toggleSwitch(this); updateHUB()"></div>`;}
+
+		// For any kind of sensor insert the sensor text
+		if (item.type >= 31) { stateHTML = '<div>' + item.switch + '</div>'; }
+
+		// Pinned Items
+		if( item.pin === "on") {
+				pinHTML = (`<i class="material-symbols-outlined">location_on</i>`);
+				row.className = "pinned-row"; // Apply the class to the row
+		}
 
 		//No controls other than the switch for some devices; switch, valve, lock and garage door,
-		if (item.dType === 1 || item.dType === 10 || item.dType === 11 || item.dType === 13 ) control1HTML = '';
-						
-        const isChecked = savedCheckboxStates[item.dID] || false;
-           
+		if (item.type === 1 || item.type === 10 || item.type === 11 || item.type === 13 ) control1HTML = '';
+
+		const isChecked = savedCheckboxStates[item.ID] || false;
 		row.innerHTML = `
-			<td><input type="checkbox" class="option-checkbox" ${isChecked ? 'checked' : ''} onchange="toggleRowSelection(this); updateHUB()"></td>
+			<td><input type="checkbox" class="option-checkbox" ${isChecked ? 'checked' : ''} onchange="toggleRowSelection(this)"></td>
             <td>${iconText}</td>
             <td><input type="text" class="editable-input" value="${item.name}" onchange="updateHUB()" readonly></td>
-            <td><div class="toggle-switch ${item.switch === 'on' ? 'on' : ''}" data-state="${item.switch}" onclick="toggleSwitch(this); updateHUB()"></div></td>
-            <td>${control1HTML}</td>
+			<td>${stateHTML}</td>
+			<td>${control1HTML}</td>
             <td>${control2HTML}</td>
-            <td><div class="info1">${item.info1}</div></td>
-            <td><div class="info2">${item.info2}</div></td>
-			<td><div class="info3">${item.info3}</div></td>`;
-        tbody.appendChild(row);
+            <td><div class="info1">${item.i1}</div></td>
+            <td><div class="info2">${item.i2}</div></td>
+			<td><div class="info3">${item.i3}</div></td>
+			<td>${pinHTML}</td>`;
 
+			tbody.appendChild(row);
     });
 	markColumnHeader();
 	updateAllTiltIndicators();
@@ -2044,27 +2402,32 @@ function updateAllTiltIndicators() {
     });
 }
 
-// Gather all table data into a JSON output
 function updateHUB() {
     const rows = document.querySelectorAll("#sortableTable tbody tr");
-    const output = Array.from(rows).map((row) => {
-        const dType = Number(row.dataset.dType);
-        const outputData = { name: row.querySelector('td:nth-child(3) input').value, dID: row.dataset.dID, dType, };
+    const output = Array.from(rows)
+        .map((row) => {
+            const type = Number(row.dataset.type);
 
-        // Conditionally add fields based on dType and lastCommand
-        const addField = (condition, field, value) => condition && (outputData[field] = value);
-        addField(dType >= 1 && lastCommand === "switch", "switch", row.querySelector('.toggle-switch').dataset.state);
-        addField( (dType >= 2 && dType <= 5 ) && lastCommand === "level", "level", parseInt(row.querySelector('.level-slider')?.value || 0));
-        addField( (dType === 3 || dType === 5) && lastCommand === "CT", "CT", parseInt(row.querySelector('.CT-slider')?.value || 0));
-        addField( (dType === 4 || dType === 5) && lastCommand === "color", "color", (row.querySelector('input[type="color"]')?.value || '#000000').toUpperCase());
-		addField( dType === 12 && lastCommand === "speed", "speed", row.querySelector('.button.selected') ? row.querySelector('.button.selected').getAttribute('data-speed') : "off" );
-		addField( (dType === 14 ) && lastCommand === "position", "position", parseInt(row.querySelector('.shades-slider')?.value || 0));
-		addField( (dType === 15 ) && lastCommand === "position", "position", parseInt(row.querySelector('.blinds-slider')?.value || 0));
-		addField( (dType === 15 ) && lastCommand === "tilt", "tilt", parseInt(row.querySelector('.tilt-slider')?.value || 0));
-		addField( (dType === 16 ) && lastCommand === "volume", "volume", parseInt(row.querySelector('.volume-slider')?.value || 0));
-        return outputData;
-    });
-	if (isLogging) console.log("Output is:", output)
+            // Skip the row if type > 30 as we do not need to report on sensors.
+            if (type > 30) return null;
+            const outputData = { name: row.querySelector('td:nth-child(3) input').value, ID: row.dataset.ID, type };
+
+            // Conditionally add fields based on type and lastCommand
+            const addField = (condition, field, value) => condition && (outputData[field] = value);
+            addField(type >= 1 && lastCommand === "switch", "switch", row.querySelector('.toggle-switch').dataset.state);
+            addField((type >= 2 && type <= 5) && lastCommand === "level", "level", parseInt(row.querySelector('.level-slider')?.value || 0));
+            addField((type === 3 || type === 5) && lastCommand === "CT", "CT", parseInt(row.querySelector('.CT-slider')?.value || 0));
+            addField((type === 4 || type === 5) && lastCommand === "color", "color", (row.querySelector('input[type="color"]')?.value || '#000000').toUpperCase());
+            addField(type === 12 && lastCommand === "speed", "speed", row.querySelector('.button.selected') ? row.querySelector('.button.selected').getAttribute('data-speed') : "off");
+            addField((type === 14 || type === 15 ) && lastCommand === "position", "position", parseInt(row.querySelector('.shades-slider')?.value || 0));
+	        addField((type === 15) && lastCommand === "tilt", "tilt", parseInt(row.querySelector('.tilt-slider')?.value || 0));
+            addField((type === 16) && lastCommand === "volume", "volume", parseInt(row.querySelector('.volume-slider')?.value || 0));  
+            return outputData;
+        })
+        .filter(row => row !== null);  // Remove null rows from the output array
+
+    if (isLogging) console.log("Output is:", output);
+    
     // Send data to the backend
     sendData(JSON.stringify(output));
 }
@@ -2149,11 +2512,11 @@ function toggleControl() {
 
     // Update visibility for sliders and values
     document.querySelectorAll('tr').forEach(row => {
-        const dType = Number(row.dataset.dType);
+        const type = Number(row.dataset.type);
 
         // Determine visibility for each slider type
-        const showLevel = showSlider === "A" && !(dType <= 1 || dType >= 10);
-        const showCT = showSlider === "B" && (dType === 3 || dType === 4 || dType === 5 || dType >= 10);
+        const showLevel = showSlider === "A" && !(type <= 1 || type >= 10);
+        const showCT = showSlider === "B" && (type === 3 || type === 4 || type === 5 || type >= 10);
 
         // Update visibility for Level sliders and values
         row.querySelectorAll('.level-slider, .level-value').forEach(el => { el.style.display = showLevel ? 'block' : 'none'; });
@@ -2174,10 +2537,10 @@ function toggleControl() {
 
 function toggleRowSelection(checkbox) {
     const row = checkbox.closest('tr');
-    const dID = row.dataset.dID;
+    const ID = row.dataset.ID;
     const checkboxStates = JSON.parse(sessionStorage.getItem("checkboxStates")) || {};    
     row.classList.toggle('selected-row', checkbox.checked);
-    if (dID) checkboxStates[dID] = checkbox.checked;
+    if (ID) checkboxStates[ID] = checkbox.checked;
     sessionStorage.setItem("checkboxStates", JSON.stringify(checkboxStates));
 }
 
@@ -2192,12 +2555,13 @@ function toggleChecked(label) {
 	// Remove 'checked' class from all labels
 	const labels = document.querySelectorAll('.radio-label');
 	labels.forEach(lbl => lbl.classList.remove('checked'));
-	// Add 'checked' class to the clicked label
+	// Add 'checked' class to the label
 	label.classList.add('checked');
 }
 
 //Update the switches
 function toggleSwitch(switchElement) {
+	//console.log("Toggle command received");
     const row = switchElement.closest('tr');
     const newState = (switchElement.classList.toggle('on') ? 'on' : 'off');
     switchElement.dataset.state = newState;
@@ -2271,8 +2635,6 @@ function syncRows(command, value) {
 }
 
 
-
-
 //***********************************************  Polling and Transactions  ***********************************************************
 //**************************************************************************************************************************************
 
@@ -2332,14 +2694,13 @@ function handleTransaction(action) {
             if (isLogging) console.log("Elapsed time is:", elapsedTime);
 
             if (elapsedTime > transactionTimeout) {
-                console.log("Transaction is late");
+                if (isLogging) console.log("Transaction is late");
                 const table = document.querySelector("table");
                 table.classList.add('glow-EffectFail');
 
                 setTimeout(() => {
                     handleTransaction("end"); // End the transaction
                     table.classList.remove('glow-EffectFail');
-                    if (isLogging) console.log("Glow effect removed!");
                     initialize();
                 }, #pollUpdateDuration#);
             } else {
@@ -2352,7 +2713,6 @@ function handleTransaction(action) {
 //***********************************************  Sorting   ***************************************************************************
 //**************************************************************************************************************************************
 
-//Sorts various columns based on the content of the cells. Some columns use Device Name column as a secondary index.
 function sortTable(columnIndex, header) {
     const tbody = document.querySelector("#sortableTable tbody");
     const rows = Array.from(tbody.rows);
@@ -2372,43 +2732,67 @@ function sortTable(columnIndex, header) {
     // Save updated state to localStorage
     localStorage.setItem("sortDirection", JSON.stringify(sortDirection));
 
-    // Sort rows with primary and secondary logic embedded
-    rows.sort((a, b) => {
-        let primaryA, primaryB, secondaryA, secondaryB;
+    // Separate pinned and unpinned rows based on the `data-pin` attribute
+    const pinnedRows = rows.filter(row => row.dataset.pin === "on");
+	pinnedRows.sort((a, b) => {
+    	// Get the Name (either from input value or cell text)
+    	let nameA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+        	        a.cells[2]?.textContent?.trim().toLowerCase() || "";
+    	let nameB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+        	        b.cells[2]?.textContent?.trim().toLowerCase() || "";
 
-        // Handle specific sorting logic based on column index
-        if (columnIndex === 3) {
-            // Sorting by State column (primary) and Name column (secondary)
-            primaryA = a.cells[3]?.querySelector('.toggle-switch')?.dataset.state || "";
-            primaryB = b.cells[3]?.querySelector('.toggle-switch')?.dataset.state || "";
-        } else {
-            // Default sorting for other columns (alphabetical or numerical)
-            primaryA = a.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
-            primaryB = b.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
-        }
-
-        // Handle secondary sorting logic for column 2 (Name column)
-        // Ensure comparison uses both input values and text content
-        secondaryA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || a.cells[2]?.textContent?.trim().toLowerCase() || "";
-        secondaryB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || b.cells[2]?.textContent?.trim().toLowerCase() || "";
-
-        // Compare primary keys
-        if (primaryA > primaryB) return direction === 'asc' ? 1 : -1;
-        if (primaryA < primaryB) return direction === 'asc' ? -1 : 1;
-
-        // Compare secondary keys (always ascending)
-        if (secondaryA > secondaryB) return direction === 'asc' ? 1 : -1; // Reversing order here for secondary sort
-        if (secondaryA < secondaryB) return direction === 'asc' ? -1 : 1;
-
-        return 0;
+    	// Compare the names for sorting A-Z
+    	if (nameA > nameB) return 1;
+    	if (nameA < nameB) return -1;
     });
 
-    // Append sorted rows back to the table
-    tbody.append(...rows);
+    const unpinnedRows = rows.filter(row => row.dataset.pin !== "on");
 
-    // Save the last sorted header
-    // sessionStorage.setItem('lastSortHeader', header);
+	// Sort the unpinned rows based on the specified column index
+	unpinnedRows.sort((a, b) => {
+		let primaryA, primaryB, secondaryA, secondaryB;
 
+		if (columnIndex === 2) {
+			// Special handling for Name column
+			primaryA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+					   a.cells[2]?.textContent?.trim().toLowerCase() || "";
+			primaryB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+					   b.cells[2]?.textContent?.trim().toLowerCase() || "";
+
+			// Use another column (e.g., column 3) as the secondary index
+			secondaryA = a.cells[3]?.textContent?.trim().toLowerCase() || "";
+			secondaryB = b.cells[3]?.textContent?.trim().toLowerCase() || "";
+		} else if (columnIndex === 3) {
+			// Special handling for State column (mix of text values and switches)
+			primaryA = a.cells[3]?.querySelector('.toggle-switch')?.dataset.state || 
+					   a.cells[3]?.querySelector('.toggle-switch')?.textContent?.trim().toLowerCase() || 
+					   a.cells[3]?.textContent?.trim().toLowerCase() || "";
+			primaryB = b.cells[3]?.querySelector('.toggle-switch')?.dataset.state || 
+					   b.cells[3]?.querySelector('.toggle-switch')?.textContent?.trim().toLowerCase() || 
+					   b.cells[3]?.textContent?.trim().toLowerCase() || "";
+		} else {
+			// General case for other columns
+			primaryA = a.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
+			primaryB = b.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
+		}
+
+    // Compare primary keys
+    if (primaryA > primaryB) return direction === 'asc' ? 1 : -1;
+    if (primaryA < primaryB) return direction === 'asc' ? -1 : 1;
+
+    // Compare secondary keys if primary keys are equal
+    if (columnIndex === 2 && secondaryA !== undefined && secondaryB !== undefined) {
+        if (secondaryA > secondaryB) return direction === 'asc' ? 1 : -1;
+        if (secondaryA < secondaryB) return direction === 'asc' ? -1 : 1;
+    }
+
+    return 0;
+});
+
+    // Append pinned rows first (in fixed order), then sorted unpinned rows
+    tbody.append(...pinnedRows, ...unpinnedRows);
+
+    // Highlight the sorted column
     markColumnHeader();
 }
 
