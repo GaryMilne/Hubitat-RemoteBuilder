@@ -49,8 +49,9 @@
 *  Version 3.0.9 - Added missing variables to updateVariables(). Added mid points for tilePreviewWidth. Made all pinned objects remain visible regardless of any filter setting.
 *  Version 3.1.0 - Split Devices into Controls and Sensors. Added halfTone for sort column header box. Flipped definition of Lock to open == active.
 *  Version 3.1.1 - Added a StorageKey() and AppID to isolate any local or session storage variables between iFrames.
-* 
-*  Gary Milne - January 9th, 2025 @ 9:09 AM V 3.1.1
+*  Version 3.1.2 - Fixed issue with sorting using State. Sort for state now always use A-Z for the name column as the secondary key. Changed clicked column header to eliminate directional arrows and add a background gradient to indicate direction.
+*
+*  Gary Milne - January 10th, 2025 @ 10:36 AM V 3.1.1
 *
 **/
 
@@ -59,8 +60,7 @@ None
 */
 
 /* Known Issues 
-Any items saved to local storage in JS within the same browser window become shared. Thus, placing a number of SmartGrids within the same Hubitat Dashboard will result on some settings to be shared, such as the sort order.
-This will be corrected in a future release.
+None
 */
 
 /* Ideas for future releases
@@ -106,9 +106,9 @@ static def durationFormatsList() { return durationFormatsMap().values() }
 
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature"].sort() }
-
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.1 (1/9/25)</b>"
-@Field static final codeVersion = 311
+							   
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.2 (1/10/25)</b>"
+@Field static final codeVersion = 312
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -141,12 +141,11 @@ def mainPage(){
 	else compile()
 		
     dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff;;'> Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
-			section(hideable: true, hidden: state.hidden.Devices, title: buttonLink('btnHideControls', getSectionTitle("Controls"), 20)) {
-				            	
+			section(hideable: true, hidden: state.hidden.Controls, title: buttonLink('btnHideControls', getSectionTitle("Controls"), 20)) {	            	
 				// Input for selecting filter criteria
 				input(name: "filter", type: "enum", title: bold("Filter Controls (optional)"), options: ["All Selectable Controls", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "All Selectable Controls", submitOnChange: true, width: 2, style:"margin-right: 20px")
-				input "myPinnedControls", "enum", title: "<b>Pin These Controls</b>", options: getPinnedItems(myDevices), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false, style:"margin-right: 20px"
-				input (name: "isShowDeviceNameModification", type: "enum", title: "<b>Show Device Name Modification</b>", options: ["True", "False"], required: false, multiple: false, defaultValue: "False", submitOnChange: true, width: 2)    
+				input "myPinnedControls", "enum", title: "<b>Pin These Controls</b>", options: getPinnedItems(myDevices).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false, style:"margin-right: 20px"
+				
 				// Apply switch-case logic based on the filter value
     			switch (filter) {
         			case "All Selectable Controls":
@@ -187,6 +186,7 @@ def mainPage(){
     			}
 				
 				//Allow users to rename devices that fit certain patterns
+				input (name: "isShowDeviceNameModification", type: "enum", title: "<b>Show Device Name Modification</b>", options: ["True", "False"], required: false, multiple: false, defaultValue: "False", submitOnChange: true, width: 2, newLine: true)    
 				if (isShowDeviceNameModification == "True") {
 					paragraph("<hr>")
 					input (name: "mySearchText1", title: "<b>Search Device Text #1</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
@@ -212,15 +212,14 @@ def mainPage(){
 				input(name: "onlyOpenContacts", type: "enum", title: bold("Unpinned: Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
 				
 				input "myTemps", "capability.temperatureMeasurement", title: "<b>Select Temp Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
-				input ("myPinnedTemps", "enum", title: "<b>Pin These Temp Sensors</b>", options: getPinnedItems(myTemps), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false)
+				input ("myPinnedTemps", "enum", title: "<b>Pin These Temp Sensors</b>", options: getPinnedItems(myTemps).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false)
 				input(name: "onlyReportOutsideRange", type: "enum", title: bold("Unpinned: Only Report Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
 				input (name: "minTemp", title: "<b>Lower Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "50", newLine:false)
 				input (name: "maxTemp", title: "<b>Upper Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "90", newLine:false)
 				
 				input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
-				input "myPinnedLeaks", "enum", title: "<b>Pin These Water Sensors</b>", options: getPinnedItems(myLeaks), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
+				input "myPinnedLeaks", "enum", title: "<b>Pin These Water Sensors</b>", options: getPinnedItems(myLeaks).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
 				input(name: "onlyWetSensors", type: "enum", title: bold("Unpinned: Only Report Wet Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-				
 			}
 							      
 			//Start of Endpoints Section
@@ -2074,7 +2073,8 @@ def HTML =
 			--blinds : repeating-linear-gradient(to right, black 0%, #ccc 3%, black 3%, #ccc 6%, black 6%, #ccc 9%);
 			--shades : linear-gradient( 3deg, #000 0%, #333 45%, #CCC 55%, #FFF 100%);
 			--dimmer : linear-gradient(to right, #000 0%, #333 15%, #666 30%, #888 45%, #AAA 60%, #DDD 75%, #FFF 100% ); 
-			--CT : linear-gradient(to right, #FF4500 0%, #FFA500 16%, #FFD700 33%, #FFFACD 49%, #FFFFE0 60%, #F5F5F5 66%, #FFF 80%,	#ADD8E6 100% ); }  
+			--CT : linear-gradient(to right, #FF4500 0%, #FFA500 16%, #FFD700 33%, #FFFACD 49%, #FFFFE0 60%, #F5F5F5 66%, #FFF 80%,	#ADD8E6 100% ); 
+			}  
 
 	html, body { display:flex; flex-direction:column; align-items:#ha#; height:99%; margin:5px; font-family:'Arial', 'Helvetica', sans-serif; cursor:auto;flex-grow: 1; overflow:auto;box-sizing: border-box;}
 	.container { width: 99%; max-width:#maxWidth#px; margin: 10px auto; padding: 3px;}
@@ -2124,10 +2124,12 @@ def HTML =
 	th:nth-child(10), td:nth-child(10) { display:#hideColumn10#; }
 
 	th { background-color: #hbc#; font-weight: bold; font-size: #hts#%; color: #htc#; margin:1px; }
-	th.clicked { text-decoration: underline; font-weight:900; color:black; font-size: 0.8em; background: #hbc-halftone#; }
+	.ascSort { background: linear-gradient(to bottom, #hbc-halftone# 0%, #hbc# 40%, #hbc# 100%); text-decoration: underline;}
+	.descSort { background : linear-gradient(to bottom, #hbc# 0%, #hbc# 60%, #hbc-halftone# 100%); text-decoration: underline;}
 	tr { background-color: #rbc#;}
 	tr:hover { background-color: #rbs#; }
 	.selected-row {	background-color: #rbs#;}
+	.pinned-row {background-color: #rbpc#;}
 
 	/* START OF CONTROLS CLASSES */			
 	/* Column 1 Checkboxes */
@@ -2213,7 +2215,6 @@ def HTML =
 	.spin-medium {animation: spin 1.5s linear infinite;}
 	.spin-high {animation: spin 0.75s linear infinite;}
 
-	.pinned-row {background-color: #rbpc#;}
 </style>
 </head>
 
@@ -2248,22 +2249,17 @@ def HTML =
 </div>
 <script>
 														  
-// Retrieve values from sessionStorage or initialize to default for the active column and direction
-// Session storage does no persist across the closing of the browser window. localStorage does persist across the closing of the browser.
-let AppID = "#AppID#";
-
+// Retrieve values from sessionStorage or initialize to default for the active column and direction. Session storage does no persist across the closing of the browser window. localStorage does persist across the closing of the browser.
 // Use a prefixed key for localStorage and sessionStorage
-const storageKey = (key) => `${AppID}_${key}`;
+const storageKey = (key) => `${"#AppID#"}_${key}`;
 
 // LocalStorage operations with AppID
 let storedSortDirection = JSON.parse(localStorage.getItem(storageKey("sortDirection")));
 let sortDirection = storedSortDirection || { activeColumn: 2, direction: 'asc' };
-
 let showSlider = (localStorage.getItem(storageKey("showSlider")) === "A" || localStorage.getItem(storageKey("showSlider")) === "B")  ? localStorage.getItem(storageKey("showSlider")) : "A";
 
 // SessionStorage operations with AppID
 sessionStorage.removeItem(storageKey('sessionID'));
-
 let sessionID = sessionStorage.getItem(storageKey('sessionID')) || (sessionStorage.setItem(storageKey('sessionID'), (Math.abs(Math.random() * 0x7FFFFFFF | 0)).toString(16).padStart(8, '0')), sessionStorage.getItem(storageKey('sessionID')));
 let isLogging = sessionStorage.getItem(storageKey('isLogging')) === 'true' ? true : false;
 
@@ -2281,7 +2277,6 @@ if (isPollingEnabled === true ) {
 	shuttle.style.display = 'block';
 	shuttle.style.animation = `slide ${pollInterval *2}ms ease-in-out infinite`;
 }
-
 
 //This has to do with transaction handling
 let transactionTimeout = #commandTimeout#;
@@ -2392,7 +2387,6 @@ function loadTableFromJSON(myJSON) {
             <td><div class="info2">${item.i2}</div></td>
 			<td><div class="info3">${item.i3}</div></td>
 			<td>${pinHTML}</td>`;
-
 			tbody.appendChild(row);
     });
 	markColumnHeader();
@@ -2727,7 +2721,7 @@ function handleTransaction(action) {
 //***********************************************  Sorting   ***************************************************************************
 //**************************************************************************************************************************************
 
-function sortTable(columnIndex, header) {
+function sortTable(columnIndex) {
     const tbody = document.querySelector("#sortableTable tbody");
     const rows = Array.from(tbody.rows);
 
@@ -2748,60 +2742,61 @@ function sortTable(columnIndex, header) {
 
     // Separate pinned and unpinned rows based on the `data-pin` attribute
     const pinnedRows = rows.filter(row => row.dataset.pin === "on");
-	pinnedRows.sort((a, b) => {
-    	// Get the Name (either from input value or cell text)
-    	let nameA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-        	        a.cells[2]?.textContent?.trim().toLowerCase() || "";
-    	let nameB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-        	        b.cells[2]?.textContent?.trim().toLowerCase() || "";
+    pinnedRows.sort((a, b) => {
+        const nameA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+                     a.cells[2]?.textContent?.trim().toLowerCase() || "";
+        const nameB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+                     b.cells[2]?.textContent?.trim().toLowerCase() || "";
 
-    	// Compare the names for sorting A-Z
-    	if (nameA > nameB) return 1;
-    	if (nameA < nameB) return -1;
+        return nameA.localeCompare(nameB);
     });
 
     const unpinnedRows = rows.filter(row => row.dataset.pin !== "on");
 
-	// Sort the unpinned rows based on the specified column index
-	unpinnedRows.sort((a, b) => {
-		let primaryA, primaryB, secondaryA, secondaryB;
+    // Sort the unpinned rows based on the specified column index
+    unpinnedRows.sort((a, b) => {
+        let primaryA, primaryB, secondaryA, secondaryB;
 
-		if (columnIndex === 2) {
-			// Special handling for Name column
-			primaryA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-					   a.cells[2]?.textContent?.trim().toLowerCase() || "";
-			primaryB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-					   b.cells[2]?.textContent?.trim().toLowerCase() || "";
+        if (columnIndex === 2) {
+            // Sorting by column 2 (Name)
+            primaryA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+                       a.cells[2]?.textContent?.trim().toLowerCase() || "";
+            primaryB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+                       b.cells[2]?.textContent?.trim().toLowerCase() || "";
 
-			// Use another column (e.g., column 3) as the secondary index
-			secondaryA = a.cells[3]?.textContent?.trim().toLowerCase() || "";
-			secondaryB = b.cells[3]?.textContent?.trim().toLowerCase() || "";
-		} else if (columnIndex === 3) {
-			// Special handling for State column (mix of text values and switches)
-			primaryA = a.cells[3]?.querySelector('.toggle-switch')?.dataset.state || 
-					   a.cells[3]?.querySelector('.toggle-switch')?.textContent?.trim().toLowerCase() || 
-					   a.cells[3]?.textContent?.trim().toLowerCase() || "";
-			primaryB = b.cells[3]?.querySelector('.toggle-switch')?.dataset.state || 
-					   b.cells[3]?.querySelector('.toggle-switch')?.textContent?.trim().toLowerCase() || 
-					   b.cells[3]?.textContent?.trim().toLowerCase() || "";
-		} else {
-			// General case for other columns
-			primaryA = a.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
-			primaryB = b.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
-		}
+            return direction === 'asc'
+                ? primaryA.localeCompare(primaryB)
+                : primaryB.localeCompare(primaryA);
+        } else if (columnIndex === 3) {
+            // Sorting by column 3 (State) with column 2 (Name) as secondary
+            primaryA = a.cells[3]?.querySelector('.toggle-switch')?.dataset.state || 
+                       a.cells[3]?.querySelector('.toggle-switch')?.textContent?.trim().toLowerCase() || 
+                       a.cells[3]?.textContent?.trim().toLowerCase() || "";
+            primaryB = b.cells[3]?.querySelector('.toggle-switch')?.dataset.state || 
+                       b.cells[3]?.querySelector('.toggle-switch')?.textContent?.trim().toLowerCase() || 
+                       b.cells[3]?.textContent?.trim().toLowerCase() || "";
 
-    // Compare primary keys
-    if (primaryA > primaryB) return direction === 'asc' ? 1 : -1;
-    if (primaryA < primaryB) return direction === 'asc' ? -1 : 1;
+            secondaryA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+                         a.cells[2]?.textContent?.trim().toLowerCase() || "";
+            secondaryB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
+                         b.cells[2]?.textContent?.trim().toLowerCase() || "";
 
-    // Compare secondary keys if primary keys are equal
-    if (columnIndex === 2 && secondaryA !== undefined && secondaryB !== undefined) {
-        if (secondaryA > secondaryB) return direction === 'asc' ? 1 : -1;
-        if (secondaryA < secondaryB) return direction === 'asc' ? -1 : 1;
-    }
+            // Compare primary keys
+            if (primaryA > primaryB) return direction === 'asc' ? 1 : -1;
+            if (primaryA < primaryB) return direction === 'asc' ? -1 : 1;
 
-    return 0;
-});
+            // Compare secondary keys
+            return secondaryA.localeCompare(secondaryB);
+        } else {
+            // General case for other columns
+            primaryA = a.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
+            primaryB = b.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
+
+            return direction === 'asc'
+                ? primaryA.localeCompare(primaryB)
+                : primaryB.localeCompare(primaryA);
+        }
+    });
 
     // Append pinned rows first (in fixed order), then sorted unpinned rows
     tbody.append(...pinnedRows, ...unpinnedRows);
@@ -2810,31 +2805,20 @@ function sortTable(columnIndex, header) {
     markColumnHeader();
 }
 
+
 // Underline the last active column header and apply direction indicators
 function markColumnHeader() {
     const headers = document.querySelectorAll('#sortableTable thead th');
 
-    // Remove the 'clicked' class from all headers
-    headers.forEach(header => header.classList.remove('clicked'));
+    // Remove the gradient classes from all headers
+    headers.forEach(header => { header.classList.remove('ascSort', 'descSort'); });
 
-    // Reset all column headers and remove previous direction indicators
-    headers.forEach(header => {
-        const span = header.querySelector('span');
-        if (span && span.id !== 'refreshIcon') { span.textContent = span.textContent.replace(/[▲▼]*$/, ''); }
-    });
-
-    // Add the 'clicked' class to the active column header
-    headers[sortDirection.activeColumn].classList.add('clicked');
-
-    // Find the span within the header that should display the sort indicator (avoid refreshIcon)
-    const columnHeader = headers[sortDirection.activeColumn].querySelector('span');
-        
-    // If it's not the refresh icon, add the direction indicator
-    if (columnHeader && columnHeader.id !== 'refreshIcon') {
-		const directionIndicator = sortDirection.direction === 'asc' ? '▲' : '▼';
-		columnHeader.textContent = columnHeader.textContent.replace(/[▲▼]*$/, '') + directionIndicator;
-	}
+    // Add gradient class based on the sort direction
+    const activeHeader = headers[sortDirection.activeColumn];
+    if (sortDirection.direction === 'asc') { activeHeader.classList.add('ascSort');} 
+	else { activeHeader.classList.add('descSort');}
 }
+
 
 //***********************************************  Initialization  and Miscellaneous  **************************************************
 //**************************************************************************************************************************************
