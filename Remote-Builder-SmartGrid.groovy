@@ -49,9 +49,10 @@
 *  Version 3.0.9 - Added missing variables to updateVariables(). Added mid points for tilePreviewWidth. Made all pinned objects remain visible regardless of any filter setting.
 *  Version 3.1.0 - Split Devices into Controls and Sensors. Added halfTone for sort column header box. Flipped definition of Lock to open == active.
 *  Version 3.1.1 - Added a StorageKey() and AppID to isolate any local or session storage variables between iFrames.
-*  Version 3.1.2 - Fixed issue with sorting using State. Sort for state now always use A-Z for the name column as the secondary key. Changed clicked column header to eliminate directional arrows and add a background gradient to indicate direction.
-*
-*  Gary Milne - January 10th, 2025 @ 10:36 AM V 3.1.1
+*  Version 3.1.2 - Fixed issue with sorting using State. Sort for state now always use A-Z for the name column as the secondary key. Changed clicked column header to eliminate directional arrows and add a background gradient to indicate direction. Eliminated halftone code.
+*  Version 3.1.3 - Switched sort header directional indicators to a user configurable color underline.
+* 
+*  Gary Milne - January 10th, 2025 @ 11:29 AM V 3.1.3
 *
 **/
 
@@ -107,8 +108,8 @@ static def durationFormatsList() { return durationFormatsMap().values() }
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature"].sort() }
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.2 (1/10/25)</b>"
-@Field static final codeVersion = 312
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.3 (1/10/25)</b>"
+@Field static final codeVersion = 313
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -296,6 +297,8 @@ def mainPage(){
 					input(name: "defaultDateTimeFormat", title: bold("Date Time Format"), type: "enum", options: dateFormatsMap(), submitOnChange: true, defaultValue: 3, width: 2, style:"margin-right:25px")
 					input(name: "defaultDurationFormat", title: bold("Duration Format"), type: "enum", options: durationFormatsMap(), submitOnChange: true, defaultValue: 21, width: 2, style:"margin-right:25px")
 					input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "17.5", width: 2, style:"margin-right:25px")
+					input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px" )
+					input(name: "sortHeaderHintZA", type: "color", title: bold("Sort Header Hint Z-A"), required: false, defaultValue: "#FF0000", submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
 					input (name: "thp", type: "enum", title: bold("Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input (name: "tvp", type: "enum", title: bold("Vertical Padding"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
@@ -474,7 +477,7 @@ def updateVariables() {
     }
 
     //Check to see if there has been an update. If there has the variablesVersion will be less than the codeVersion
-    if (state.variablesVersion < codeVersion) {
+    if (state.variablesVersion < 311) {
         log.info("Updating Variables to $codeVersion")
         //Add the newly created variables here such as:
 		app.updateSetting("highlightPinnedRows", "True")
@@ -486,7 +489,14 @@ def updateVariables() {
 		app.updateSetting("shuttleColor", [value: "#99C5FF", type: "color"])
 		app.updateSetting("tempUnits", [value: "°F", type: "enum"])
 		state.variablesVersion = codeVersion
-		//Now re-compile the endpoints with the new variables
+		compile()
+    }
+	
+	    //Check to see if there has been an update. If there has the variablesVersion will be less than the codeVersion
+    if (state.variablesVersion < 313) {
+        log.info("Updating Variables to $codeVersion")		
+		app.updateSetting("sortHeaderHintAZ", [value: "#00FF00", type: "color"])
+		app.updateSetting("sortHeaderHintZA", [value: "#FF0000", type: "color"])
 		compile()
     }
 }
@@ -1203,10 +1213,11 @@ def compile(){
 
 		content = content.replace('#hts#', hts )	// Header Text Size
 		content = content.replace('#htc#', htc )	// Header Text Color
+		content = content.replace('#sortHeaderHintAZ#', sortHeaderHintAZ )
+		content = content.replace('#sortHeaderHintZA#', sortHeaderHintZA )
 
 		def myhbc = convertToHex8(hbc, hbo.toFloat())  //Calculate the new color including the opacity.
 		content = content.replace('#hbc#', myhbc )	// Header Background Color
-		content = content.replace('#hbc-halftone#', calculateHalftone(myhbc, 35) )	//Sets the Header Background Color for the sorted header to be a lighter shade of the same color.
 
 		content = content.replace('#rts#', rts )	// Row Text Size
 		content = content.replace('#rtc#', rtc )	// Row Text Color
@@ -1847,44 +1858,6 @@ static String summary(myTitle, myText) {
     return "<details><summary>" + myTitle + "</summary>" + myText + "</details>"
 }
 
-// Function to calculate a halftone color by lightening or darkening
-def calculateHalftone(hexColor, percentage) {
-    // Convert hex to RGBA
-    def rgba = hexToRgba(hexColor)
-
-    // Calculate the halftone by adjusting the brightness
-    def r = adjustBrightness(rgba.r, percentage)
-    def g = adjustBrightness(rgba.g, percentage)
-    def b = adjustBrightness(rgba.b, percentage)
-    def a = rgba.a  // Alpha remains unchanged
-
-    // Return the adjusted RGBA as a hex color
-    return rgbaToHex(r, g, b, a)
-}
-
-// Function to convert 8-digit hex to RGBA
-def hexToRgba(hex) {
-    hex = hex.replace("#", "")
-    def r = Integer.parseInt(hex.substring(0, 2), 16)
-    def g = Integer.parseInt(hex.substring(2, 4), 16)
-    def b = Integer.parseInt(hex.substring(4, 6), 16)
-    def a = Integer.parseInt(hex.substring(6, 8), 16)
-    return [r: r, g: g, b: b, a: a]
-}
-
-// Function to adjust brightness by the percentage
-def adjustBrightness(colorValue, percentage) {
-    def factor = percentage / 100.0
-    def newColor = colorValue + ((255 - colorValue) * factor)
-    return Math.round(Math.max(0.0, Math.min(newColor, 255.0))).toInteger()  // Clamp and convert to integer
-}
-
-// Function to convert RGBA to 8-digit hex
-def rgbaToHex(r, g, b, a) {
-    return String.format("#%02X%02X%02X%02X", r, g, b, a)
-}
-
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  End Utility Functions
@@ -1948,6 +1921,8 @@ def initialize() {
 	
 	//General Properties
 	app.updateSetting("tempUnits", [value: "°F", type: "enum"])
+	app.updateSetting("sortHeaderHintAZ", [value: "#00FF00", type: "color"])
+	app.updateSetting("sortHeaderHintZA", [value: "#FF0000", type: "color"])
 		
 	//Column Properties
 	app.updateSetting("column2Header", "Icon")
@@ -2124,8 +2099,8 @@ def HTML =
 	th:nth-child(10), td:nth-child(10) { display:#hideColumn10#; }
 
 	th { background-color: #hbc#; font-weight: bold; font-size: #hts#%; color: #htc#; margin:1px; }
-	.ascSort { background: linear-gradient(to bottom, #hbc-halftone# 0%, #hbc# 40%, #hbc# 100%); text-decoration: underline;}
-	.descSort { background : linear-gradient(to bottom, #hbc# 0%, #hbc# 60%, #hbc-halftone# 100%); text-decoration: underline;}
+	.ascSort { background: linear-gradient(to bottom, #hbc# 0%, #hbc# 95%, #sortHeaderHintAZ# 100%); text-decoration: underline;}
+	.descSort { background : linear-gradient(to bottom, #hbc# 0%, #hbc# 95%, #sortHeaderHintZA# 100%); text-decoration: underline;}
 	tr { background-color: #rbc#;}
 	tr:hover { background-color: #rbs#; }
 	.selected-row {	background-color: #rbs#;}
