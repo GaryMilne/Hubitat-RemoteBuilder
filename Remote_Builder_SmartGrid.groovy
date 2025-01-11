@@ -23,6 +23,7 @@
 *  For more information on Remote Builder check out these resources.
 *  Original posting on Hubitat Community forum: https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices-7-remotes-available/142060
 *  Remote Builder Documentation: https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf
+*  Remote Builder - SmartGrid Documentation: https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote_Builder_SmartGrid_Help.pdf
 *
 *  Remote Builder - SmartGrid - ChangeLog
 *  Version 1.3.1 - Initial Public Release
@@ -51,8 +52,9 @@
 *  Version 3.1.1 - Added a StorageKey() and AppID to isolate any local or session storage variables between iFrames.
 *  Version 3.1.2 - Fixed issue with sorting using State. Sort for state now always use A-Z for the name column as the secondary key. Changed clicked column header to eliminate directional arrows and add a background gradient to indicate direction. Eliminated halftone code.
 *  Version 3.1.3 - Switched sort header directional indicators to a user configurable color underline.
+*  Version 3.1.4 - Bug with highlight color not being initialized correctly. Added some smaller options to control sizes. Added option to select 0 or 1 decimal places for temperatures. Fixed bug with display of Slider values on A/B switch. Changed Help File link.
 * 
-*  Gary Milne - January 10th, 2025 @ 11:29 AM V 3.1.3
+*  Gary Milne - January 11th, 2025 @ 1:23 PM V 3.1.4
 *
 **/
 
@@ -107,9 +109,10 @@ static def durationFormatsList() { return durationFormatsMap().values() }
 
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature"].sort() }
+static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.3 (1/10/25)</b>"
-@Field static final codeVersion = 313
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.4 (1/11/25)</b>"
+@Field static final codeVersion = 314
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -296,14 +299,15 @@ def mainPage(){
 					
 					input(name: "defaultDateTimeFormat", title: bold("Date Time Format"), type: "enum", options: dateFormatsMap(), submitOnChange: true, defaultValue: 3, width: 2, style:"margin-right:25px")
 					input(name: "defaultDurationFormat", title: bold("Duration Format"), type: "enum", options: durationFormatsMap(), submitOnChange: true, defaultValue: 21, width: 2, style:"margin-right:25px")
-					input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "17.5", width: 2, style:"margin-right:25px")
-					input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px" )
-					input(name: "sortHeaderHintZA", type: "color", title: bold("Sort Header Hint Z-A"), required: false, defaultValue: "#FF0000", submitOnChange: true, width: 2, style:"margin-right:25px" )
+					input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["7.5", "10", "12.5", "15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "17.5", width: 2, style:"margin-right:25px")
 					input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
 					input (name: "thp", type: "enum", title: bold("Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input (name: "tvp", type: "enum", title: bold("Vertical Padding"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
-					input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false)
+					input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, style:"margin-right:25px")
+					input ("tempDecimalPlaces", "enum", title: "<b>Temperature Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, submitOnChange: true, width: 2, required: false)
+					input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true )
+					input(name: "sortHeaderHintZA", type: "color", title: bold("Sort Header Hint Z-A"), required: false, defaultValue: "#FF0000", submitOnChange: true, width: 2, style:"margin-right:25px" )
 				}
 				
 				if (settings.customizeSection == "Title") {
@@ -387,7 +391,7 @@ def mainPage(){
 				
         //Start of Publish Section
 		section(hideable: true, hidden: state.hidden.Publish, title: buttonLink('btnHidePublish', getSectionTitle("Publish"), 20)) {
-            input(name: "myRemote", title: bold("Attribute to store the Remote? (Optional)"), type: "enum", options: parent.allTileList(), required: false, submitOnChange: true, width: 3, defaultValue: 0, newLine: false)
+            input(name: "myRemote", title: bold("Attribute to store the Remote?"), type: "enum", options: parent.allTileList(), required: false, submitOnChange: true, width: 3, defaultValue: 0, newLine: false)
             input(name: "myRemoteName", type: "text", title: bold("Name this Remote"), submitOnChange: true, width: 3, defaultValue: "New Remote", newLine: false, required: true)
             input(name: "tilesAlreadyInUse", type: "enum", title: bold("For Reference Only: Remotes in Use"), options: parent.getTileList(), required: false, defaultValue: "Remotes List", submitOnChange: true, width: 3)
 			input(name: "eventTimeout", type: "enum", title: bold("Event Timeout (millis)"), required: false, multiple: false, defaultValue: "2000", options: ["0", "250", "500", "1000", "1500", "2000", "5000", "10000", "Never"], submitOnChange: true, width: 2)
@@ -428,7 +432,8 @@ def mainPage(){
 			paragraph line(2)
 
             //Now add a footer.
-            myDocURL = "<a href='https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20SmartGrid%20Help%20-%20Version%203.0.pdf' target=_blank> <i><b>Remote Builder - SmartGrid 3.0 Help</b></i></a>"
+            myDocURL = "<a href='https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote_Builder_SmartGrid_Help.pdf' target=_blank> <i><b>Remote Builder - SmartGrid Help</b></i></a>"
+			
 			myText = '<div style="display: flex; justify-content: space-between;">'
             myText += '<div style="text-align:left;font-weight:small;font-size:12px"> <b>Documentation:</b> ' + myDocURL + '</div>'
             myText += '<div style="text-align:center;font-weight:small;font-size:12px">Version: ' + codeDescription + '</div>'
@@ -499,6 +504,12 @@ def updateVariables() {
 		app.updateSetting("sortHeaderHintZA", [value: "#FF0000", type: "color"])
 		compile()
     }
+	if (state.variablesVersion < 314) {
+        log.info("Updating Variables to $codeVersion")		
+		app.updateSetting("tempDecimalPlaces", [value: "0 Decimal Places", type: "enum"])
+		state.variablesVersion = codeVersion
+		compile()
+	}
 }
 
 // Receives a list of items and allows them to be selected for pinning
@@ -681,9 +692,13 @@ def getJSON() {
 		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
 		deviceData.put("type", 32)
 		
-		def myTemperature = device.currentValue("temperature")
-		def roundedValue = Math.round(myTemperature) // Returns a long
-		myTemperature = roundedValue.toInteger()
+		def myTemperature = device.currentValue("temperature") as float
+		if (tempDecimalPlaces == "0 Decimal Places") {
+			myTemperature = myTemperature.toInteger()
+		}
+		if (tempDecimalPlaces == "1 Decimal Places") {
+			myTemperature = Math.round(myTemperature * 10) / 10.0
+		}
 		
 		deviceData.put("switch", myTemperature.toString() + tempUnits)
 		deviceData.put("icon", getIcon(32, "temp")?.icon)
@@ -809,6 +824,7 @@ def getDeviceInfo(device, type){
 	def lastInactive
 	def lastActiveInstant
 	def lastInactiveInstant
+	def lastActiveDuration
 	def lastSeen
 	def lastSeenElapsed
 	
@@ -894,7 +910,7 @@ def getDeviceInfo(device, type){
 		}
 
 		if (lastInactive != null && lastActive != null) {
-			def durations = getDuration(lastActiveInstant, lastInactiveInstant)
+			durations = getDuration(lastActiveInstant, lastInactiveInstant)
 			lastActiveDuration = durations.lastActiveDuration
 			lastInactiveDuration = durations.lastInactiveDuration
 		}
@@ -1923,6 +1939,7 @@ def initialize() {
 	app.updateSetting("tempUnits", [value: "°F", type: "enum"])
 	app.updateSetting("sortHeaderHintAZ", [value: "#00FF00", type: "color"])
 	app.updateSetting("sortHeaderHintZA", [value: "#FF0000", type: "color"])
+	app.updateSetting("tempDecimalPlaces", [value: "0 Decimal Places", type: "enum"])
 		
 	//Column Properties
 	app.updateSetting("column2Header", "Icon")
@@ -1980,7 +1997,7 @@ def initialize() {
 	app.updateSetting("rbo", "1")
 	
 	app.updateSetting("highlightSelectedRows", "True")
-	app.updateSetting("rbs", [value: "#FFE18F)", type: "color"])
+	app.updateSetting("rbs", [value: "#FFE18F", type: "color"])
 	
 	app.updateSetting("highlightPinnedRows", "True")
 	app.updateSetting("rbpc", [value: "#A7C7FB", type: "color"])
@@ -2130,7 +2147,7 @@ def HTML =
 	/* Column 5 - Control Group 1 - Level and Kelvin Sliders */
 	.control-container {display:flex;position: relative; width: 95%; display: flex; justify-content: center; align-items: center; background-color:#rbc#; margin:auto; }
 	.CT-slider, .level-slider, .blinds-slider, .shades-slider, .volume-slider, .tilt-slider { width: 90%; opacity:0.75; border-radius:0px; height:var(--control); outline: 2px solid #888; cursor: pointer;}
-	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value {position:absolute; top:50%; transform:translateY(-50%); font-size:90%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;}
+	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value {position:absolute; top:50%; transform:translateY(-50%); font-size:#rts#%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;}
 
 	/* Custom properties for WebKit-based browsers (Chrome, Safari) */
 	.CT-slider::-webkit-slider-runnable-track { background: var(--CT); height: 100% }
@@ -2207,7 +2224,7 @@ def HTML =
 				<th><input type="checkbox" id="masterCheckbox" onclick="toggleAllCheckboxes(this)" onchange="updateHUB()" title="Select All/Deselect All"></th>
 				<th id="icon" class="sortLinks" onclick="sortTable(1, this);" title="Icon - Sort"><span id="iconHeader">Icon</span></th>
 				<th id="nameHeader" class="sortLinks" onclick="sortTable(2, this);"> <div style="display: flex; justify-content: space-between; align-items: center;">
-	        		<span title="Sort Name A-Z">#column3Header#</span><span id="refreshIcon" style="font-size: 1.5em; cursor: pointer;" onclick="event.stopPropagation(); refreshPage(50);" 
+	        		<span title="Sort Name A-Z">#column3Header#</span><span id="refreshIcon" style="font-size: 1.5em; cursor:pointer;" onclick="event.stopPropagation(); refreshPage(50);" 
 					title="Refresh Data"><b>↻</b></span></div></th>
 				<th id="stateHeader" class="sortLinks th" onclick="sortTable(3, this);"><span title="Sort State On-Off">State</span></th>
 				<th id="ControlAB" class="sortLinks" onclick="toggleControl()" title="Toggle Control A/B">#column5Header#</th>
@@ -2302,7 +2319,7 @@ function loadTableFromJSON(myJSON) {
             </div>`;
 		};
 
-		// Buttons for Fan (Radio buttons did not size properly)
+		// Buttons for Fan (Radio buttons did not re-size properly)
 		if (item.type === 12) {
     		const isDisabled = item.switch === 'off' ? 'disabled' : ''; // Determine if buttons should be disabled
     		const disabledClass = item.switch === 'off' ? 'disabled' : ''; // Add a visual class for the disabled state for the whole radio group
@@ -2315,21 +2332,21 @@ function loadTableFromJSON(myJSON) {
 		//Shade
 		if (item.type === 14 || item.type === 15){
 			control1HTML = `<div class="control-container"><input type="range" class="shades-slider" min="0" max="100" value="${item.position}" oninput="updateSliderValue(this, 'position')" onchange="updateHUB()">
-                			<span class="shades-value" style="display: ${showSlider === 'A' ? 'block' : 'none'}"><b>${item.position}%</b></span></div>`;
+                			<span class="shades-value"><b>${item.position}%</b></span></div>`;
 		};
 
 		//Blind
 		if (item.type === 15){
 			control2HTML = `<div style="display: flex; align-items: center;"> <div class="control-container" style="display: flex; align-items: center;">
       						<input type="range" class="tilt-slider" min="0" max="90" value="${item.tilt}" oninput="updateSliderValue(this, 'tilt')" onchange="updateHUB()"> 
-      						<span class="tilt-value" style=" display: ${showSlider === 'A' ? 'block' : 'none'}">${item.tilt}°</span>
+      						<span class="tilt-value"}">${item.tilt}°</span>
     						</div><div id="tilt-indicator" class="tilt-indicator" style="margin-left: 20px; margin-right: 10px; display: inline-block; vertical-align: middle;"> | </div></div>`;
     	};   
 		
 		//Volume
 		if (item.type === 16 ){
 			control1HTML = `<div class="control-container"><input type="range" class="volume-slider" min="0" max="100" value="${item.volume}"
-                			oninput="updateSliderValue(this, 'volume') " onchange="updateHUB()"><span class="volume-value" style="display: ${showSlider === 'A' ? 'block' : 'none'}">${item.volume}%</span></div>`;
+                			oninput="updateSliderValue(this, 'volume') " onchange="updateHUB()"><span class="volume-value">${item.volume}%</span></div>`;
 		};
 
 		// Control 2 - Color Picker
