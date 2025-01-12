@@ -14,7 +14,7 @@
 *  You may use the code for educational purposes or for use within other applications as long as they are unrelated to the 
 *  production of tabular data in HTML form, unless you have the prior consent of the author.
 *  You are granted a license to use Remote Builder in its standard configuration without limits.
-*  Use of Remote Builder in it's Advanced requires a license key that must be issued to you by the original developer. TileBuilderApp@gmail.com
+*  Use of Remote Builder Advanced (which includes SmartGrid) requires a license key that must be issued to you by the original developer. TileBuilderApp@gmail.com
 *
 *  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
 *  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -24,6 +24,7 @@
 *  Original posting on Hubitat Community forum: https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices-7-remotes-available/142060
 *  Remote Builder Documentation: https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf
 *  Remote Builder - SmartGrid Documentation: https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote_Builder_SmartGrid_Help.pdf
+*  Remote Builder - SmartGrid - Hard launch announcement https://community.hubitat.com/t/release-smartgrid-create-grids-of-controls-that-you-can-access-from-anywhere/148457
 *
 *  Remote Builder - SmartGrid - ChangeLog
 *  Version 1.3.1 - Initial Public Release
@@ -46,15 +47,16 @@
 *  Version 3.0.5 - Added support for contacts, leak and temperature along with filtering. Only open contacts or only wet sensors.
 *  Version 3.0.6 - Added ability to pin controls. 
 *  Version 3.0.7 - Added options and controls for selecting the selectedRow and pinnedRow colors. Combined the Info and Columns\Headers sections.
-*  Version 3.0.8 - Re-worked logic for the gathering of information for info columns to eliminate unneccessary calls.
+*  Version 3.0.8 - Re-worked logic for the gathering of information for info columns to eliminate unnecessary calls.
 *  Version 3.0.9 - Added missing variables to updateVariables(). Added mid points for tilePreviewWidth. Made all pinned objects remain visible regardless of any filter setting.
 *  Version 3.1.0 - Split Devices into Controls and Sensors. Added halfTone for sort column header box. Flipped definition of Lock to open == active.
 *  Version 3.1.1 - Added a StorageKey() and AppID to isolate any local or session storage variables between iFrames.
 *  Version 3.1.2 - Fixed issue with sorting using State. Sort for state now always use A-Z for the name column as the secondary key. Changed clicked column header to eliminate directional arrows and add a background gradient to indicate direction. Eliminated halftone code.
 *  Version 3.1.3 - Switched sort header directional indicators to a user configurable color underline.
 *  Version 3.1.4 - Bug with highlight color not being initialized correctly. Added some smaller options to control sizes. Added option to select 0 or 1 decimal places for temperatures. Fixed bug with display of Slider values on A/B switch. Changed Help File link.
+*  Version 3.1.5 - Set slider value text color to match row text color. Fixed issue with control columns not being hidden. Added colorTemperature as a possible output for the Info columns. Various minor fixes to issue report in the community forums. 
 * 
-*  Gary Milne - January 11th, 2025 @ 1:23 PM V 3.1.4
+*  Gary Milne - January 12th, 2025 @ 3:15 PM V 3.1.5
 *
 **/
 
@@ -108,11 +110,11 @@ static def durationFormatsMap() { return [21: "To: Elapsed Time (dd):hh:mm:ss", 
 static def durationFormatsList() { return durationFormatsMap().values() }
 
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
-static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature"].sort() }
+static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.4 (1/11/25)</b>"
-@Field static final codeVersion = 314
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.5 (1/12/25)</b>"
+@Field static final codeVersion = 315
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -475,7 +477,7 @@ def checkNulls() {
 
 //Used to update variables when upgrading software versions.
 def updateVariables() {
-    //This is a first time install so the 
+    //This is a first time install so the variables should all be current.
     if (state.variablesVersion == null) {
         log.info("Initializing variablesVersion to: $codeVersion")
         state.variablesVersion = codeVersion
@@ -670,7 +672,7 @@ def getJSON() {
 		deviceData.put("icon", getIcon(31, myContact)?.icon)
 		deviceData.put("cl", getIcon(31, myContact)?.class)
 		
-		//See if it is in the pinned list. If it is then it is always shown ragardless of the state
+		//See if it is in the pinned list. If it is then it is always shown regardless of the state
 		if ( containsDeviceID(myPinnedContacts, device.getId() )) { deviceData.put("pin", "on")	; deviceAttributesList << deviceData }
 		else {
 			if (onlyOpenContacts == "False" ) deviceAttributesList << deviceData
@@ -801,7 +803,7 @@ def getIcon(type, deviceState) {
     
     // Return the result if found, otherwise return a default structure
 	//log.info ("Returning: $result")
-    return result ?: [icon: "default_icon", class: "contact_support"]
+    return result ?: [icon: "error", class: "warn"]
 }
 
 
@@ -816,7 +818,7 @@ def isInfoSource(source){
 	return match
 }
 
-//Gets information about the lastActive, lastInactive etc and and put it into a map. Data from selected fields will be mapped into the Info columns.
+//Gets information about the lastActive, lastInactive etc and put it into a map. Data from selected fields will be mapped into the Info columns.
 def getDeviceInfo(device, type){
 	def lastActiveEvent
 	def lastInactiveEvent
@@ -835,6 +837,7 @@ def getDeviceInfo(device, type){
 	def healthStatus
 	def energy
 	def network
+	def colorTemperature
 
 	def deviceTypeName
 	def lastActivity
@@ -853,6 +856,7 @@ def getDeviceInfo(device, type){
 	if (isInfoSource("network")) network = getNetworkType(device?.getDeviceNetworkId())
 	if (isInfoSource("deviceTypeName")) deviceTypeName = getDeviceTypeInfo(type)
 	if (isInfoSource("battery") && device.hasCapability("Battery") ) battery = device?.currentValue("battery") + "%"
+	if (isInfoSource("colorTemperature") && device.hasCapability("ColorTemperature") ) colorTemperature = device?.currentValue("colorTemperature") + "°K"
 	if (isInfoSource("temperature") && device.hasCapability("TemperatureMeasurement") ) {
 		myTemp = device?.currentValue("temperature")
 		def roundedValue = Math.round(myTemp) // Returns a long
@@ -928,7 +932,7 @@ def getDeviceInfo(device, type){
 	
 	def result = [lastActive: lastActive, lastInactive: lastInactive, lastInactiveInstant: lastInactiveInstant, lastActiveInstant: lastActiveInstant, lastActiveDuration: lastActiveDuration, 
 				  lastInactiveDuration: lastInactiveDuration, roomName: roomName, colorName: colorName, colorMode: colorMode, power: power, healthStatus: healthStatus, 
-				  energy: energy, ID: ID, network: network, deviceTypeName: deviceTypeName, lastSeen: lastSeen, lastSeenElapsed: lastSeenElapsed, battery: battery, temperature: temperature ].collectEntries { key, value -> [key, value != null ? value : invalidAttribute.toString()] }
+				  energy: energy, ID: ID, network: network, deviceTypeName: deviceTypeName, lastSeen: lastSeen, lastSeenElapsed: lastSeenElapsed, battery: battery, temperature: temperature, colorTemperature: colorTemperature ].collectEntries { key, value -> [key, value != null ? value : invalidAttribute.toString()] }
 	
 	//log.info("Returning map: $result")
     return result
@@ -1532,7 +1536,7 @@ def toHub() {
 	changes.each { change ->
         
         def myDeviceName = findDeviceById(change.ID)
-        log.info ("My deviceName is: $myDeviceName")
+        //log.info ("My deviceName is: $myDeviceName")
             
     	def key = change.changes.keySet().first()  // Get the key of the change (since there's only one)
     	def values = change.changes[key]           // Get the old and new values
@@ -2100,16 +2104,12 @@ def HTML =
 	table {width: 100%; border-collapse: collapse; table-layout: auto; }
 	th, td { padding: calc(#tvp#px + 3px) #thp#px; text-align:center; vertical-align:middle; border:1px solid black; transition:background-color 0.3s; user-select:none;}
 
-	/* Set a fixed width for any columns here. The remainder with be auto-calculated. The device name column seems to take up the majority of the slack. */
-	col:nth-child(5) { width: #column5Width#px; }
-	col:nth-child(6) { width: #column6Width#px; }
-			
+	/* Fixed widths are configured for Column 5 and 6 in the colgroup at the start of the HTML. The remaining columns with be auto-calculated. The device name column seems to take up the majority of the slack. */
 	th:nth-child(1), td:nth-child(1) { width: 6%; display:#hideColumn1#; }
 	th:nth-child(2), td:nth-child(2) { display:#hideColumn2#; }
 	th:nth-child(3) { padding-left:calc(#thp#px + 5px); text-align:left; width:auto;}, td:nth-child(3) {text-align:left; padding-left:calc(#thp#px); }
 	th:nth-child(4), td:nth-child(4) { display:#hideColumn4#; }
-	th:nth-child(5), td:nth-child(5) { display:#hideColumn5#; }
-	th:nth-child(6), td:nth-child(6) { display:#hideColumn6#; }
+	// See colgroup for the equivalent settings for Control columns 5 and 6
 	th:nth-child(7), td:nth-child(7) { display:#hideColumn7#; }
 	th:nth-child(8), td:nth-child(8) { display:#hideColumn8#; }
 	th:nth-child(9), td:nth-child(9) { display:#hideColumn9#; }
@@ -2147,7 +2147,7 @@ def HTML =
 	/* Column 5 - Control Group 1 - Level and Kelvin Sliders */
 	.control-container {display:flex;position: relative; width: 95%; display: flex; justify-content: center; align-items: center; background-color:#rbc#; margin:auto; }
 	.CT-slider, .level-slider, .blinds-slider, .shades-slider, .volume-slider, .tilt-slider { width: 90%; opacity:0.75; border-radius:0px; height:var(--control); outline: 2px solid #888; cursor: pointer;}
-	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value {position:absolute; top:50%; transform:translateY(-50%); font-size:#rts#%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;}
+	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value {position:absolute; top:50%; transform:translateY(-50%); font-size:#rts#%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;color: #rtc#;}
 
 	/* Custom properties for WebKit-based browsers (Chrome, Safari) */
 	.CT-slider::-webkit-slider-runnable-track { background: var(--CT); height: 100% }
@@ -2168,7 +2168,7 @@ def HTML =
 	.shades-slider::-moz-range-track { background: var(--shades); height: 100%; background-size: 100% 100%, 100% 100%; border: 0px solid #DDD; }
 	.volume-slider::-moz-range-track { background: var(--tickMarks), linear-gradient(to right, green, orange, red); height: 100%; background-size: 100% 100%; background-repeat: no-repeat; border: 0px solid #DDD; }
 	.tilt-slider::-moz-range-track { background: var(--tickMarks), linear-gradient(to right, #000 0%, #333 10%, #0D47A1 30%, #17D 40%, #4682B4 50%, #8CF 65%, #FFF 85%, #FFF 100%); height: 100%; background-size: 100% 100%, 100% 100%; border: 0px solid #DDD; }
-	.level-slider::-moz-range-thumb, .CT-slider::-moz-range-thumb, .shades-slider::-moz-range-thumb, .blinds-slider::-moz-range-thumb, .volume-slider::-moz-range-thumb { background: dodgerblue; border-radius: 50%; cursor: pointer; }
+	.level-slider::-moz-range-thumb, .CT-slider::-moz-range-thumb, .shades-slider::-moz-range-thumb, .blinds-slider::-moz-range-thumb, .volume-slider::-moz-range-thumb { background: dodgerblue; border-radius: 50%; cursor: pointer;}
 	
 	/* Column 6 - Control Group 2 - Color */
 	input[type="color"]::-webkit-color-swatch-wrapper { padding: 0px; }
@@ -2217,8 +2217,11 @@ def HTML =
 <div class="container">
 	<div class="title" id="title">#tt#</div>
 	<table id="sortableTable">
-		//Use column groups to fix some column widths even with table-layout of auto.
-    	<colgroup><col><col><col><col><col><col><col><col><col></colgroup>
+		//Use column groups to fix some column widths for Control A-B and Control C even with table-layout of auto.
+    	<colgroup><col><col><col><col>
+		<col style="width: #column5Width#px;display:#hideColumn5#;">
+		<col style="width: #column6Width#px;display:#hideColumn6#;">
+		<col><col><col><col></colgroup>
 		<thead>
 			<tr>
 				<th><input type="checkbox" id="masterCheckbox" onclick="toggleAllCheckboxes(this)" onchange="updateHUB()" title="Select All/Deselect All"></th>
