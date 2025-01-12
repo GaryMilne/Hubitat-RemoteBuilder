@@ -512,6 +512,11 @@ def updateVariables() {
 		state.variablesVersion = codeVersion
 		compile()
 	}
+	if (state.variablesVersion < 315) {
+        log.info("Updating Variables to $codeVersion")
+		state.variablesVersion = codeVersion
+		compile()
+	}
 }
 
 // Receives a list of items and allows them to be selected for pinning
