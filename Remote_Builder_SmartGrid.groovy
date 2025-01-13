@@ -55,9 +55,10 @@
 *  Version 3.1.3 - Switched sort header directional indicators to a user configurable color underline.
 *  Version 3.1.4 - Bug with highlight color not being initialized correctly. Added some smaller options to control sizes. Added option to select 0 or 1 decimal places for temperatures. Fixed bug with display of Slider values on A/B switch. Changed Help File link.
 *  Version 3.1.5 - Set slider value text color to match row text color. Fixed issue with control columns not being hidden. Added colorTemperature as a possible output for the Info columns. Various minor fixes to issue report in the community forums. 
-*  Version 3.1.5B - Fixes issue with one of the the control columns not hiding correctly. Forces a decimal point even for integer values when selecting "1 Decimal Place" to provide more consisten formatting. No version Rev.
-* 
-*  Gary Milne - January 12th, 2025 @ 3:15 PM V 3.1.5
+*  Version 3.1.5B - Fixes issue with one of the the control columns not hiding correctly. Forces a decimal point even for integer values when selecting "1 Decimal Place" to provide more consisten formatting.
+*  Version 3.1.6 - Fixes issue with sensor data in the State column not being formatted as per the general text color and size.
+*
+*  Gary Milne - January 13th, 2025 @ 9:30 AM V 3.1.6
 *
 **/
 
@@ -114,8 +115,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.5 (1/12/25)</b>"
-@Field static final codeVersion = 315
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.6 (1/13/25)</b>"
+@Field static final codeVersion = 316
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -513,7 +514,7 @@ def updateVariables() {
 		state.variablesVersion = codeVersion
 		compile()
 	}
-	if (state.variablesVersion < 315) {
+	if (state.variablesVersion < 316) {
         log.info("Updating Variables to $codeVersion")
 		state.variablesVersion = codeVersion
 		compile()
@@ -2107,16 +2108,15 @@ def HTML =
 	th, td { padding: calc(#tvp#px + 3px) #thp#px; text-align:center; vertical-align:middle; border:1px solid black; transition:background-color 0.3s; user-select:none;}
 
 	/* Set a fixed width for any columns here. The remainder with be auto-calculated. The device name column seems to take up the majority of the slack. */
-	col:nth-child(5) { width: #column5Width#px; }
-	col:nth-child(6) { width: #column6Width#px; }
+	col:nth-child(5) { width: #column5Width#px; display:#hideColumn5#}
+	col:nth-child(6) { width: #column6Width#px; display:#hideColumn6#}
 
 	/* Fixed widths are configured for Column 5 and 6 in the colgroup at the start of the HTML. The remaining columns with be auto-calculated. The device name column seems to take up the majority of the slack. */
 	th:nth-child(1), td:nth-child(1) { width: 6%; display:#hideColumn1#; }
 	th:nth-child(2), td:nth-child(2) { display:#hideColumn2#; }
 	th:nth-child(3) { padding-left:calc(#thp#px + 5px); text-align:left; width:auto;}, td:nth-child(3) {text-align:left; padding-left:calc(#thp#px); }
 	th:nth-child(4), td:nth-child(4) { display:#hideColumn4#; }
-	th:nth-child(5), td:nth-child(5) { display:#hideColumn5#; }
-	th:nth-child(6), td:nth-child(6) { display:#hideColumn6#; }
+	//Control columns 5 and 6 and configured to a specific width above.
 	th:nth-child(7), td:nth-child(7) { display:#hideColumn7#; }
 	th:nth-child(8), td:nth-child(8) { display:#hideColumn8#; }
 	th:nth-child(9), td:nth-child(9) { display:#hideColumn9#; }
@@ -2154,7 +2154,8 @@ def HTML =
 	/* Column 5 - Control Group 1 - Level and Kelvin Sliders */
 	.control-container {display:flex;position: relative; width: 95%; display: flex; justify-content: center; align-items: center; background-color:#rbc#; margin:auto; }
 	.CT-slider, .level-slider, .blinds-slider, .shades-slider, .volume-slider, .tilt-slider { width: 90%; opacity:0.75; border-radius:0px; height:var(--control); outline: 2px solid #888; cursor: pointer;}
-	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value {position:absolute; top:50%; transform:translateY(-50%); font-size:#rts#%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;color: #rtc#;}
+	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value, .state-value {position:absolute; top:50%; transform:translateY(-50%); font-size:#rts#%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;color: #rtc#;}
+	.state-text {font-size:#rts#%; pointer-events:none; cursor:pointer; color: #rtc#;}
 
 	/* Custom properties for WebKit-based browsers (Chrome, Safari) */
 	.CT-slider::-webkit-slider-runnable-track { background: var(--CT); height: 100% }
@@ -2182,7 +2183,7 @@ def HTML =
 	.colorPicker{border: 2px solid #888; border-radius: 2px; width: calc(var(--control) * 3); height: calc( var(--control) * 1.25); cursor: pointer;}	/* Column 6 Color Control */
 
 	/* Info Columns 7 & 8 & 9 */
-	.info1, .info2, .info3 { border: none; background: transparent; color: #rtc#; white-space: nowrap;}
+	.info1, .info2, .info3 { border:none; background:transparent; white-space:nowrap; color:#rtc#;}
 	.info1 { font-size: #its1#%; text-align: #ita1#; }
 	.info2 { font-size: #its2#%; text-align: #ita2#; }
 	.info3 { font-size: #its3#%; text-align: #ita3#; }
@@ -2363,7 +2364,7 @@ function loadTableFromJSON(myJSON) {
 		if (item.type <= 30) { stateHTML = `<div class="toggle-switch ${item.switch === 'on' ? 'on' : ''}" data-state="${item.switch}" onclick="toggleSwitch(this); updateHUB()"></div>`;}
 
 		// For any kind of sensor insert the sensor text
-		if (item.type >= 31) { stateHTML = '<div>' + item.switch + '</div>'; }
+		if (item.type >= 31) { stateHTML = '<div class="state-text">' + item.switch + '</div>'; }
 
 		// Pinned Items
 		if( item.pin === "on") {
