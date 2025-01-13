@@ -55,6 +55,7 @@
 *  Version 3.1.3 - Switched sort header directional indicators to a user configurable color underline.
 *  Version 3.1.4 - Bug with highlight color not being initialized correctly. Added some smaller options to control sizes. Added option to select 0 or 1 decimal places for temperatures. Fixed bug with display of Slider values on A/B switch. Changed Help File link.
 *  Version 3.1.5 - Set slider value text color to match row text color. Fixed issue with control columns not being hidden. Added colorTemperature as a possible output for the Info columns. Various minor fixes to issue report in the community forums. 
+*  Version 3.1.5B - Fixes issue with one of the the control columns not hiding correctly. Forces a decimal point even for integer values when selecting "1 Decimal Place" to provide more consisten formatting. No version Rev.
 * 
 *  Gary Milne - January 12th, 2025 @ 3:15 PM V 3.1.5
 *
@@ -700,12 +701,8 @@ def getJSON() {
 		deviceData.put("type", 32)
 		
 		def myTemperature = device.currentValue("temperature") as float
-		if (tempDecimalPlaces == "0 Decimal Places") {
-			myTemperature = myTemperature.toInteger()
-		}
-		if (tempDecimalPlaces == "1 Decimal Places") {
-			myTemperature = Math.round(myTemperature * 10) / 10.0
-		}
+		if (tempDecimalPlaces == "0 Decimal Places") { myTemperature = myTemperature.round(0).toInteger() }
+		if (tempDecimalPlaces == "1 Decimal Place") { myTemperature = myTemperature.round(1) }
 		
 		deviceData.put("switch", myTemperature.toString() + tempUnits)
 		deviceData.put("icon", getIcon(32, "temp")?.icon)
@@ -2109,12 +2106,17 @@ def HTML =
 	table {width: 100%; border-collapse: collapse; table-layout: auto; }
 	th, td { padding: calc(#tvp#px + 3px) #thp#px; text-align:center; vertical-align:middle; border:1px solid black; transition:background-color 0.3s; user-select:none;}
 
+	/* Set a fixed width for any columns here. The remainder with be auto-calculated. The device name column seems to take up the majority of the slack. */
+	col:nth-child(5) { width: #column5Width#px; }
+	col:nth-child(6) { width: #column6Width#px; }
+
 	/* Fixed widths are configured for Column 5 and 6 in the colgroup at the start of the HTML. The remaining columns with be auto-calculated. The device name column seems to take up the majority of the slack. */
 	th:nth-child(1), td:nth-child(1) { width: 6%; display:#hideColumn1#; }
 	th:nth-child(2), td:nth-child(2) { display:#hideColumn2#; }
 	th:nth-child(3) { padding-left:calc(#thp#px + 5px); text-align:left; width:auto;}, td:nth-child(3) {text-align:left; padding-left:calc(#thp#px); }
 	th:nth-child(4), td:nth-child(4) { display:#hideColumn4#; }
-	// See colgroup for the equivalent settings for Control columns 5 and 6
+	th:nth-child(5), td:nth-child(5) { display:#hideColumn5#; }
+	th:nth-child(6), td:nth-child(6) { display:#hideColumn6#; }
 	th:nth-child(7), td:nth-child(7) { display:#hideColumn7#; }
 	th:nth-child(8), td:nth-child(8) { display:#hideColumn8#; }
 	th:nth-child(9), td:nth-child(9) { display:#hideColumn9#; }
@@ -2223,10 +2225,7 @@ def HTML =
 	<div class="title" id="title">#tt#</div>
 	<table id="sortableTable">
 		//Use column groups to fix some column widths for Control A-B and Control C even with table-layout of auto.
-    	<colgroup><col><col><col><col>
-		<col style="width: #column5Width#px;display:#hideColumn5#;">
-		<col style="width: #column6Width#px;display:#hideColumn6#;">
-		<col><col><col><col></colgroup>
+    	<colgroup><col><col><col><col><col><col><col><col><col><col></colgroup>
 		<thead>
 			<tr>
 				<th><input type="checkbox" id="masterCheckbox" onclick="toggleAllCheckboxes(this)" onchange="updateHUB()" title="Select All/Deselect All"></th>
