@@ -58,7 +58,7 @@
 *  Version 3.1.5B - Fixes issue with one of the the control columns not hiding correctly. Forces a decimal point even for integer values when selecting "1 Decimal Place" to provide more consisten formatting.
 *  Version 3.1.6 - Fixes issue with sensor data in the State column not being formatted as per the general text color and size. Changes how column space is allocated and eliminates the need for <colgroup>
 *
-*  Gary Milne - January 14th, 2025 @ 9:30 PM V 3.1.7
+*  Gary Milne - January 14th, 2025 @ 9:25 AM V 3.1.6
 *
 **/
 
@@ -94,7 +94,7 @@ static def textScale() { return ['50', '55', '60', '65', '70', '75', '80', '85',
 static def columnWidth() { return ['50', '60', '70', '80', '90', '100', '110', '120', '130', '140', '150', '160', '170', '180', '190', '200', '210', '220', '230', '240', '250', '260', '270', '280', '290', '300', '350', '400', '450', '500'] }
 static def textAlignment() { return ['Left', 'Center', 'Right', 'Justify'] }
 static def opacity() { return ['1', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1', '0'] }
-static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'] }
+static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] }
 static def unitsMap() { return ['°F', ' °F', '°C', ' °C']}
 
 static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: HH:mm", 3: "To: h:mm a", 4: "To: HH:mm:ss", 5: "To: h:mm:ss a", 6: "To: E HH:mm", 7: "To: E h:mm a", 8: "To: EEEE HH:mm", 9: "To: EEEE h:mm a", \
@@ -115,8 +115,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.7 (1/14/25)</b>"
-@Field static final codeVersion = 317
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.6 (1/14/25)</b>"
+@Field static final codeVersion = 316
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -284,8 +284,8 @@ def mainPage(){
 			//Start of Design Section
             section(hideable: true, hidden: state.hidden.Design, title: buttonLink('btnHideDesign', getSectionTitle("Design"), 20)) {
                 input(name: "displayEndpoint", type: "enum", title: bold("Endpoint to Display"), options: ["Local", "Cloud"], required: false, defaultValue: "Local", submitOnChange: true, width: 2, style:"margin-right:25px")
-				input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
-                input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
+				input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
+                input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 2, 3, 4, 5, 6, 7, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
 				input(name: "tilePreviewBackground", type: "color", title: bold2("Preview Background Color", tb), required: false, defaultValue: "#000000", width: 3, submitOnChange: true, style: "margin-right:25px")
 				if (myRemoteName != null && myRemote != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:20px;margin-right:25px")
 				
@@ -307,7 +307,6 @@ def mainPage(){
 					input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
 					input (name: "thp", type: "enum", title: bold("Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input (name: "tvp", type: "enum", title: bold("Vertical Padding"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
-					input (name: "tmt", type: "enum", title: bold("Top Margin"), options: elementSize(), required: false, defaultValue: "10", submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
 					input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, style:"margin-right:25px")
 					input ("tempDecimalPlaces", "enum", title: "<b>Temperature Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, submitOnChange: true, width: 2, required: false)
@@ -480,7 +479,7 @@ def checkNulls() {
 
 //Used to update variables when upgrading software versions.
 def updateVariables() {
-	//This is a first time install so the variables should all be current.
+    //This is a first time install so the variables should all be current.
     if (state.variablesVersion == null) {
         log.info("Initializing variablesVersion to: $codeVersion")
         state.variablesVersion = codeVersion
@@ -515,10 +514,9 @@ def updateVariables() {
 		state.variablesVersion = codeVersion
 		compile()
 	}
-	if (state.variablesVersion < 317) {
+	if (state.variablesVersion < 316) {
         log.info("Updating Variables to $codeVersion")
 		state.variablesVersion = codeVersion
-		app.updateSetting("tmt", [value: "10", type: "enum"])
 		compile()
 	}
 }
@@ -1197,7 +1195,6 @@ def compile(){
 		//Table Padding
 		content = content.replace('#thp#', thp )
 		content = content.replace('#tvp#', tvp )
-		content = content.replace('#tmt#', tmt )
 
 		//Column Headers
 		content = content.replace('#column3Header#', toHTML(column3Header) )	// Column 3 header text
@@ -1954,7 +1951,6 @@ def initialize() {
 	app.updateSetting("controlSize", [value: "15", type: "enum"])
 	app.updateSetting("thp", "5")
 	app.updateSetting("tvp", "3")
-	app.updateSetting("tmt", "10")
 	app.updateSetting("ha", [value: "Stretch", type: "enum"])
 	app.updateSetting("va", [value: "Center", type: "enum"])
 	
@@ -2084,14 +2080,15 @@ def HTML =
 <style>
 	:root {--control: #controlSize#px; 
 			--tickMarks : repeating-linear-gradient(to right, transparent 0%, transparent 4%, black 5%, transparent 6%, transparent 9%);
+			//--blinds : repeating-linear-gradient(to right, transparent 0%, transparent 2%, black 2%, #ccc 4%, transparent 4%, transparent 6%, black 6%, #ccc 8%, transparent 8%), linear-gradient( to left, #FFF 0%, #FFF 30%, #111 100%);
 			--blinds : repeating-linear-gradient(to right, black 0%, #ccc 3%, black 3%, #ccc 6%, black 6%, #ccc 9%);
 			--shades : linear-gradient( 3deg, #000 0%, #333 45%, #CCC 55%, #FFF 100%);
 			--dimmer : linear-gradient(to right, #000 0%, #333 15%, #666 30%, #888 45%, #AAA 60%, #DDD 75%, #FFF 100% ); 
 			--CT : linear-gradient(to right, #FF4500 0%, #FFA500 16%, #FFD700 33%, #FFFACD 49%, #FFFFE0 60%, #F5F5F5 66%, #FFF 80%,	#ADD8E6 100% ); 
 			}  
 
-	html, body { display:flex; flex-direction:column; align-items:#ha#; height:99%; margin:#tmt#px auto; font-family:'Arial', 'Helvetica', sans-serif; cursor:auto;flex-grow: 1; overflow:auto; box-sizing: border-box;}
-	.container { width: 99%; max-width:#maxWidth#px; margin: #shuttleHeight#px auto; padding: 0px;}
+	html, body { display:flex; flex-direction:column; align-items:#ha#; height:99%; margin:5px; font-family:'Arial', 'Helvetica', sans-serif; cursor:auto;flex-grow: 1; overflow:auto;box-sizing: border-box;}
+	.container { width: 99%; max-width:#maxWidth#px; margin: 10px auto; padding: 3px;}
 
 	/* Mobile Styles - For screens 1024px or smaller. */
 	@media (max-width: 768px) { 
