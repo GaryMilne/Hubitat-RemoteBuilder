@@ -62,7 +62,7 @@
 *  Version 3.1.9 - Moved the update Status from an outline to just modifying the Table outer border. Also made the shuttle operate on top of the Grid border to reduce vertical space consumption.
 *  Version 3.2.0 - Big improvements in the accuracy of the composer window when it comes to reproducing the final dashboard layout, especially when using the default 200px X 190px or multiple thereof. Adds border controls and improves padding options and padding vertical resolution.
 *
-*  Gary Milne - January 2st, 2025 @ 6:32 PM V3.2.0
+*  Gary Milne - January 2st, 2025 @ 6:57 PM V3.2.0
 *
 **/
 
@@ -270,22 +270,22 @@ def mainPage(){
 					input (name: "pollUpdateColorPending", type: "color", title: bold2("Update Color Pending", pollUpdateColorPending), required: false, defaultValue: "#FFA500", submitOnChange: true, width:2)
 					
 					input (name: "pollUpdateDuration", type: "enum", title: bold('Update Duration'), options: elementSize(), required: false, defaultValue: '2', width: 2, submitOnChange: true)
-					input (name: "shuttleHeight", type: "enum", title: bold('Refresh Bar Height'), options: elementSize(), required: false, defaultValue: '2', width: 2, submitOnChange: true, newLine:true)
-					input (name: "shuttleColor", type: "color", title: bold2("Refresh Bar Color", shuttleColor), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
+					input (name: "shuttleHeight", type: "enum", title: bold('Shuttle Height'), options: elementSize(), required: false, defaultValue: '2', width: 2, submitOnChange: true, newLine:true)
+					input (name: "shuttleColor", type: "color", title: bold2("Shuttle Color", shuttleColor), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
 					input (name: "commandTimeout", type: "enum", title: bold('Command Timeout (seconds)'), options: ['5', '6', '7', '8', '9', '10', '12', '15', '20'], required: false, defaultValue: '10', width: 2, submitOnChange: true, newLine:true)
 				}
 				myText = "You can configure the SmartGrid to poll the endpoint and apply any changes that are found. If there are no changes the SmartGrid goes back to sleep until the next poll interval.<br>"
            		myText += "<b>Poll Interval:</b> The frequency at which the Hub will be contacted to ask if there are any updates available.<br>"
 				myText += "<b>Poll Update Success Color:</b> When updates are applied the Grid will be outlined in the selected color.<br>"
 				myText += "<b>Poll Update Failure Color:</b> When updates are requested but no changes are received within the command timeout period the Grid will be outlined in the selected color.<br>"
-				myText += "<b>Poll Update Width:</b> The width of the outline in pixels when updates are applied.<br>"
+				myText += "<b>Poll Update Width:</b> This setting has been deprecated. The width of the highlight color will be the same as the table outer border width.<br>"
 				myText += "<b>Poll Update Duration:</b> The duration in seconds that the Success\\Failure outline is displayed.<br><br>"
 				
-				myText += "<b>Refresh Bar:</b> The Refresh Bar is displayed beneath the SmartGrid and is a visual indicator of the polling process. When the bar hits either edge then a polling event will occur and any changes will be picked up.<br>"
-				myText += "<b>Refresh Bar Height:</b> The height of the bar beneath the SmartGrid that identifies the position in the polling cycle.<br>"
-				myText += "<b>Refresh Bar Color:</b> The color of the bar beneath the SmartGrid that identifies the position in the polling cycle.<br>"
+				myText += "<b>Shuttle:</b> In polling mode the Shuttle is displayed at the base of the SmartGrid as a visual indicator of the polling process. When the bar hits either edge then a polling event will occur and any changes will be picked up.<br>"
+				myText += "<b>Shuttle Bar Height:</b> The height of the bar at the base of the SmartGrid that identifies the position in the polling cycle.<br>"
+				myText += "<b>Shuttle Bar Color:</b> The color of the bar at the base of the SmartGrid that identifies the position in the polling cycle.<br>"
 				myText += "<b>Command Timeout:</b> The amount of time allowed to pass without a response from the Hub before a request is deemed to have failed.<br>"
-				myText += "When the polling process discovers an update is pending then the SmartGrid is refreshed and the table is outlined for 5 seconds using the Poll Update properties configured above.<br>"
+				myText += "When the polling process discovers an update is pending then the SmartGrid is refreshed and the table is outlined for <b>X</b> seconds using the Poll Update Duration value configured above.<br>"
 				myText += "<b>Note: </b> You can initiate a full refresh of the table at anytime regardless of the polling interval using the Refresh Icon <b>↻</b>."
 				paragraph summary("Polling Help", myText)
 				paragraph line (2)
@@ -311,9 +311,9 @@ def mainPage(){
 					</div>"""
 				
 				myText = "The preview window above is optimized for the default Hubitat Dashboard tile size of 200px wide by 190px tall. Tiles greater than 1x1 will be slightly larger than direct multiples of this number because space previously allocated between tiles is now part of the tile.<br>"
-				myText += "If you wish to maximize your tile space by shrinking the gap between tiles you can change the <b>Grid Gap</b> using the Dashboard Grid menu. Or you could use the following CSS: </br>"
-				myText+=  "<mark>[class*='tile-title']{height:0% !important; visibility:hidden;}</mark><br><mark>[class*='tile-contents']{width:100% !important; height:100% !important; padding:0px;}</mark>"
-				myText += "To help visualize the dashboard tile edges you could use CSS like this: <mark>[class*='tile-primary']{outline: 1px dashed orange;}</mark> to add an orange dashed outline to each tile."
+				myText += "If you wish to maximize your tile space by shrinking the gap between tiles you can change the <b>Grid Gap</b> using the Dashboard Grid menu. Or you could use the following CSS: <br>"
+				myText+=  "<mark>[class*='tile-title']{height:0% !important; visibility:hidden;}</mark>    <mark>[class*='tile-contents']{width:100% !important; height:100% !important; padding:0px;}</mark><br>"
+				myText += "To help visualize the dashboard tile edges and add an orange dashed outline to each tile you could use CSS like this:<br><mark>[class*='tile-primary']{outline: 1px dashed orange;}</mark>"
 				paragraph summary("Preview Notes", myText)
 				paragraph line(1)
 				
@@ -413,12 +413,6 @@ def mainPage(){
 					input (name: "thp", type: "enum", title: bold("Column Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input (name: "tvp", type: "enum", title: bold("Row Vertical Padding - Major"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input (name: "tvpm", type: "enum", title: bold("Row Vertical Padding - Minor"), options: elementSizeMinor(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
-									
-					myText = "<b>The You can maximize the amount of space on yoImportant: If these endpoints are not generated you may have to enable OAuth in the child application code for this application to work.</b><br>"
-					myText += "Both endpoints can be active at the same time and can be enabled or disable through this interface.<br>"
-					myText += "Endpoints are paused if this instance of the <b>Remote Builder</b> application is paused. Endpoints are deleted if this instance of <b>Remote Builder</b> is removed.<br>"
-					paragraph summary("Dashboard CSS", myText)
-					paragraph line (2)
 				}
 				
 				if (settings.customizeSection == "Experimental") {
@@ -495,7 +489,7 @@ def checkNulls() {
 	if (pollInterval == null ) app.updateSetting("pollInterval", [value: "3", type: "enum"])
 	if (pollUpdateWidth == null ) app.updateSetting("pollUpdateWidth", [value: "3", type: "enum"])
 	if (pollUpdateDuration == null ) app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
-	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "2", type: "enum"])
+	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
 	if (commandTimeout == null ) app.updateSetting("commandTimeout", [value: "10", type: "enum"])
 	if (tvp == null ) app.updateSetting("tvp", [value: "3", type: "enum"])
 	if (thp == null ) app.updateSetting("thp", [value: "5", type: "enum"])
@@ -1977,7 +1971,7 @@ def initialize() {
 	app.updateSetting("pollUpdateColorPending", [value: "#FFA500", type: "color"])
 	app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
 	app.updateSetting("shuttleColor", [value: "#99C5FF", type: "color"])
-	app.updateSetting("shuttleHeight", [value: "2", type: "enum"])
+	app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
 		
 	//Tile Size
 	app.updateSetting("tilePreviewWidth", "3")
