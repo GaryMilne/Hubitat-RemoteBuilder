@@ -56,9 +56,13 @@
 *  Version 3.1.4 - Bug with highlight color not being initialized correctly. Added some smaller options to control sizes. Added option to select 0 or 1 decimal places for temperatures. Fixed bug with display of Slider values on A/B switch. Changed Help File link.
 *  Version 3.1.5 - Set slider value text color to match row text color. Fixed issue with control columns not being hidden. Added colorTemperature as a possible output for the Info columns. Various minor fixes to issue report in the community forums. 
 *  Version 3.1.5B - Fixes issue with one of the the control columns not hiding correctly. Forces a decimal point even for integer values when selecting "1 Decimal Place" to provide more consisten formatting.
-*  Version 3.1.6 - Fixes issue with sensor data in the State column not being formatted as per the general text color and size. Changes how column space is allocated and eliminates the need for <colgroup>
+*  Version 3.1.6 - Fixes issue with sensor data in the State column not being formatted as per the general text color and size. Changes how column space is allocated and eliminates the need for <colgroup>.
+*  Version 3.1.7 - Change how the HTML fills the iframe to avoid unneccessary scrollbars on the dashboard. Add media query so that phones and tables get a near full screen experience.
+*  Version 3.1.8 - Added Top-Margin input and modified @media query to use resolution instead of screen size. Modified the html,body settings in order to get things stretched and centered.
+*  Version 3.1.9 - Moved the update Status from an outline to just modifying the Table outer border. Also made the shuttle operate on top of the Grid border to reduce vertical space consumption.
+*  Version 3.2.0 - Big improvements in the accuracy of the composer window when it comes to reproducing the final dashboard layout, especially when using the default 200px X 190px or multiple thereof. Adds border controls and improves padding options and padding vertical resolution.
 *
-*  Gary Milne - January 14th, 2025 @ 9:25 AM V 3.1.6
+*  Gary Milne - January 21st, 2025 @ 6:57 PM V3.2.0
 *
 **/
 
@@ -71,6 +75,9 @@ None
 */
 
 /* Ideas for future releases
+User created "devices" to be used for section headers and links.
+Custom Device Sort
+Add custom text rows for creating headers for custom groups that would be enabled by Custom Device Sort.
 Add support for Thermostats
 Add pause-play for polling and\or variable speed polling.
 Add Scene Selector Control
@@ -94,7 +101,9 @@ static def textScale() { return ['50', '55', '60', '65', '70', '75', '80', '85',
 static def columnWidth() { return ['50', '60', '70', '80', '90', '100', '110', '120', '130', '140', '150', '160', '170', '180', '190', '200', '210', '220', '230', '240', '250', '260', '270', '280', '290', '300', '350', '400', '450', '500'] }
 static def textAlignment() { return ['Left', 'Center', 'Right', 'Justify'] }
 static def opacity() { return ['1', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0.3', '0.2', '0.1', '0'] }
-static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] }
+static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'] }
+static def elementSize2() { return ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '11', '11.5', '12', '12.5', '13', '13.5', '14', '14.5', '15', '15.5', '16', '16.5', '17', '17.5', '18', '18.5', '19', '19.5','20'] }
+static def elementSizeMinor() { return ['0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'] }
 static def unitsMap() { return ['°F', ' °F', '°C', ' °C']}
 
 static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: HH:mm", 3: "To: h:mm a", 4: "To: HH:mm:ss", 5: "To: h:mm:ss a", 6: "To: E HH:mm", 7: "To: E h:mm a", 8: "To: EEEE HH:mm", 9: "To: EEEE h:mm a", \
@@ -115,8 +124,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.1.6 (1/14/25)</b>"
-@Field static final codeVersion = 316
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.2.0 (1/21/25)</b>"
+@Field static final codeVersion = 320
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -140,16 +149,16 @@ preferences {
 }
 
 def mainPage(){
-	
 	if (state.variablesVersion == null || state.variablesVersion < codeVersion) updateVariables()
 	checkNulls()
 	
+	//state.variablesVersion = 318
 	//Basic initialization for the initial release. If it is already initialized then compile the remote on each reload.
     if (state.initialized == null) initialize()
 	else compile()
 		
-    dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff;;'> Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
-			section(hideable: true, hidden: state.hidden.Controls, title: buttonLink('btnHideControls', getSectionTitle("Controls"), 20)) {	            	
+    dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff; margin-top:-5vh !important;'>Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
+				section(hideable: true, hidden: state.hidden.Controls, title: buttonLink('btnHideControls', getSectionTitle("Controls"), 20)) {	            	
 				// Input for selecting filter criteria
 				input(name: "filter", type: "enum", title: bold("Filter Controls (optional)"), options: ["All Selectable Controls", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "All Selectable Controls", submitOnChange: true, width: 2, style:"margin-right: 20px")
 				input "myPinnedControls", "enum", title: "<b>Pin These Controls</b>", options: getPinnedItems(myDevices).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false, style:"margin-right: 20px"
@@ -258,24 +267,25 @@ def mainPage(){
 					input (name: "pollInterval", type: "enum", title: bold('Poll Interval (seconds)'), options: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '15', '20', '30', '60'], required: false, defaultValue: '5', width: 2, submitOnChange: true, newLine:true)
 					input (name: "pollUpdateColorSuccess", type: "color", title: bold2("Update Color Success", pollUpdateColorSuccess), required: false, defaultValue: "#00FF00", submitOnChange: true, width:2)
 					input (name: "pollUpdateColorFail", type: "color", title: bold2("Update Color Fail", pollUpdateColorFail), required: false, defaultValue: "#FF0000", submitOnChange: true, width:2)
-					input (name: "pollUpdateWidth", type: "enum", title: bold('Update Width'), options: elementSize(), required: false, defaultValue: '5', width: 2, submitOnChange: true)
+					input (name: "pollUpdateColorPending", type: "color", title: bold2("Update Color Pending", pollUpdateColorPending), required: false, defaultValue: "#FFA500", submitOnChange: true, width:2)
+					
 					input (name: "pollUpdateDuration", type: "enum", title: bold('Update Duration'), options: elementSize(), required: false, defaultValue: '2', width: 2, submitOnChange: true)
-					input (name: "shuttleHeight", type: "enum", title: bold('Refresh Bar Height'), options: elementSize(), required: false, defaultValue: '2', width: 2, submitOnChange: true, newLine:true)
-					input (name: "shuttleColor", type: "color", title: bold2("Refresh Bar Color", shuttleColor), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
+					input (name: "shuttleHeight", type: "enum", title: bold('Shuttle Height'), options: elementSize(), required: false, defaultValue: '2', width: 2, submitOnChange: true, newLine:true)
+					input (name: "shuttleColor", type: "color", title: bold2("Shuttle Color", shuttleColor), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
 					input (name: "commandTimeout", type: "enum", title: bold('Command Timeout (seconds)'), options: ['5', '6', '7', '8', '9', '10', '12', '15', '20'], required: false, defaultValue: '10', width: 2, submitOnChange: true, newLine:true)
 				}
 				myText = "You can configure the SmartGrid to poll the endpoint and apply any changes that are found. If there are no changes the SmartGrid goes back to sleep until the next poll interval.<br>"
            		myText += "<b>Poll Interval:</b> The frequency at which the Hub will be contacted to ask if there are any updates available.<br>"
 				myText += "<b>Poll Update Success Color:</b> When updates are applied the Grid will be outlined in the selected color.<br>"
 				myText += "<b>Poll Update Failure Color:</b> When updates are requested but no changes are received within the command timeout period the Grid will be outlined in the selected color.<br>"
-				myText += "<b>Poll Update Width:</b> The width of the outline in pixels when updates are applied.<br>"
+				myText += "<b>Poll Update Width:</b> This setting has been deprecated. The width of the highlight color will be the same as the table outer border width.<br>"
 				myText += "<b>Poll Update Duration:</b> The duration in seconds that the Success\\Failure outline is displayed.<br><br>"
 				
-				myText += "<b>Refresh Bar:</b> The Refresh Bar is displayed beneath the SmartGrid and is a visual indicator of the polling process. When the bar hits either edge then a polling event will occur and any changes will be picked up.<br>"
-				myText += "<b>Refresh Bar Height:</b> The height of the bar beneath the SmartGrid that identifies the position in the polling cycle.<br>"
-				myText += "<b>Refresh Bar Color:</b> The color of the bar beneath the SmartGrid that identifies the position in the polling cycle.<br>"
+				myText += "<b>Shuttle:</b> In polling mode the Shuttle is displayed at the base of the SmartGrid as a visual indicator of the polling process. When the bar hits either edge then a polling event will occur and any changes will be picked up.<br>"
+				myText += "<b>Shuttle Bar Height:</b> The height of the bar at the base of the SmartGrid that identifies the position in the polling cycle.<br>"
+				myText += "<b>Shuttle Bar Color:</b> The color of the bar at the base of the SmartGrid that identifies the position in the polling cycle.<br>"
 				myText += "<b>Command Timeout:</b> The amount of time allowed to pass without a response from the Hub before a request is deemed to have failed.<br>"
-				myText += "When the polling process discovers an update is pending then the SmartGrid is refreshed and the table is outlined for 5 seconds using the Poll Update properties configured above.<br>"
+				myText += "When the polling process discovers an update is pending then the SmartGrid is refreshed and the table is outlined for <b>X</b> seconds using the Poll Update Duration value configured above.<br>"
 				myText += "<b>Note: </b> You can initiate a full refresh of the table at anytime regardless of the polling interval using the Refresh Icon <b>↻</b>."
 				paragraph summary("Polling Help", myText)
 				paragraph line (2)
@@ -283,30 +293,37 @@ def mainPage(){
         
 			//Start of Design Section
             section(hideable: true, hidden: state.hidden.Design, title: buttonLink('btnHideDesign', getSectionTitle("Design"), 20)) {
-                input(name: "displayEndpoint", type: "enum", title: bold("Endpoint to Display"), options: ["Local", "Cloud"], required: false, defaultValue: "Local", submitOnChange: true, width: 2, style:"margin-right:25px")
-				input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
-                input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 2, 3, 4, 5, 6, 7, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
-				input(name: "tilePreviewBackground", type: "color", title: bold2("Preview Background Color", tb), required: false, defaultValue: "#000000", width: 3, submitOnChange: true, style: "margin-right:25px")
+                input(name: "displayEndpoint", type: "enum", title: bold("Display Endpoint"), options: ["Local", "Cloud"], required: false, defaultValue: "Local", submitOnChange: true, width: 1, style:"margin-right:25px")
+				input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
+                input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
+				input(name: "tilePreviewBackground", type: "color", title: bold("Preview Background Color"), required: false, defaultValue: "#000000", width: 2, submitOnChange: true, style: "margin-right:25px")
 				if (myRemoteName != null && myRemote != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:20px;margin-right:25px")
 				
-				//Add extra space for the padding.
-				def maxWidth = (tilePreviewWidth.toFloat() * 200) + 50
-            	def maxHeight = (tilePreviewHeight.toFloat() * 190) + 50
+				myMaxWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 ) + 3 * 2	//Makes the width and height 6px larger account for the border around the iframe so the resulting iframe is exactly the same size as the dashboard tile.
+				myMaxHeight = ( (tilePreviewHeight.toFloat() * 200) - 10 ) + 3 * 2  
+				//log.info ("myMaxWidth is: $myMaxWidth and myMaxHeight is: $myMaxHeight (includes 6xp for borders.")
 				
-				if ( displayEndpoint == "Local" ) paragraph "<iframe src='${state.localEndpoint}' width='${maxWidth}' height='${maxHeight}' style='border:solid; margin-left:50px; padding:25px; background-color:${tilePreviewBackground};' scrolling='no' ></iframe>"
-				if ( displayEndpoint == "Cloud" ) paragraph "<iframe src='${state.cloudEndpoint}' width='${maxWidth}' height='${maxHeight}' style='border:solid; margin-left:50px; padding:25px; background-color:${tilePreviewBackground};' scrolling='no'></iframe>"
-								
+				if (displayEndpoint == "Local") paragraph """<div style="margin-left: 25px; background-color: ${tilePreviewBackground}; padding: 10px; border: 2px solid black; border-radius: 10px;">
+					<iframe src="${state.localEndpoint}" width="${myMaxWidth.toInteger()}" height="${myMaxHeight.toInteger()}" style="padding: 0px; background-color: ${tilePreviewBackground}; border: 3px dashed white; border-radius: 10px;" scrolling="no"></iframe>
+					</div>"""
+				if (displayEndpoint == "Cloud") paragraph """<div style="margin: 25px; background-color: ${tilePreviewBackground}; padding: 10px; border: 2px solid black; border-radius: 10px;">
+					<iframe src="${state.cloudEndpoint}" width="${myMaxWidth.toInteger()}" height="${myMaxHeight.toInteger()}" style="padding: 0px; background-color: ${tilePreviewBackground}; border: 3px dashed white; border-radius: 10px;" scrolling="no"></iframe>
+					</div>"""
+				
+				myText = "The preview window above is optimized for the default Hubitat Dashboard tile size of 200px wide by 190px tall. Tiles greater than 1x1 will be slightly larger than direct multiples of this number because space previously allocated between tiles is now part of the tile.<br>"
+				myText += "If you wish to maximize your tile space by shrinking the gap between tiles you can change the <b>Grid Gap</b> using the Dashboard Grid menu. Or you could use the following CSS: <br>"
+				myText+=  "<mark>[class*='tile-title']{height:0% !important; visibility:hidden;}</mark>    <mark>[class*='tile-contents']{width:100% !important; height:100% !important; padding:0px;}</mark><br>"
+				myText += "To help visualize the dashboard tile edges and add an orange dashed outline to each tile you could use CSS like this:<br><mark>[class*='tile-primary']{outline: 1px dashed orange;}</mark>"
+				paragraph summary("Preview Notes", myText)
 				paragraph line(1)
-				input (name: "customizeSection", type: "enum", title: bold("Customize"), required: false, options: ["General", "Title", "Headers & Columns", "Rows", "Experimental" ], defaultValue: "Table", submitOnChange: true, width: 2, newLineAfter:true)
+				
+				input (name: "customizeSection", type: "enum", title: bold("Customize"), required: false, options: ["General", "Title", "Headers & Columns", "Rows", "Borders & Padding", "Experimental" ], defaultValue: "Table", submitOnChange: true, width: 2, newLineAfter:true)
 				
 				if (settings.customizeSection == "General") {
-					
 					input(name: "defaultDateTimeFormat", title: bold("Date Time Format"), type: "enum", options: dateFormatsMap(), submitOnChange: true, defaultValue: 3, width: 2, style:"margin-right:25px")
 					input(name: "defaultDurationFormat", title: bold("Duration Format"), type: "enum", options: durationFormatsMap(), submitOnChange: true, defaultValue: 21, width: 2, style:"margin-right:25px")
 					input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["7.5", "10", "12.5", "15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "17.5", width: 2, style:"margin-right:25px")
 					input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
-					input (name: "thp", type: "enum", title: bold("Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
-					input (name: "tvp", type: "enum", title: bold("Vertical Padding"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
 					input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
 					input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, style:"margin-right:25px")
 					input ("tempDecimalPlaces", "enum", title: "<b>Temperature Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, submitOnChange: true, width: 2, required: false)
@@ -377,12 +394,25 @@ def mainPage(){
                     input(name: "rtc", type: "color", title: bold2("Text Color", rtc), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
                     input(name: "rbc", type: "color", title: bold2("Background Color", rbc), required: false, defaultValue: "#DDEEBB", submitOnChange: true, width:2)
 					input(name: "rbo", type: "enum", title: bold("Background Opacity"), options: opacity(), required: false, defaultValue: "1", submitOnChange: true, width:2)	
-					
+										
 					input(name: "highlightSelectedRows", type: "enum", title: bold("Highlight Selected Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px")
 					if (highlightSelectedRows == "True" ) input(name: "rbs", type: "color", title: bold2("Selected Row - Background Color", rbs), required: false, defaultValue: "#FFE18F", submitOnChange: true, width:3)
 					
 					input(name: "highlightPinnedRows", type: "enum", title: bold("Highlight Pinned Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px")
 					if (highlightPinnedRows == "True") input(name: "rbpc", type: "color", title: bold2("Pinned Row - Background Color", rbpc), required: false, defaultValue: "#A7C7FB", submitOnChange: true, width: 3, style:"margin-right:25px" )
+				}
+				
+				if (settings.customizeSection == "Borders & Padding") {
+					input (name: "tpad", type: "enum", title: bold('Table Edge Padding'), options: elementSize(), required: false, defaultValue: '1', width: 2, submitOnChange: true, style:"margin-right:25px" )
+					input (name: "tmt", type: "enum", title: bold("Top Margin"), options: elementSize(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
+					paragraph line(1)
+					input (name: "bc", type: "color", title: bold2("Border Color", bc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2, style:"margin-right:25px; margin-left: -2px;" )
+					input (name: "bwo", type: "enum", title: bold('Border Width - Outer'), options: elementSize2(), required: false, defaultValue: '2.5', width: 2, submitOnChange: true, style:"margin-right:25px" )
+					input (name: "bwi", type: "enum", title: bold('Border Width - Inner'), options: elementSize2(), required: false, defaultValue: '1', width: 2, submitOnChange: true, style:"margin-right:25px" )
+					paragraph line(1)
+					input (name: "thp", type: "enum", title: bold("Column Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
+					input (name: "tvp", type: "enum", title: bold("Row Vertical Padding - Major"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
+					input (name: "tvpm", type: "enum", title: bold("Row Vertical Padding - Minor"), options: elementSizeMinor(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
 				}
 				
 				if (settings.customizeSection == "Experimental") {
@@ -459,7 +489,7 @@ def checkNulls() {
 	if (pollInterval == null ) app.updateSetting("pollInterval", [value: "3", type: "enum"])
 	if (pollUpdateWidth == null ) app.updateSetting("pollUpdateWidth", [value: "3", type: "enum"])
 	if (pollUpdateDuration == null ) app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
-	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "2", type: "enum"])
+	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
 	if (commandTimeout == null ) app.updateSetting("commandTimeout", [value: "10", type: "enum"])
 	if (tvp == null ) app.updateSetting("tvp", [value: "3", type: "enum"])
 	if (thp == null ) app.updateSetting("thp", [value: "5", type: "enum"])
@@ -479,7 +509,7 @@ def checkNulls() {
 
 //Used to update variables when upgrading software versions.
 def updateVariables() {
-    //This is a first time install so the variables should all be current.
+	//This is a first time install so the variables should all be current.
     if (state.variablesVersion == null) {
         log.info("Initializing variablesVersion to: $codeVersion")
         state.variablesVersion = codeVersion
@@ -514,8 +544,22 @@ def updateVariables() {
 		state.variablesVersion = codeVersion
 		compile()
 	}
-	if (state.variablesVersion < 316) {
+	if (state.variablesVersion < 317) {
         log.info("Updating Variables to $codeVersion")
+		app.updateSetting("tmt", [value: "0", type: "enum"])
+		state.variablesVersion = codeVersion
+		compile()
+	}
+	
+	if (state.variablesVersion < 320) {
+        log.info("Updating Variables to $codeVersion")
+		app.updateSetting("bc", [value: "#000000", type: "color"])
+		app.updateSetting("bwo", [value: "2.5", type: "enum"])
+		app.updateSetting("bwi", [value: "1", type: "enum"])
+		app.updateSetting("bwi", [value: "1", type: "enum"])
+		app.updateSetting("tvpm", [value: "0", type: "enum"])
+		app.updateSetting("tpad", [value: "3", type: "enum"])
+		app.updateSetting("pollUpdateColorPending", [value: "#FFA500", type: "color"])
 		state.variablesVersion = codeVersion
 		compile()
 	}
@@ -537,7 +581,7 @@ def getJSON() {
     // List to hold device attribute data
     def deviceAttributesList = []
 	def eventData = [:]
-		    
+			    
     // Iterate through each device
     myDevices.each { device ->
 		// Use LinkedHashMap to maintain the order of fields
@@ -550,7 +594,7 @@ def getJSON() {
 				
 		def mySwitch = device.currentValue("switch")
 		deviceData.put("switch", mySwitch)
-		if ( containsDeviceID(myPinnedControls, deviceID) ) deviceData.put("pin", "on")
+		if ( containsDeviceID(myPinnedControls, deviceID) ) { deviceData.put("pin", "on") }
 		
         //Get the device Type from cache so we don't have to calculate it every time. Makes the code on this end simpler.
 		deviceType = state.deviceList.find { it.ID == deviceID }?.type
@@ -710,7 +754,7 @@ def getJSON() {
 		deviceData.put("cl", getIcon(32, "temp")?.class)
 		
 		//See if it is in the pinned list. If it is then it is always shown ragardless of the state
-		if ( containsDeviceID(myPinnedTemps, device.getId() )) { deviceData.put("pin", "on")	; deviceAttributesList << deviceData }
+		if ( containsDeviceID(myPinnedTemps, device.getId() )) { deviceData.put("pin", "on"); deviceAttributesList << deviceData }
 		else {
 			if (onlyReportOutsideRange == "False" ) deviceAttributesList << deviceData
 			if ( onlyReportOutsideRange == "True" && ( myTemperature < minTemp.toInteger() || myTemperature > maxTemp.toInteger() ) ) deviceAttributesList << deviceData
@@ -736,8 +780,7 @@ def getJSON() {
 		deviceData.put("switch", myLeak)
 		deviceData.put("icon", getIcon(33, myLeak)?.icon)
 		deviceData.put("cl", getIcon(33, myLeak)?.class)
-		
-				
+						
 		//See if it is in the pinned list. If it is then it is always shown ragardless of the state
 		if ( containsDeviceID(myPinnedLeaks, device.getId() )) { deviceData.put("pin", "on") ; deviceAttributesList << deviceData }
 		else {
@@ -761,7 +804,7 @@ def getJSON() {
     	def prettyJSON = JsonOutput.prettyPrint(compactJSON)
 		log.debug("getJSON Output: $prettyJSON")
 	}
-	
+			
 	//Save the compact JSON. This is the version that is collected by the client.
     state.JSON = compactJSON
 }
@@ -943,12 +986,7 @@ def getDeviceInfo(device, type){
 
 // Function to determine network type based on DNI length
 def getNetworkType(dni) {
-    def networkTypes = [
-        2: "Z-Wave",
-        4: "Zigbee",
-        8: "LAN",
-        36: "Virtual"
-    ]
+    def networkTypes = [2: "Z-Wave", 4: "Zigbee", 8: "LAN", 36: "Virtual" ]
     return networkTypes[dni?.length()] ?: "Other"
 }
 
@@ -1193,9 +1231,18 @@ def compile(){
 		if (ha == "Right") content = content.replace('#ha#', "flex-end" )
 
 		//Table Padding
+		content = content.replace('#tpad#', tpad )
 		content = content.replace('#thp#', thp )
-		content = content.replace('#tvp#', tvp )
-
+		content = content.replace('#tmt#', tmt )	//This is actually a margin
+		//Internal Vertical Padding
+		mytvp = (tvp.toInteger() + tvpm.toFloat()).toString()
+		content = content.replace('#tvp#', mytvp )
+		
+		//Borders & Padding
+		content = content.replace('#bc#', bc )
+		content = content.replace('#bwo#', bwo )
+		content = content.replace('#bwi#', bwi )
+		
 		//Column Headers
 		content = content.replace('#column3Header#', toHTML(column3Header) )	// Column 3 header text
 		content = content.replace('#column5Header#', toHTML(column5Header) )	// Column 5 header text
@@ -1246,21 +1293,8 @@ def compile(){
 		content = content.replace('#rtc#', rtc )	// Row Text Color
 
 		def myrbc = convertToHex8(rbc, rbo.toFloat())  //Calculate the new color including the opacity.
-	
 		content = content.replace('#rbc#', myrbc )	// Row Background Color
 		content = content.replace('#rbs#', rbs )	// Row Background Color Selected
-
-		//Hide unwanted columns
-		/*content = content.replace('#hideColumn1#', hideColumn1 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn2#', hideColumn2 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn3#', hideColumn3 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn4#', hideColumn4 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn5#', hideColumn5 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn6#', hideColumn6 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn7#', hideColumn7 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn8#', hideColumn8 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn9#', hideColumn9 ? 'collapse' : 'visible')
-		content = content.replace('#hideColumn10#', hideColumn10 ? 'collapse' : 'visible')*/
 		
 		//Hide unwanted columns
 		content = content.replace('#hideColumn1#', hideColumn1 ? 'none' : 'table-cell')
@@ -1279,7 +1313,8 @@ def compile(){
 		content = content.replace('#pollInterval#', (pollInterval.toInteger() * 1000).toString() )
 		content = content.replace('#pollUpdateColorSuccess#', pollUpdateColorSuccess)
 		content = content.replace('#pollUpdateColorFail#', pollUpdateColorFail)
-		content = content.replace('#pollUpdateWidth#', pollUpdateWidth)
+		content = content.replace('#pollUpdateColorPending#', pollUpdateColorPending)
+		
 		content = content.replace('#pollUpdateDuration#', (pollUpdateDuration.toInteger() * 1000).toString() )
 		content = content.replace('#commandTimeout#', (commandTimeout.toInteger() * 1000).toString() )
 	
@@ -1291,7 +1326,9 @@ def compile(){
 
 		//Put the proper statement in for the Materials Font. It's done this way because the cleaning of comments catches the // in https://
 		content = content.replace('#MaterialsFont#', "<link href='https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined' rel='stylesheet'>")
-		content = content.replace('#maxWidth#', ( (tilePreviewWidth.toFloat() * 200).toString()) )
+		
+		myWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 )
+		content = content.replace('#maxWidth#', myWidth.toString() )
 
 		if ( localEndpointState == "Enabled" ) localContent = content 
 		if ( localEndpointState == "Disabled" ) localContent = "Local Endpoint Disabled" 
@@ -1313,10 +1350,12 @@ def compile(){
 		state.compiledDataTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
 	}
 		
-	catch (Exception exception) { log.error ("Exception is: $exception") }
-	
-	
-	
+	catch (Exception exception) {
+        log.error("Function compile() - Exception is: $exception")
+	}
+
+
+		 
 	//Assign the device types
 	cacheDeviceInfo()
 }
@@ -1600,7 +1639,6 @@ def poll() {
     return result
 }
 
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  End of Endpoint Activity Handling
@@ -1608,7 +1646,6 @@ def poll() {
 //*******************************************************************************************************************************************************************************************
 
 
- 
 
 //*******************************************************************************************************************************************************************************************
 //**************
@@ -1690,7 +1727,6 @@ String buttonLink(String btnName, String linkText, int buttonNumber) {
 //*******************************************************************************************************************************************************************************************
 
 
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  Publishing Functions
@@ -1762,8 +1798,8 @@ void publishRemote(){
         return
     }
     
-	def tileLink1 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.localEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][div]"
-	def tileLink2 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][div]"
+	def tileLink1 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.localEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][/div]"
+	def tileLink2 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][/div]"
 		
 	if (isLogPublish) log.info ("publishRemote: tileLink1 is: $tileLink1")
 		
@@ -1932,10 +1968,10 @@ def initialize() {
 	app.updateSetting("pollInterval", "3")
 	app.updateSetting("pollUpdateColorSuccess", [value: "#00FF00", type: "color"])
 	app.updateSetting("pollUpdateColorFail", [value: "#FF0000", type: "color"])
-	app.updateSetting("pollUpdateWidth", [value: "3", type: "enum"])
+	app.updateSetting("pollUpdateColorPending", [value: "#FFA500", type: "color"])
 	app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
 	app.updateSetting("shuttleColor", [value: "#99C5FF", type: "color"])
-	app.updateSetting("shuttleHeight", [value: "2", type: "enum"])
+	app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
 		
 	//Tile Size
 	app.updateSetting("tilePreviewWidth", "3")
@@ -1951,6 +1987,8 @@ def initialize() {
 	app.updateSetting("controlSize", [value: "15", type: "enum"])
 	app.updateSetting("thp", "5")
 	app.updateSetting("tvp", "3")
+	app.updateSetting("tvpm", "0")
+	app.updateSetting("tmt", "0")
 	app.updateSetting("ha", [value: "Stretch", type: "enum"])
 	app.updateSetting("va", [value: "Center", type: "enum"])
 	
@@ -2021,6 +2059,12 @@ def initialize() {
 	app.updateSetting("highlightPinnedRows", "True")
 	app.updateSetting("rbpc", [value: "#A7C7FB", type: "color"])
 	
+	//Borders
+	app.updateSetting("bc", [value: "#000000", type: "color"])
+	app.updateSetting("bwo", "2.5")  //Border Width - Outer
+	app.updateSetting("bwi", "1")  //Border Width - Inner
+	app.updateSetting("tpad", "3")  //Border Width - Inner
+	
     //Publishing
 	app.updateSetting("mySelectedRemote", "")
     app.updateSetting("publishEndpoints", [value: "Local", type: "enum"])
@@ -2080,21 +2124,21 @@ def HTML =
 <style>
 	:root {--control: #controlSize#px; 
 			--tickMarks : repeating-linear-gradient(to right, transparent 0%, transparent 4%, black 5%, transparent 6%, transparent 9%);
-			//--blinds : repeating-linear-gradient(to right, transparent 0%, transparent 2%, black 2%, #ccc 4%, transparent 4%, transparent 6%, black 6%, #ccc 8%, transparent 8%), linear-gradient( to left, #FFF 0%, #FFF 30%, #111 100%);
 			--blinds : repeating-linear-gradient(to right, black 0%, #ccc 3%, black 3%, #ccc 6%, black 6%, #ccc 9%);
 			--shades : linear-gradient( 3deg, #000 0%, #333 45%, #CCC 55%, #FFF 100%);
 			--dimmer : linear-gradient(to right, #000 0%, #333 15%, #666 30%, #888 45%, #AAA 60%, #DDD 75%, #FFF 100% ); 
 			--CT : linear-gradient(to right, #FF4500 0%, #FFA500 16%, #FFD700 33%, #FFFACD 49%, #FFFFE0 60%, #F5F5F5 66%, #FFF 80%,	#ADD8E6 100% ); 
 			}  
 
-	html, body { display:flex; flex-direction:column; align-items:#ha#; height:99%; margin:5px; font-family:'Arial', 'Helvetica', sans-serif; cursor:auto;flex-grow: 1; overflow:auto;box-sizing: border-box;}
-	.container { width: 99%; max-width:#maxWidth#px; margin: 10px auto; padding: 3px;}
-
-	/* Mobile Styles - For screens 1024px or smaller. */
-	@media (max-width: 768px) { 
-			.container {max-width:95%; margin-bottom:20px;} 
-			html, body {justify-content: flex-start; align-items: stretch; height:auto; overflow:auto;} 
-			}
+	html { display: flex; flex-direction: column; align-items: #ha#; height: 100%; margin: 0px; margin-top:#tmt#px; font-family: 'Arial', 'Helvetica', sans-serif; box-sizing: border-box; border:0px solid red;}
+	body { display: flex; flex-direction: column; align-items: center; flex-grow: 1; overflow: hidden; height: 100%; cursor: auto; box-sizing: border-box; margin:0px;}
+	.container {max-width: #maxWidth#px; align-items: center; width:100%; height: 100%; margin: 0px; overflow:auto; box-sizing: border-box; padding: #tpad#px;}
+	
+	/* Mobile Screens  */
+	@media (min-resolution: 150dpi) and (hover:none) and (pointer: coarse) {
+		.container {max-width:95%; width:100%; margin:#tmt#px auto; outline: 0px dotted red;} 
+		html, body {justify-content: flex-start; align-items: stretch; height:auto; overflow:auto; } 
+	}
 
 	/* Eliminates scrollbars within the dashboard for Webkit browsers. For Firefox scrollbar-width: none; eliminates scrollbars within the Dashboard */
 	//::-webkit-scrollbar {display: none;}
@@ -2116,12 +2160,12 @@ def HTML =
 	.title{ padding: #tp#px; text-align: #ta#; font-size: #ts#%; font-weight: 400; color: #tc#; background-color: #tb#; display: #titleDisplay#;}
 			
 	/*  START OF TABLE CLASSES */
-	table {width: 100%; border-collapse: collapse; table-layout: auto; }
-	th, td { padding: calc(#tvp#px + 3px) #thp#px; text-align:center; vertical-align:middle; border:1px solid black; transition:background-color 0.3s; user-select:none;}
-
+	table {width: calc(100%); border-collapse: collapse; table-layout: auto; border: #bwo#px solid #bc#; margin: 0 auto;}
+	th, td { padding: #tvp#px #thp#px; text-align:center; vertical-align:middle; border: #bwi#px solid #bc#; transition:background-color 0.3s; user-select:none;}
 	th { background-color: #hbc#; font-weight: bold; font-size: #hts#%; color: #htc#; margin:1px; }
-	.ascSort { background: linear-gradient(to bottom, #hbc# 0%, #hbc# 95%, #sortHeaderHintAZ# 100%); text-decoration: underline;}
-	.descSort { background : linear-gradient(to bottom, #hbc# 0%, #hbc# 95%, #sortHeaderHintZA# 100%); text-decoration: underline;}
+
+	.ascSort { background: linear-gradient(to bottom, #hbc# -0%, #hbc# 95%, #sortHeaderHintAZ# 100%); text-decoration: underline;}
+	.descSort { background : linear-gradient(to bottom, #hbc# -0%, #hbc# 95%, #sortHeaderHintZA# 100%); text-decoration: underline;}
 	tr { background-color: #rbc#;}
 	tr:hover { background-color: #rbs#; }
 	.selected-row {	background-color: #rbs#;}
@@ -2198,13 +2242,14 @@ def HTML =
 	.info3 { font-size: #its3#%; text-align: #ita3#; }
 
 	/* Define glow effects */	
-	.glow-EffectSuccess {outline: #pollUpdateWidth#px solid #pollUpdateColorSuccess#;}
-	.glow-EffectFail {outline: #pollUpdateWidth#px solid #pollUpdateColorFail#;}
+	.glow-EffectSuccess {border-color: #pollUpdateColorSuccess#;}
+	.glow-EffectFail {border-color: #pollUpdateColorFail#;}
+	.glow-EffectPending {border-color: #pollUpdateColorPending#;}
 	.glow-EffectCT {outline: 2px solid #1E90FF;}
 	.glow-EffectRGB {border: 2px solid #1E90FF;}
 		
 	/* Refresh bar styling */
-	#shuttle { display:none; position:relative; height:#shuttleHeight#px; width:5%; background-color:#shuttleColor#; border-radius:3px; animation:none;}
+	#shuttle { display:none; position:relative; height:#shuttleHeight#px; width:5%; background-color:#shuttleColor#; border-radius:3px; animation:none; top: -#shuttleHeight#px;}
 
 	@keyframes slide { 0% { left: 0%; width: 5%; } 50% { left: 95%; width: 5%; } 100% { left: 0%; width: 5%; } }
 	@keyframes slideBackward { 0% { left: 95%; width: 5%; } 100% { left: 0%; width: 5%; } }
@@ -2236,7 +2281,7 @@ def HTML =
 	<table id="sortableTable">
 		<thead>
 			<tr>
-				<th><input type="checkbox" id="masterCheckbox" onclick="toggleAllCheckboxes(this)" onchange="updateHUB()" title="Select All/Deselect All"></th>
+				<th><input type="checkbox" id="masterCheckbox" onclick="toggleAllCheckboxes(this)" title="Select All/Deselect All"></th>
 				<th id="icon" class="sortLinks" onclick="sortTable(1, this);" title="Icon - Sort"><span id="iconHeader">Icon</span></th>
 				<th id="nameHeader" class="sortLinks" onclick="sortTable(2, this);"> <div style="display: flex; justify-content: space-between; align-items: center;">
 	        		<span title="Sort Name A-Z">#column3Header#</span><span id="refreshIcon" style="font-size: 1.5em; cursor:pointer;" onclick="event.stopPropagation(); refreshPage(50);" 
@@ -2252,7 +2297,7 @@ def HTML =
 		</thead>
 		<tbody><!-- Table rows will be dynamically loaded from JSON --></tbody>
 	</table>
-	<div id="shuttle"> </div>  //We have an invisible Null character on the bottom here which forces a gap after the shuttle at the end of the table.
+	<div id="shuttle"></div>
 </div>
 <script>
 														  
@@ -2264,6 +2309,7 @@ const storageKey = (key) => `${"#AppID#"}_${key}`;
 let storedSortDirection = JSON.parse(localStorage.getItem(storageKey("sortDirection")));
 let sortDirection = storedSortDirection || { activeColumn: 2, direction: 'asc' };
 let showSlider = (localStorage.getItem(storageKey("showSlider")) === "A" || localStorage.getItem(storageKey("showSlider")) === "B")  ? localStorage.getItem(storageKey("showSlider")) : "A";
+let lastCommand = "none";
 
 // SessionStorage operations with AppID
 sessionStorage.removeItem(storageKey('sessionID'));
@@ -2288,6 +2334,7 @@ if (isPollingEnabled === true ) {
 //This has to do with transaction handling
 let transactionTimeout = #commandTimeout#;
 let transaction = null;
+
 
 
 //***********************************************  Table Body  *************************************************************************
@@ -2418,6 +2465,9 @@ function updateAllTiltIndicators() {
 }
 
 function updateHUB() {
+	//Update the table border to show activity is pending if the lastCommand is something other than "none".
+	//console.log("Last command:", lastCommand);
+	document.querySelector("table").classList.add('glow-EffectPending');
     const rows = document.querySelectorAll("#sortableTable tbody tr");
     const output = Array.from(rows)
         .map((row) => {
@@ -2679,6 +2729,7 @@ function pollResult(data) {
         handleTransaction("end");
         initialize();
         const table = document.querySelector("table");
+		table.classList.remove('glow-EffectPending');
         table.classList.add('glow-EffectSuccess');
         setTimeout(() => table.classList.remove('glow-EffectSuccess'), #pollUpdateDuration#); 
     } else {
@@ -2693,7 +2744,6 @@ function handleTransaction(action) {
             transaction = Date.now(); // Start the transaction
             if (isLogging) console.log("Transaction started:", transaction);
             break;
-
         case "end":
             transaction = null; // End the transaction
             if (isLogging) console.log("Transaction finished");
@@ -2711,6 +2761,7 @@ function handleTransaction(action) {
             if (elapsedTime > transactionTimeout) {
                 if (isLogging) console.log("Transaction is late");
                 const table = document.querySelector("table");
+				table.classList.remove('glow-EffectPending');
                 table.classList.add('glow-EffectFail');
 
                 setTimeout(() => {
