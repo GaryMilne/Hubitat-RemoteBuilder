@@ -1,10 +1,10 @@
 {
   "packageName": "Remote Builder",
   "author": "Gary J. Milne",
-  "version": "115",
+  "version": "116",
   "minimumHEVersion": "2.3.4.132",
-  "dateReleased": "2025-1-22",
-  "releaseNotes": "Package-115: SmartGrid 3.2.0 - Improved tile preview and space optimization.\nPackage-114: SmartGrid 3.1.8 - Improvements in HTML layout to maximise space.\nPackage-113: SmartGrid 3.1.6 - Fixes issue with hiding columns. Fix issue with the text color of sensor data.\nPackage-112: SmartGrid 3.1.5 - Fixes to issues reported in the Community forums.\nPackage-111: SmartGrid 3.1.4 - Various minor enhancements and bug fixes.\nPackage-110: SmartGrid 3.1.3 - Fixes State column sort error. Changes Sort column header appearance.\nPackage-109: SmartGrid 3.1.1 - Corrects sorting issue between SmartGrid instances.\nPackage-108: SmartGrid 3.1.0 - Feature adds and performance enhancements.\nPackage-107: SmartGrid 3.0.1 fixes a few bugs.\nPackage-106: SmartGrid 3.0.0 release.\nPackage-105: Adds SmartGrid module.",
+  "dateReleased": "2025-4-21",
+  "releaseNotes": "Package-116: SmartGrid 4.0.0 - Multiple updates.\nPackage-115: SmartGrid 3.2.0 - Improved tile preview and space optimization.\nPackage-114: SmartGrid 3.1.8 - Improvements in HTML layout to maximise space.\nPackage-113: SmartGrid 3.1.6 - Fixes issue with hiding columns. Fix issue with the text color of sensor data.\nPackage-112: SmartGrid 3.1.5 - Fixes to issues reported in the Community forums.\nPackage-111: SmartGrid 3.1.4 - Various minor enhancements and bug fixes.\nPackage-110: SmartGrid 3.1.3 - Fixes State column sort error. Changes Sort column header appearance.\nPackage-109: SmartGrid 3.1.1 - Corrects sorting issue between SmartGrid instances.\nPackage-108: SmartGrid 3.1.0 - Feature adds and performance enhancements.\nPackage-107: SmartGrid 3.0.1 fixes a few bugs.\nPackage-106: SmartGrid 3.0.0 release.\nPackage-105: Adds SmartGrid module.",
   "documentationLink": "https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf",
   "communityLink": "https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices-7-remotes-available/142060",
   "apps": [
@@ -86,7 +86,7 @@
       "required": false,
       "oauth": true,
       "primary": false,
-      "version": "3.2.0"
+      "version": "4.0.0"
     }
   ],
   "drivers": [
@@ -96,7 +96,7 @@
       "namespace": "garyjmilne",
       "location": "https://raw.githubusercontent.com/GaryMilne/Hubitat-RemoteBuilder/main/Remote_Builder_Storage_Driver.groovy",
       "required": true,
-      "version": "1.0.0"
+      "version": "1.0.2"
     }
   ]
 }
