@@ -2,7 +2,7 @@
 *  Remote Builder Storage Driver
 *  Version: See ChangeLog
 *  Download: See importUrl in definition
-*  Description: Used in conjunction with Tile Builder app to store tileps to generate tabular reports on device data and publishes them to a dashboard.
+*  Description: Used in conjunction with the Remote Builder app to store remotes for publishing to the dashboard.
 *
 *  Copyright 2024 Gary J. Milne  
 *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
@@ -26,9 +26,12 @@
 *
 *  Remote Builder Storage Driver - ChangeLog
 *  
-*  Gary Milne - July 3st, 2024
+*  Gary Milne - April 21st, 2025
 *  
 *  Initial Release V 1.0
+*  Version 1.0.1 - Minor errata corrected.
+*  Version 1.0.2 - Added function createTile2() for use with SmartGrid 4.0
+*  
 *
 **/
 
@@ -78,16 +81,26 @@ metadata {
 	attribute "Remote19-Cloud", "string"
 	attribute "Remote20-Local", "string"
 	attribute "Remote20-Cloud", "string"
-	attribute "Remote21-Local", "string"
-	attribute "Remote21-Cloud", "string"
-	attribute "Remote22-Local", "string"
-	attribute "Remote22-Cloud", "string"
-	attribute "Remote23-Local", "string"
-	attribute "Remote23-Cloud", "string"
-	attribute "Remote24-Local", "string"
-	attribute "Remote24-Cloud", "string"
-	attribute "Remote25-Local", "string"
-	attribute "Remote25-Cloud", "string"
+    attribute "Remote21-Local-A", "string"
+    attribute "Remote21-Local-B", "string"
+	attribute "Remote21-Cloud-A", "string"
+    attribute "Remote21-Cloud-B", "string"
+    attribute "Remote22-Local-A", "string"
+    attribute "Remote22-Local-B", "string"
+	attribute "Remote22-Cloud-A", "string"
+    attribute "Remote22-Cloud-B", "string"
+    attribute "Remote23-Local-A", "string"
+    attribute "Remote23-Local-B", "string"
+	attribute "Remote23-Cloud-A", "string"
+    attribute "Remote23-Cloud-B", "string"
+    attribute "Remote24-Local-A", "string"
+    attribute "Remote24-Local-B", "string"
+	attribute "Remote24-Cloud-A", "string"
+    attribute "Remote24-Cloud-B", "string"
+    attribute "Remote25-Local-A", "string"
+    attribute "Remote25-Local-B", "string"
+	attribute "Remote25-Cloud-A", "string"
+    attribute "Remote25-Cloud-B", "string"
 	
 	//command "test"
     command "initialize"
@@ -127,6 +140,31 @@ void createTile(tileNumber, HTML1, HTML2, description) {
 	state."${tileName1}" = HTML1
 	state."${tileName2}" = HTML2
 }
+
+//Creates a tile. Used to Create SmartGrid Tiles with A and B identities for local storage.
+//Incoming URL's should be in the form <iframe name=2487A src=http://192.168.0.200/apps/api/4266/tb?access_token=98273844-2396-4c08-8c1e-d8fd61472487 style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'></iframe>
+void createTile2(tileNumber, HTML1, HTML2, HTML3, HTML4, description) {
+    log("createTile", "Publishing tile: $tileNumber - $description", 1)
+    tileName1 = "Remote" + tileNumber.toString() + "-Local-A"
+	tileName2 = "Remote" + tileNumber.toString() + "-Cloud-A"
+    tileName3 = "Remote" + tileNumber.toString() + "-Local-B"
+    tileName4 = "Remote" + tileNumber.toString() + "-Cloud-B"
+    if (state.tileDescriptions == null) state.tileDescriptions = [:]
+	state.tileDescriptions."${tileName1}" = description
+	state.tileDescriptions."${tileName2}" = description
+    state.tileDescriptions."${tileName3}" = description
+    state.tileDescriptions."${tileName4}" = description
+	sendEvent(name: tileName1, value: toHTML(HTML1) )
+	sendEvent(name: tileName2, value: toHTML(HTML2) )
+    sendEvent(name: tileName3, value: toHTML(HTML3) )
+    sendEvent(name: tileName4, value: toHTML(HTML4) )
+	state."${tileName1}" = HTML1
+	state."${tileName2}" = HTML2
+    state."${tileName3}" = HTML3
+    state."${tileName4}" = HTML4
+}
+
+
 
 //Sets the description of a tile
 void setTileDescription(tileNumber, description) {
@@ -263,3 +301,6 @@ private log(name, message, int loglevel){
 String bold(s) { return "<b>$s</b>" }
 String italic(s) { return "<i>$s</i>" }
 String underline(s) { return "<u>$s</u>" }
+
+
+

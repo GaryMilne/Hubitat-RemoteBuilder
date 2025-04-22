@@ -61,8 +61,11 @@
 *  Version 3.1.8 - Added Top-Margin input and modified @media query to use resolution instead of screen size. Modified the html,body settings in order to get things stretched and centered.
 *  Version 3.1.9 - Moved the update Status from an outline to just modifying the Table outer border. Also made the shuttle operate on top of the Grid border to reduce vertical space consumption.
 *  Version 3.2.0 - Big improvements in the accuracy of the composer window when it comes to reproducing the final dashboard layout, especially when using the default 200px X 190px or multiple thereof. Adds border controls and improves padding options and padding vertical resolution.
+*  Version 4.0.0 - Add Modal window to acccess dynamic settings. Added selection boxes to display All Switches, Only ON and Only Off : Enable\Disable Polling : PollInterval. Others may follow.
+*  				   Changed the Section layouts into a single Horizontal menu to create more visible space for the "Design SmartGrid" section. Reorganized the SmartGrid formatting menus to be a little easier to use. Added color schemes.
+*  				   Enable Drag and Drop Support with Custom Sort. Add Custom Rows. Add variables.
 *
-*  Gary Milne - January 21st, 2025 @ 6:57 PM V3.2.0
+*  Gary Milne - April 21st, 2025 @ 10:01 PM
 *
 **/
 
@@ -75,16 +78,11 @@ None
 */
 
 /* Ideas for future releases
-User created "devices" to be used for section headers and links.
-Custom Device Sort
-Add custom text rows for creating headers for custom groups that would be enabled by Custom Device Sort.
 Add support for Thermostats
-Add pause-play for polling and\or variable speed polling.
 Add Scene Selector Control
 Add Media Control
-Add alternate\additional polling indicator
-Look into EventSocket\WebSocket
-Add Link options
+Add Batteries Automatic Group
+Add Inactive Automatic Group
 */
 
 import groovy.json.JsonSlurper
@@ -105,7 +103,6 @@ static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', 
 static def elementSize2() { return ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '11', '11.5', '12', '12.5', '13', '13.5', '14', '14.5', '15', '15.5', '16', '16.5', '17', '17.5', '18', '18.5', '19', '19.5','20'] }
 static def elementSizeMinor() { return ['0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'] }
 static def unitsMap() { return ['°F', ' °F', '°C', ' °C']}
-
 static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: HH:mm", 3: "To: h:mm a", 4: "To: HH:mm:ss", 5: "To: h:mm:ss a", 6: "To: E HH:mm", 7: "To: E h:mm a", 8: "To: EEEE HH:mm", 9: "To: EEEE h:mm a", \
 								10: "To: MM-dd HH:mm", 11: "To: MM-dd h:mm a", 12: "To: MMMM dd HH:mm", 13: "To: MMMM dd h:mm a", 14: "To: yyyy-MM-dd HH:mm", 15: "To: dd-MM-yyyy h:mm a", 16: "To: MM-dd-yyyy h:mm a", 17: "To: E @ h:mm a" ] }
 static def dateFormatsList() { return dateFormatsMap().values() }
@@ -119,13 +116,12 @@ static def createDeviceTypeMap() {
 
 static def durationFormatsMap() { return [21: "To: Elapsed Time (dd):hh:mm:ss", 22: "To: Elapsed Time (dd):hh:mm"] }
 static def durationFormatsList() { return durationFormatsMap().values() }
-
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 3.2.0 (1/21/25)</b>"
-@Field static final codeVersion = 320
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.0.0 (4/21/25)</b>"
+@Field static final codeVersion = 400
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -149,63 +145,41 @@ preferences {
 }
 
 def mainPage(){
-	if (state.variablesVersion == null || state.variablesVersion < codeVersion) updateVariables()
-	checkNulls()
-	
-	//state.variablesVersion = 318
-	//Basic initialization for the initial release. If it is already initialized then compile the remote on each reload.
-    if (state.initialized == null) initialize()
-	else compile()
+	//Does the initialization of variables at install, any variables added to the subsequent releases and checks for null variables created bywhen the user clicks on "No Selections".
+	initialize()
+	if (state.initialized == true) compile()
+    		
+	dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff; margin-top:-3vh !important;'>Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
 		
-    dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff; margin-top:-5vh !important;'>Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
-				section(hideable: true, hidden: state.hidden.Controls, title: buttonLink('btnHideControls', getSectionTitle("Controls"), 20)) {	            	
+		section(hideable: true, hidden: state.hidden.Configure, title: buttonLink('btnHideConfigure', getSectionTitle("Configure"), 20)) {
+                //Setup the Table Style
+                paragraph "<style>#buttons1 {font-family: Arial, Helvetica, sans-serif; width:100%; text-layout:fixed; text-align:'Center'} #buttons1 td, #buttons1 tr {width: 11%; background:#00a2ed;color:#FFFFFF;text-align:Center;opacity:0.75;padding: 8px} #buttons1 td:hover {padding: 8px; background: #27ae61;opacity:1}</style>"
+                table1 = "<table id='buttons1'><td>" + buttonLink ('Controls', 'Controls', 1) + "</td><td>" + buttonLink ('Sensors', 'Sensors', 2) + "</td><td>" + 
+					// buttonLink ('Batteries', 'Batteries', 3) + "</td><td>" + buttonLink ('Inactivity', 'Inactivity', 4) + "</td><td>" + 
+					buttonLink ('Endpoints', 'Endpoints', 5) + "</td><td>" + buttonLink ('Polling', 'Polling', 6) + "</td><td>" + buttonLink ('Variables', 'Variables', 7) + "</td><td>" +
+					buttonLink ('CustomRows', 'Custom Rows', 8) + "</td><td>" +	buttonLink ('Publish', 'Publish', 9) + "</td><td>" + buttonLink ('Logging', 'Logging', 10) + "</td></table>"
+                paragraph table1
+				
+			if (state.activeButtonA == 1){ //Start of Controls Section
 				// Input for selecting filter criteria
 				input(name: "filter", type: "enum", title: bold("Filter Controls (optional)"), options: ["All Selectable Controls", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "All Selectable Controls", submitOnChange: true, width: 2, style:"margin-right: 20px")
 				input "myPinnedControls", "enum", title: "<b>Pin These Controls</b>", options: getPinnedItems(myDevices).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false, style:"margin-right: 20px"
-				
+							
+				def filterOptions = [
+    				"All Selectable Controls": [capability: "capability.powerMeter, capability.switch, capability.valve, capability.lock, capability.garageDoorControl, capability.doorControl, capability.fanControl, capability.audioVolume, capability.windowShade, capability.windowBlind", title: "<b>Select Controls</b>"],
+    				"Power Meters": [capability: "capability.powerMeter", title: "<b>Select Power Meter Devices</b>"], "Switches": [capability: "capability.switch", title: "<b>Select Switch Devices</b>"], "Color Temperature Devices": [capability: "capability.colorTemperature", title: "<b>Select Color Temperature Devices</b>"],
+    				"Color Devices": [capability: "capability.colorControl", title: "<b>Select Color Devices</b>"], "Dimmable Devices": [capability: "capability.switchLevel", title: "<b>Select Dimmable Devices</b>"], "Valves": [capability: "capability.valve", title: "<b>Select Valves</b>"], "Fans": [capability: "capability.fanControl", title: "<b>Select Fans</b>"],
+    				"Garage Doors": [capability: "capability.garageDoorControl", title: "<b>Select Garage Doors</b>"], "Locks": [capability: "capability.lock", title: "<b>Select Locks</b>"], "Shades & Blinds": [capability: "capability.windowShade, capability.windowBlind", title: "<b>Select Shades & Blinds</b>"]
+				]
 				// Apply switch-case logic based on the filter value
-    			switch (filter) {
-        			case "All Selectable Controls":
-						input "myDevices", "capability.powerMeter, capability.switch, capability.valve, capability.lock, capability.garageDoorControl, capability.doorControl, capability.fanControl, capability.audioVolume, capability.windowShade, capability.windowBlind", title: "<b>Select Controls</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right:25px", newLine:true
-            			break
-					case "Power Meters":
-						input "myDevices", "capability.powerMeter", title: "<b>Select Power Meter Devices</b>", multiple: true, submitOnChange: true, newLine: true, width:2, style:"margin-right:25px"
-            			break
-					case "Switches":
-						input "myDevices", "capability.switch", title: "<b>Select Switch Devices</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-			        case "Color Temperature Devices":
-						input "myDevices", "capability.colorTemperature", title: "<b>Select Color Temperature Devices</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-        			case "Color Devices":
-            			input "myDevices", "capability.colorControl", title: "<b>Select Color Devices</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-        			case "Dimmable Devices":
-            			input "myDevices", "capability.switchLevel", title: "<b>Select Dimmable Devices</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-					case "Valves":
-            			input "myDevices", "capability.valve", title: "<b>Select Valves</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-					case "Fans":
-            			input "myDevices", "capability.fanControl", title: "<b>Select Fans</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-					case "Garage Doors":
-            			input "myDevices", "capability.garageDoorControl", title: "<b>Select Garage Doors</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-					case "Locks":
-            			input "myDevices", "capability.lock", title: "<b>Select Locks</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-					case "Shades & Blinds":
-            			input "myDevices", "capability.windowShade, capability.windowBlind", title: "<b>Select Shades & Blinds</b>", multiple: true, submitOnChange: true, newLine : true, width:2, style:"margin-right:25px"
-            			break
-        			default:
-            			if (isLogDebug) log.debug "No filter option selected."
-    			}
-				
+				def option = filterOptions[filter]
+				if (option) { input "myDevices", option.capability, title: option.title, multiple: true, submitOnChange: true, newLine: true, width: 2, style: "margin-right:25px" } 
+				else { if (isLogDebug) log.debug "No filter option selected." }
+								
 				//Allow users to rename devices that fit certain patterns
-				input (name: "isShowDeviceNameModification", type: "enum", title: "<b>Show Device Name Modification</b>", options: ["True", "False"], required: false, multiple: false, defaultValue: "False", submitOnChange: true, width: 2, newLine: true)    
+				input (name: "isShowDeviceNameModification", type: "enum", title: "<b>Show Device and Sensor Name Modification</b>", options: ["True", "False"], required: false, multiple: false, defaultValue: "False", submitOnChange: true, width: 2, newLine: true)    
+				paragraph line(1)
 				if (isShowDeviceNameModification == "True") {
-					paragraph("<hr>")
 					input (name: "mySearchText1", title: "<b>Search Device Text #1</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
 					input (name: "myReplaceText1", title: "<b>Replace Device Text #1</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
 					input (name: "mySearchText2", title: "<b>Search Device Text #2</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
@@ -216,14 +190,14 @@ def mainPage(){
 					input (name: "myReplaceText4", title: "<b>Replace Device Text #4</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
 					input (name: "mySearchText5", title: "<b>Search Device Text #5</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
 					input (name: "myReplaceText5", title: "<b>Replace Device Text #5</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
+					paragraph line(1)
 				}
-				paragraph line(1)
 				myText =  "<b>Important: If you change the selected devices you must do a " + red("Publish and Subscribe") + " for SmartGrid to work correctly.</b><br>"
-				paragraph myText + "<b>Note:</b> Pinned items always remain at the top of the table sorted A-Z regardless of any other state or sort order applied.<br>"
-			}
-		
-			//Start of Sensors Section
-			section(hideable: true, hidden: state.hidden.Sensors, title: buttonLink('btnHideSensors', getSectionTitle("Sensors"), 20)) {
+				myText += "<b>Note:</b> Pinned items remain at the top of the table sorted A-Z regardless of the sort order, with the exception of a custom sort where pinned items are ignored.<br>"
+				paragraph myText + "<b>Note:</b> Do not configure pinned sensors if you plan to use a Custom Sort order.<br>"
+				}
+			
+			if (state.activeButtonA == 2){ //Start of Sensors Section
 				input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
 				input "myPinnedContacts", "enum", title: "<b>Pin These Contact Sensors</b>", options: getPinnedItems(myContacts).sort(), multiple: true, submitOnChange: true, width: 2, required: false
 				input(name: "onlyOpenContacts", type: "enum", title: bold("Unpinned: Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
@@ -237,33 +211,44 @@ def mainPage(){
 				input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
 				input "myPinnedLeaks", "enum", title: "<b>Pin These Water Sensors</b>", options: getPinnedItems(myLeaks).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
 				input(name: "onlyWetSensors", type: "enum", title: bold("Unpinned: Only Report Wet Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				paragraph line(1)
+				paragraph "<b>Note:</b> Do not configure pinned sensors if you plan to use a Custom Sort order."
 			}
+			
+			
+			/*
+			if (state.activeButtonA == 3){ //Start of Batteries Section
+				input "myBatteries", "capability.battery", title: "<b>Select Battery Devices</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
+				input(name: "onlyLowBatteries", type: "enum", title: bold("Unpinned: Only Report Low Batteries"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+			}
+			
+			if (state.activeButtonA == 4){ //Start of Inactivity Section
+			}
+			*/
 							      
-			//Start of Endpoints Section
-            section(hideable: true, hidden: state.hidden.Endpoints, title: buttonLink('btnHideEndpoints', getSectionTitle("Endpoints"), 20)) {
-				input(name: "localEndpointState", type: "enum", title: bold("Local Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
+			if (state.activeButtonA == 5){ //Start of Endpoints Section
+            	input(name: "localEndpointState", type: "enum", title: bold("Local Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
                 input(name: "cloudEndpointState", type: "enum", title: bold("Cloud Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Disabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
+				input(name: "rebuildEndpoints", type: "button", title: "Rebuild Endpoints", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:25px; margin-left:20px")
 				paragraph line (1)
 				
 				//Display the Endpoints with links or ask for compilation
 				paragraph "<a href='${state.localEndpoint}' target=_blank><b>Local Endpoint</b></a>: ${state.localEndpoint} "
                 paragraph "<a href='${state.cloudEndpoint}' target=_blank><b>Cloud Endpoint</b></a>: ${state.cloudEndpoint} "
-				
+				paragraph line (1)
 				myText = "<b>Important: If these endpoints are not generated you may have to enable OAuth in the child application code for this application to work.</b><br>"
             	myText += "Both endpoints can be active at the same time and can be enabled or disable through this interface.<br>"
 				myText += "Endpoints are paused if this instance of the <b>Remote Builder</b> application is paused. Endpoints are deleted if this instance of <b>Remote Builder</b> is removed.<br>"
 				paragraph summary("Endpoint Help", myText)
-            	paragraph line (2)
 			}
-				
-			//Start of Polling Section
-			section(hideable: true, hidden: state.hidden.Polling, title: buttonLink('btnHidePolling', getSectionTitle("Polling"), 20)) {	
-				input(name: "isPollingEnabled", type: "enum", title: bold("Endpoint Polling"), options: ["Enabled", "Disabled"], required: false, defaultValue: "Disabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
+			
+			if (state.activeButtonA == 6){  //Start of Polling Section
+				input(name: "isPolling", type: "enum", title: bold("Endpoint Polling"), options: ["Enabled", "Disabled"], required: false, defaultValue: "Disabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
 				myText = "<b>A)</b> You want a more graceful refresh operation on a Hubitat Dashboard. Enable Polling and set the Event Timeout (Publishing Section) to <b>Never</b>. Doing so results in the SmartGrid updating vs doing a complete refresh.<br>"
 				myText += "<b>B)</b> You want an automatic refresh operation for a SmartGrid that is being displayed directly on a device without using a Hubitat Dashboard. In this case you should also enable Polling and set the Event Timeout to <b>Never</b>. This allows you to have a SmartGrid run directly on your phone, tablet or computer and it will automatically update whenever changes are detected.<br>"
 				paragraph summary(red("<b>Important: When to Enable Polling</b><br>"), myText)
 				
-				if (isPollingEnabled == "Enabled"){
+				if (isPolling == "Enabled"){
 					input (name: "pollInterval", type: "enum", title: bold('Poll Interval (seconds)'), options: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '15', '20', '30', '60'], required: false, defaultValue: '5', width: 2, submitOnChange: true, newLine:true)
 					input (name: "pollUpdateColorSuccess", type: "color", title: bold2("Update Color Success", pollUpdateColorSuccess), required: false, defaultValue: "#00FF00", submitOnChange: true, width:2)
 					input (name: "pollUpdateColorFail", type: "color", title: bold2("Update Color Fail", pollUpdateColorFail), required: false, defaultValue: "#FF0000", submitOnChange: true, width:2)
@@ -274,13 +259,14 @@ def mainPage(){
 					input (name: "shuttleColor", type: "color", title: bold2("Shuttle Color", shuttleColor), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
 					input (name: "commandTimeout", type: "enum", title: bold('Command Timeout (seconds)'), options: ['5', '6', '7', '8', '9', '10', '12', '15', '20'], required: false, defaultValue: '10', width: 2, submitOnChange: true, newLine:true)
 				}
+				paragraph line(1)				
+				
 				myText = "You can configure the SmartGrid to poll the endpoint and apply any changes that are found. If there are no changes the SmartGrid goes back to sleep until the next poll interval.<br>"
            		myText += "<b>Poll Interval:</b> The frequency at which the Hub will be contacted to ask if there are any updates available.<br>"
 				myText += "<b>Poll Update Success Color:</b> When updates are applied the Grid will be outlined in the selected color.<br>"
 				myText += "<b>Poll Update Failure Color:</b> When updates are requested but no changes are received within the command timeout period the Grid will be outlined in the selected color.<br>"
 				myText += "<b>Poll Update Width:</b> This setting has been deprecated. The width of the highlight color will be the same as the table outer border width.<br>"
 				myText += "<b>Poll Update Duration:</b> The duration in seconds that the Success\\Failure outline is displayed.<br><br>"
-				
 				myText += "<b>Shuttle:</b> In polling mode the Shuttle is displayed at the base of the SmartGrid as a visual indicator of the polling process. When the bar hits either edge then a polling event will occur and any changes will be picked up.<br>"
 				myText += "<b>Shuttle Bar Height:</b> The height of the bar at the base of the SmartGrid that identifies the position in the polling cycle.<br>"
 				myText += "<b>Shuttle Bar Color:</b> The color of the bar at the base of the SmartGrid that identifies the position in the polling cycle.<br>"
@@ -288,183 +274,267 @@ def mainPage(){
 				myText += "When the polling process discovers an update is pending then the SmartGrid is refreshed and the table is outlined for <b>X</b> seconds using the Poll Update Duration value configured above.<br>"
 				myText += "<b>Note: </b> You can initiate a full refresh of the table at anytime regardless of the polling interval using the Refresh Icon <b>↻</b>."
 				paragraph summary("Polling Help", myText)
-				paragraph line (2)
+				paragraph red("<b>Important: The Polling Enabled\\Disabled and Poll Interval only apply to the first time a SmartGrid is run in a browser. After that you must change these settings using the Modal window which is accessible by holding a mouse or finger down within the SmartGrid for 4 seconds.</b>")
             }
-        
-			//Start of Design Section
-            section(hideable: true, hidden: state.hidden.Design, title: buttonLink('btnHideDesign', getSectionTitle("Design"), 20)) {
-                input(name: "displayEndpoint", type: "enum", title: bold("Display Endpoint"), options: ["Local", "Cloud"], required: false, defaultValue: "Local", submitOnChange: true, width: 1, style:"margin-right:25px")
-				input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
-                input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
-				input(name: "tilePreviewBackground", type: "color", title: bold("Preview Background Color"), required: false, defaultValue: "#000000", width: 2, submitOnChange: true, style: "margin-right:25px")
-				if (myRemoteName != null && myRemote != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:20px;margin-right:25px")
+			
+			if (myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])
+            if (state.activeButtonA == 7){ //Start of Variables
+                input(name: "myVariableCount", title: "<b>Variable Count?</b>", type: "enum", options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], submitOnChange: true, defaultValue: 0, style: "width:12%" )
+                def variableCount = myVariableCount.toInteger() != null ? myVariableCount.toInteger() : 0
+                for (int i = 1; i <= variableCount; i++) {
+					input "variableSource${i}", "enum", title: dodgerBlue("<b>Source #$i</b> (var$i)"), options: ["Device Attribute", "Hub Variable"], submitOnChange: true, width: 1, defaultValue: "Device Attribute", newLine: true, style: "width:12%" 
+					if (settings["variableSource${i}"] == "Device Attribute") {
+						input "myDevice${i}", "capability.*", title: "<b>Device</b>", multiple: false, required: false, submitOnChange: true, width: 2, newLine: false, style: "margin-left:20px"
+						input "myAttribute${i}", "enum", title: "&nbsp<b>Attribute</b>", options: getAttributeList(settings["myDevice${i}"]), multiple: false, submitOnChange: true, width: 2, required: true, newLine: false, style:"margin-left:20px;width:12%"
+					}
+					if (settings["variableSource${i}"] == "Hub Variable") {
+						input "myHubVariable${i}", "enum", title: "<b>Hub Variable</b>", submitOnChange: true, width: 2, options: getAllGlobalVars().findAll { it.value.type != null }.keySet().collect().sort { it.capitalize() }, style: "margin-left:20px;width:26.5%"
+					}
+				}	
+				paragraph line(1)
+				myText = "Here you can configure variables that can be placed within the SmartGrid. You can have up to 10 configured variables.<br>"
+           		myText += "<b>Source:</b> This can be either a <b>Device Attribute</b> pair or a <b>Hub Variable</b>.<br>"
+				myText += "<b>Variables:</b> The variables are named %var1% - %var10% as shown in the above dialogs.<br>"
+				myText += "Once you have configured your variables you can place them within the SmartGrid using the Custom Rows tab using the form <b>%varX%</b>.<br>"
+				paragraph summary("Variables Help", myText)
+				paragraph red("<b>Important: Custom rows are only displayed when Custom Sort is enabled.</b>")
+            }
+			
+			if (state.activeButtonA == 8){ //Start of Custom Rows
+				input (name: "customRowCount", title: "<b>How Many Custom Rows?</b>", type: "enum", options: [0,1,2,3,4,5,6,7,8,9,10], submitOnChange:true, width:2, defaultValue: 0)				
+				for (int i = 1; i <= customRowCount.toInteger(); i++) {
+					input (name: "customRowType${i}", title: "<b>Row $i</b>", type: "enum", options: ["Device Row", "Seperator Row", "Disabled"], submitOnChange:true, newLine: true, width:1, defaultValue: "Seperator Row", style:"margin-right: 25px")
+					input "myNameText${i}", "string", title: "<b>Name Column Text</b>", submitOnChange:true, width:3, defaultValue: "[b]Your Text Here (%var1%)[/b]", newLine:false, style:"margin-right: 25px"
+					input "myStateText${i}", "string", title: "<b>State Column Text</b>", submitOnChange:true, width:2, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", submitOnChange:true, width:2, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", submitOnChange:true, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", submitOnChange:true, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", submitOnChange:true, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+				}
+				paragraph red("<b>Important: Custom rows are only displayed when Custom Sort is enabled.</b>")
 				
-				myMaxWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 ) + 3 * 2	//Makes the width and height 6px larger account for the border around the iframe so the resulting iframe is exactly the same size as the dashboard tile.
-				myMaxHeight = ( (tilePreviewHeight.toFloat() * 200) - 10 ) + 3 * 2  
-				//log.info ("myMaxWidth is: $myMaxWidth and myMaxHeight is: $myMaxHeight (includes 6xp for borders.")
+				paragraph line(1)
+				myText = "Here you can configure custom lines that can be placed within the table when using a <b>Custom Sort</b>. These are generally intended as separators between functional groups within a table.<br>"
+           		myText += "<b>Name Column Text X:</b> This text will be placed within the <b>Name</b> column.<br>"
+				myText += "<b>State Column Text X:</b> If configured this value will be displayed within the <b>State</b> column.<br>"
+				myText += "You can place static text, HTML text using [] or variables within this text. To access a variable just enter %varX% where X is the variable number defined within the <b>Variables</b> tab.<br>"
+				myText += "To use a blank value for a field simply use the space bar to remove the default values."
+				paragraph summary("Custom Row Help", myText)
+				paragraph line(2)
+								
+				input(name: "isCustomSort", type: "enum", title: bold("Enable Custom Sort"), options: ['true', 'false'], required: false, defaultValue: "false", submitOnChange: true, width:1 , style:"margin-right: 50px; ")
+				if (isCustomSort == "true"){
+					if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+					else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+					input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+					myText = "<b>Notes:</b><br>"
+					myText += "1) If you use a Custom Sort order all pinned controls and sensors are treated just like any other entry.<br>"
+					myText += "2) If you add devices or sensors to your SmartGrid you must update your Custom Sort Order to include the new lines.<br>"
+					myText += "3) " + red("<b>DO NOT EXECUTE ANY COMMANDS OR REFRESH YOUR SCREEN UNTIL YOU HAVE SAVED YOUR CUSTOM SORT OR YOUR PROGRESS WILL BE LOST.</b>")
+					paragraph myText
+				}
+								
+				myText = "To configure a Custom Sort Order follow the instructions below:<br>"
+           		myText += "<b>Step 1:</b> Enable Drag & Drop.<br>"
+				myText += "<b>Step 2:</b> Now Reorder the rows to your liking in the grid below using drag and drop.<br>"
+				myText += "<b>Step 3:</b> Save the current sort order. (Drag and Drop will be disabled)"
+				paragraph summary("Custom Sort Help", myText)
+				paragraph line(2)
+			}
+			
+			if (state.activeButtonA == 9){ //Start of Publish Section
+				input(name: "myRemote", title: bold("Attribute to store the Remote?"), type: "enum", options: parent.allTileList(), required: false, submitOnChange: true, width: 3, defaultValue: 25, newLine: false)
+				input(name: "myRemoteName", type: "text", title: bold("Name this Remote"), submitOnChange: true, width: 3, defaultValue: "New Remote", newLine: false, required: true)
+				input(name: "tilesAlreadyInUse", type: "enum", title: bold("For Reference Only: Remotes in Use"), options: parent.getTileList(), required: false, defaultValue: "Remotes List", submitOnChange: true, width: 3)
+				input(name: "eventTimeout", type: "enum", title: bold("Event Timeout (millis)"), required: false, multiple: false, defaultValue: "Never", options: ["0", "250", "500", "1000", "1500", "2000", "5000", "10000", "Never"], submitOnChange: true, width: 2)
 				
-				if (displayEndpoint == "Local") paragraph """<div style="margin-left: 25px; background-color: ${tilePreviewBackground}; padding: 10px; border: 2px solid black; border-radius: 10px;">
-					<iframe src="${state.localEndpoint}" width="${myMaxWidth.toInteger()}" height="${myMaxHeight.toInteger()}" style="padding: 0px; background-color: ${tilePreviewBackground}; border: 3px dashed white; border-radius: 10px;" scrolling="no"></iframe>
-					</div>"""
-				if (displayEndpoint == "Cloud") paragraph """<div style="margin: 25px; background-color: ${tilePreviewBackground}; padding: 10px; border: 2px solid black; border-radius: 10px;">
-					<iframe src="${state.cloudEndpoint}" width="${myMaxWidth.toInteger()}" height="${myMaxHeight.toInteger()}" style="padding: 0px; background-color: ${tilePreviewBackground}; border: 3px dashed white; border-radius: 10px;" scrolling="no"></iframe>
-					</div>"""
-				
-				myText = "The preview window above is optimized for the default Hubitat Dashboard tile size of 200px wide by 190px tall. Tiles greater than 1x1 will be slightly larger than direct multiples of this number because space previously allocated between tiles is now part of the tile.<br>"
-				myText += "If you wish to maximize your tile space by shrinking the gap between tiles you can change the <b>Grid Gap</b> using the Dashboard Grid menu. Or you could use the following CSS: <br>"
-				myText+=  "<mark>[class*='tile-title']{height:0% !important; visibility:hidden;}</mark>    <mark>[class*='tile-contents']{width:100% !important; height:100% !important; padding:0px;}</mark><br>"
-				myText += "To help visualize the dashboard tile edges and add an orange dashed outline to each tile you could use CSS like this:<br><mark>[class*='tile-primary']{outline: 1px dashed orange;}</mark>"
-				paragraph summary("Preview Notes", myText)
+				if (myRemoteName != null && myRemote != null && ( myDevices != null || mySensors != null)) {
+					input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
+					input(name: "unsubscribe", type: "button", title: "Delete Subscription", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
+				} else input(name: "cannotPublish", type: "button", title: "Publish and Subscribe", backgroundColor: "#D3D3D3", textColor: "black", submitOnChange: false, width: 2)			
+                
+                myText = red("<b>Important: Remotes 21 - 25 each have 4 available attributes: Remote21-Local-A, Remote21-Local-B, Remote21-Cloud-A and Remote21-Cloud-B</b><br>")
+                myText += "<b>Use these Remotes when you wish to run two instances of the same SmartGrid on the same browser page, such as within a Hubitat dashboard. This allows each instance to have their own unique local settings. See documnetation for more information.</b>"
+                paragraph myText                 
 				paragraph line(1)
 				
-				input (name: "customizeSection", type: "enum", title: bold("Customize"), required: false, options: ["General", "Title", "Headers & Columns", "Rows", "Borders & Padding", "Experimental" ], defaultValue: "Table", submitOnChange: true, width: 2, newLineAfter:true)
-				
-				if (settings.customizeSection == "General") {
-					input(name: "defaultDateTimeFormat", title: bold("Date Time Format"), type: "enum", options: dateFormatsMap(), submitOnChange: true, defaultValue: 3, width: 2, style:"margin-right:25px")
-					input(name: "defaultDurationFormat", title: bold("Duration Format"), type: "enum", options: durationFormatsMap(), submitOnChange: true, defaultValue: 21, width: 2, style:"margin-right:25px")
-					input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["7.5", "10", "12.5", "15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "17.5", width: 2, style:"margin-right:25px")
-					input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
-					input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
-					input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, style:"margin-right:25px")
-					input ("tempDecimalPlaces", "enum", title: "<b>Temperature Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, submitOnChange: true, width: 2, required: false)
-					input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true )
-					input(name: "sortHeaderHintZA", type: "color", title: bold("Sort Header Hint Z-A"), required: false, defaultValue: "#FF0000", submitOnChange: true, width: 2, style:"margin-right:25px" )
-				}
-				
-				if (settings.customizeSection == "Title") {
-                	input(name: "tt", type: "string", title: bold("Title Text (? to disable)"), required: false, defaultValue: "?", submitOnChange: true, width: 2, style:"margin-right:25px" )
-                    input(name: "ts", type: "enum", title: bold("Text Size %"), options: textScale(), required: false, defaultValue: "150", submitOnChange: true, width: 2, style:"margin-right:25px" )
-					input(name: "tp", type: "enum", title: bold("Text Padding"), options: elementSize(), required: false, defaultValue: "5", submitOnChange: true, width: 2, style:"margin-right:25px" )
-                    input(name: "ta", type: "enum", title: bold("Text Alignment"), options: textAlignment(), required: false, defaultValue: "Center", submitOnChange: true, width: 2, style:"margin-right:25px" )
-                    input(name: "tc", type: "color", title: bold2("Text Color", tc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2, newLine:true, style:"margin-right:25px" )
-					input(name: "tb", type: "color", title: bold2("Background Color", tb), required: false, defaultValue: "#000000", submitOnChange: true, width: 2, style:"margin-right:25px" )
-					input(name: "to", type: "enum", title: bold("Background Opacity"), options: opacity(), required: false, defaultValue: "1", submitOnChange: true, width:2, style:"margin-right:25px" )
-				}
-				
-				if (settings.customizeSection == "Headers & Columns") {
-					input(name: "hts", type: "enum", title: bold("Text Size %"), options: textScale(), required: false, defaultValue: "125", width: 2, submitOnChange: true, style:"margin-right:30px; margin-left:10px")
-                    input(name: "htc", type: "color", title: bold2("Text Color", htc), required: false, defaultValue: "#000000", width: 2, submitOnChange: true, style:"margin-right:30px")
-                    input(name: "hbc", type: "color", title: bold2("Background Color", hbc), required: false, defaultValue: "#90C226", width: 2, submitOnChange: true, style:"margin-right:30px")
-					input(name: "hbo", type: "enum", title: bold("Bg Opacity"), options: opacity(), required: false, defaultValue: "1", width:2, submitOnChange: true, style:"margin-right:30px")
-					
-					input(name: "hideColumn1", type: "bool", title: bold("Hide Column 1 - Selection Boxes?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px; margin-left:10px", newLine:true)
-					input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;", newLine:false)
-					input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:20px;", newLine:false)
-					
-					input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:false)
-										
-					input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn5 == false) {
-						input(name: "column5Header", type: "string", title: bold("Column 5 Header"), required: false, defaultValue: "Control A/B", width: 2, submitOnChange: true)
-						input(name: "column5Width", type: "enum", title: bold("Column 5 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
-					}
-					
-					input(name: "hideColumn6", type: "bool", title: bold("Hide Column 6 - Control C - Color?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn6 == false) {
-						input(name: "column6Header", type: "string", title: bold("Column 6 Header"), required: false, defaultValue: "Control C", width: 2, submitOnChange: true)
-						input(name: "column6Width", type: "enum", title: bold("Column 6 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
-					}
-
-					input(name: "hideColumn7", type: "bool", title: bold("Hide Column 7 - Info 1"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn7 == false) {
-						input(name: "column7Header", type: "string", title: bold("Info 1 Header Text"), required: false, width: 2, submitOnChange: true)	
-						input(name: "its1", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
-						input(name: "ita1", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
-						input(name: "info1Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "lastActive", options: devicePropertiesList(), submitOnChange: true, width: 2)
-					}
-					input(name: "hideColumn8", type: "bool", title: bold("Hide Column 8 - Info 2"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn8 == false) {
-						input(name: "column8Header", type: "string", title: bold("Info 2 Header Text"), required: false, width: 2, submitOnChange: true)
-						input(name: "its2", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
-						input(name: "ita2", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
-						input(name: "info2Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "lastActiveDuration", options: devicePropertiesList(), submitOnChange: true, width: 2)
-					}
-					input(name: "hideColumn9", type: "bool", title: bold("Hide Column 9 - Info 3"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
-					if (hideColumn9 == false) {
-						input(name: "column9Header", type: "string", title: bold("Info 3 Header Text"), required: false, width: 2, submitOnChange: true)
-						input(name: "its3", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
-						input(name: "ita3", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
-						input(name: "info3Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "roomName", options: devicePropertiesList(), submitOnChange: true, width: 2)
-					}	
-					input(name: "hideColumn10", type: "bool", title: bold("Hide Column 10 - Pin"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
-				}
-
-				if (settings.customizeSection == "Rows") {
-					input(name: "rts", type: "enum", title: bold("Text Size %"), options: textScale(), required: false, defaultValue: "100", submitOnChange: true, width:1)
-                    input(name: "rtc", type: "color", title: bold2("Text Color", rtc), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
-                    input(name: "rbc", type: "color", title: bold2("Background Color", rbc), required: false, defaultValue: "#DDEEBB", submitOnChange: true, width:2)
-					input(name: "rbo", type: "enum", title: bold("Background Opacity"), options: opacity(), required: false, defaultValue: "1", submitOnChange: true, width:2)	
-										
-					input(name: "highlightSelectedRows", type: "enum", title: bold("Highlight Selected Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px")
-					if (highlightSelectedRows == "True" ) input(name: "rbs", type: "color", title: bold2("Selected Row - Background Color", rbs), required: false, defaultValue: "#FFE18F", submitOnChange: true, width:3)
-					
-					input(name: "highlightPinnedRows", type: "enum", title: bold("Highlight Pinned Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px")
-					if (highlightPinnedRows == "True") input(name: "rbpc", type: "color", title: bold2("Pinned Row - Background Color", rbpc), required: false, defaultValue: "#A7C7FB", submitOnChange: true, width: 3, style:"margin-right:25px" )
-				}
-				
-				if (settings.customizeSection == "Borders & Padding") {
-					input (name: "tpad", type: "enum", title: bold('Table Edge Padding'), options: elementSize(), required: false, defaultValue: '1', width: 2, submitOnChange: true, style:"margin-right:25px" )
-					input (name: "tmt", type: "enum", title: bold("Top Margin"), options: elementSize(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
-					paragraph line(1)
-					input (name: "bc", type: "color", title: bold2("Border Color", bc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2, style:"margin-right:25px; margin-left: -2px;" )
-					input (name: "bwo", type: "enum", title: bold('Border Width - Outer'), options: elementSize2(), required: false, defaultValue: '2.5', width: 2, submitOnChange: true, style:"margin-right:25px" )
-					input (name: "bwi", type: "enum", title: bold('Border Width - Inner'), options: elementSize2(), required: false, defaultValue: '1', width: 2, submitOnChange: true, style:"margin-right:25px" )
-					paragraph line(1)
-					input (name: "thp", type: "enum", title: bold("Column Horizontal Padding"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
-					input (name: "tvp", type: "enum", title: bold("Row Vertical Padding - Major"), options: elementSize(), required: false, defaultValue: "3", submitOnChange: true, width: 2, style:"margin-right:25px" )
-					input (name: "tvpm", type: "enum", title: bold("Row Vertical Padding - Minor"), options: elementSizeMinor(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
-				}
-				
-				if (settings.customizeSection == "Experimental") {
-					paragraph "<b>There are no experimental settings at this time!<b>"
-				}
-							
-				paragraph line(2)
-				paragraph "<b>Important: You must do a " + red("Publish and Subscribe") + " for SmartGrid to receive updates and work correctly in polling mode or to update automatically in the above window!</b><br>"
-            }
-				
-        //Start of Publish Section
-		section(hideable: true, hidden: state.hidden.Publish, title: buttonLink('btnHidePublish', getSectionTitle("Publish"), 20)) {
-            input(name: "myRemote", title: bold("Attribute to store the Remote?"), type: "enum", options: parent.allTileList(), required: false, submitOnChange: true, width: 3, defaultValue: 0, newLine: false)
-            input(name: "myRemoteName", type: "text", title: bold("Name this Remote"), submitOnChange: true, width: 3, defaultValue: "New Remote", newLine: false, required: true)
-            input(name: "tilesAlreadyInUse", type: "enum", title: bold("For Reference Only: Remotes in Use"), options: parent.getTileList(), required: false, defaultValue: "Remotes List", submitOnChange: true, width: 3)
-			input(name: "eventTimeout", type: "enum", title: bold("Event Timeout (millis)"), required: false, multiple: false, defaultValue: "2000", options: ["0", "250", "500", "1000", "1500", "2000", "5000", "10000", "Never"], submitOnChange: true, width: 2)
-                                    
-            if (myRemoteName) app.updateLabel(myRemoteName)
-            myText =  "Publishing a remote is optional and only required if it will be used within a Hubitat dashboard. Remotes can be accessed directly via the URL's in the Endpoints section and bypass the Dashboard entirely if desired. "
-			myText += "The <b>Event Timeout</b> period is how long Tile Builder will wait for subsequent events before publishing the table. Re-publishing a table will cause it to refresh on the dashboard. This setting batches multiple changes into a single publishing event. "
-            myText += "Lowering the event timeout will make the table more responsive but also increase the number of refreshes. If the eventTimeout is set to 'Never' then you must manually click the refresh Icon to synchronise the table.<br>"   
-			myText += "If publishing to a dashboard is enabled then the The <b>Remote Name</b> given here will also be used as the name for this instance of Remote Builder. "
-			myText += "Appending the name with your chosen remote number can make parent display more readable. Only <b>links</b> to the Local and Cloud Endpoints are stored in the Remote Builder Storage Device when publishing is enabled.<br>"
-			myText += "<b>Note:</b> If you are not using the Remote within a Hubitat Dashboard you should <b>set the Event Timeout to Never</b> as republishing is not needed."
-			paragraph summary("Publishing Help", myText)
-            paragraph line(1)
-			            
-			if ( state.compiledLocal != null  && state.compiledCloud && settings.myRemote != null && myRemoteName != null) {
-                input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
-                input(name: "unsubscribe", type: "button", title: "Delete Subscription", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
-            } else input(name: "cannotPublish", type: "button", title: "Publish and Subscribe", backgroundColor: "#D3D3D3", textColor: "black", submitOnChange: true, width: 2)			
-        }
-        //End of Publish Section
-		
-		//Start of More Section
-        section {
-			paragraph line(2)
-            input(name: "isMore", type: "bool", title: dodgerBlue("<b>More Options</b>"), required: false, multiple: false, defaultValue: false, submitOnChange: true, width: 2)
-            if (isMore == true) {
-                //Horizontal Line
-                paragraph "In this section you can enable logging for various aspects of the program. This is usually used for debugging purposes and by default all logging other than errors is turned off by default. You can also rebuild the endpoints if you refresh the Oauth client secret."				
+				if (myRemoteName) app.updateLabel(myRemoteName)
+				myText =  "Publishing a remote is optional and only required if it will be used within a Hubitat dashboard. Remotes can be accessed directly via the URL's in the Endpoints section and bypass the Dashboard entirely if desired.<br> "
+				myText += "The <b>Event Timeout</b> period is how long Tile Builder will wait for subsequent events before publishing the table. Lowering the event timeout will make the table more responsive but also increase the number of refreshes. "
+                myText += "Re-publishing a table will cause it to refresh on the dashboard unless the Event Timeout is set to Never.  In this situation you can synchronise the table using the <b>Refresh Icon</b> to synchronise the table.<br>"   
+				myText += "If publishing to a dashboard is enabled then the The <b>Remote Name</b> given here will also be used as the name for this instance of Remote Builder. "
+				myText += "Appending the name with your chosen remote number can make parent display more readable. Only <b>links</b> to the Local and Cloud Endpoints are stored in the Remote Builder Storage Device when publishing is enabled.<br>"
+				myText += "<b>Note:</b> If you are not using the Remote within a Hubitat Dashboard you should <b>set the Event Timeout to Never</b> as republishing is not needed."
+				paragraph summary("Publishing Help", myText)
+        	}
+			
+			if (state.activeButtonA == 10){ //Start of Logging Section
 				input(name: "isLogConnections", type: "bool", title: "<b>Record All Connection Requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
 				input(name: "isLogActions", type: "bool", title: "<b>Record All Action Requests?</b>", defaultValue: false, submitOnChange: true, width: 3)
 				input(name: "isLogPublish", type: "bool", title: "<b>Enable Publishing logging?</b>", defaultValue: false, submitOnChange: true, width: 3)
-                input(name: "isLogDeviceInfo", type: "bool", title: "<b>Enable Device Details logging?</b>", defaultValue: false, submitOnChange: true, width: 3)
-                input(name: "isLogError", type: "bool", title: "<b>Log errors encountered?</b>", defaultValue: true, submitOnChange: true, width: 3, newLine: true)
+				input(name: "isLogDeviceInfo", type: "bool", title: "<b>Enable Device Details logging?</b>", defaultValue: false, submitOnChange: true, width: 3)
+				input(name: "isLogError", type: "bool", title: "<b>Log errors encountered?</b>", defaultValue: true, submitOnChange: true, width: 3, newLine: true)
 				input(name: "isLogDebug", type: "bool", title: "<b>Enable Debug logging?</b>", defaultValue: false, submitOnChange: true, width: 3)
-                input(name: "isLogTrace", type: "bool", title: "<b>Enable Trace logging?</b>", defaultValue: false, submitOnChange: true, width: 3)
-				input(name: "rebuildEndpoints", type: "button", title: "Rebuild Endpoints", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 12)
-            }
-			paragraph line(2)
+				input(name: "isLogTrace", type: "bool", title: "<b>Enable Trace logging?</b>", defaultValue: false, submitOnChange: true, width: 3)
+				paragraph line(1)
+				paragraph "In this section you can enable logging for various aspects of the program. This is usually used for debugging purposes and by default all logging other than errors is turned off by default. You can also rebuild the endpoints if you refresh the Oauth client secret."				
+        	}
+			//paragraph line (2)
+		}
+						
+		//Start of Preview Section
+		section(hideable: true, hidden: state.hidden.Preview, title: buttonLink('btnHidePreview', getSectionTitle("Preview"), 20)) {			
+			input(name: "displayEndpoint", type: "enum", title: bold("Display Endpoint"), options: ["Local", "Cloud"], required: false, defaultValue: "Local", submitOnChange: true, width: 1, style:"margin-right:25px")
+			input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
+			input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
+			input(name: "tilePreviewBackground", type: "color", title: bold("Preview Background Color"), required: false, defaultValue: "#000000", width: 2, submitOnChange: true, style: "margin-right:25px")
+			if (myRemoteName != null && myRemote != null && ( myDevices != null || mySensors != null)) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:20px;margin-right:25px")
+			else input(name: "cannotPublish", type: "button", title: "Publish and Subscribe", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: false, width: 2, style:"margin-top:20px;margin-right:25px")
 
+			myMaxWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 ) + 3 * 2	//Makes the width and height 6px larger account for the border around the iframe so the resulting iframe is exactly the same size as the dashboard tile.
+			myMaxHeight = ( (tilePreviewHeight.toFloat() * 200) - 10 ) + 3 * 2  
+			//log.info ("myMaxWidth is: $myMaxWidth and myMaxHeight is: $myMaxHeight (includes 6xp for borders.")
+			
+			if (displayEndpoint == "Local") paragraph """<div style="margin-left: 25px; background-color: ${tilePreviewBackground}; padding: 10px; border: 2px solid black; border-radius: 10px;">
+				<iframe name="${state.AppID}-P" src="${state.localEndpoint}" width="${myMaxWidth.toInteger()}" height="${myMaxHeight.toInteger()}" style="padding: 0px; background-color: ${tilePreviewBackground}; border: 3px dashed white; border-radius: 10px;" scrolling="no"></iframe>
+				</div>"""
+			//log.info ("EP $display
+			if (displayEndpoint == "Cloud") paragraph """<div style="margin: 25px; background-color: ${tilePreviewBackground}; padding: 10px; border: 2px solid black; border-radius: 10px;">
+				<iframe name="${state.AppID}-P" src="${state.cloudEndpoint}" width="${myMaxWidth.toInteger()}" height="${myMaxHeight.toInteger()}" style="padding: 0px; background-color: ${tilePreviewBackground}; border: 3px dashed white; border-radius: 10px;" scrolling="no"></iframe>
+				</div>"""
+
+			myText = "The preview window above is optimized for the default Hubitat Dashboard tile size of 200px wide by 190px tall. Tiles greater than 1x1 will be slightly larger than direct multiples of this number because space previously allocated between tiles is now part of the tile.<br>"
+			myText += "If you wish to maximize your tile space by shrinking the gap between tiles you can change the <b>Grid Gap</b> using the Dashboard Grid menu. Or you could use the following CSS: <br>"
+			myText+=  "<mark>[class*='tile-title']{height:0% !important; visibility:hidden;}</mark>    <mark>[class*='tile-contents']{width:100% !important; height:100% !important; padding:0px;}</mark><br>"
+			myText += "To help visualize the dashboard tile edges and add an orange dashed outline to each tile you could use CSS like this:<br><mark>[class*='tile-primary']{outline: 1px dashed orange;}</mark>"
+			paragraph summary("Preview Notes", myText)
+			//paragraph line(1)
+		}
+
+		//Start of Design Section
+		section(hideable: true, hidden: state.hidden.Design, title: buttonLink('btnHideDesign', getSectionTitle("Design"), 20)) {						
+			//Setup the Table Style
+			paragraph "<style>#buttons2 {font-family: Arial, Helvetica, sans-serif; width:100%; text-layout:fixed; text-align:'Center'} #buttons2 td, #buttons2 tr {width: 10%; background:#00a2ed;color:#FFFFFF;text-align:Center;opacity:0.75;padding: 4px} #buttons2 td:hover {padding: 4px; background: #27ae61;opacity:1}</style>"
+			table2 = "<table id='buttons2'><td>"  + buttonLink ('General', 'General', 21) + "</td><td>" + buttonLink ('Appearance', 'Appearance', 22) + "</td><td>" + buttonLink ('Title', 'Title', 23) + "</td><td>" + 
+					buttonLink ('Columns', 'Columns', 24) + "</td><td>" + buttonLink ('Padding', 'Padding', 25) + "</td><td>" + buttonLink ('Experimental', 'Experimental', 26) + "</td></table>"
+			paragraph table2
+
+			if (state.activeButtonB == 21){ //General
+				input(name: "defaultDateTimeFormat", title: bold("Date Time Format"), type: "enum", options: dateFormatsMap(), submitOnChange: true, defaultValue: 3, width: 2, style:"margin-right:25px")
+				input(name: "defaultDurationFormat", title: bold("Duration Format"), type: "enum", options: durationFormatsMap(), submitOnChange: true, defaultValue: 21, width: 2, style:"margin-right:25px")
+				input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["7.5", "10", "12.5", "15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "15", width: 2, style:"margin-right:25px")
+				input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
+				input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
+				input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "°F", style:"margin-right:25px")
+				input ("tempDecimalPlaces", "enum", title: "<b>Temperature Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, defaultValue: "0 Decimal Places", submitOnChange: true, width: 2, required: false)
+				input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true )
+				input(name: "sortHeaderHintZA", type: "color", title: bold("Sort Header Hint Z-A"), required: false, defaultValue: "#FF0000", submitOnChange: true, width: 2, style:"margin-right:25px" )
+			}
+			if (state.activeButtonB == 22){ //Appearance
+				input(name: "hts", type: "enum", title: bold("Header Text Size %"), options: textScale(), required: false, defaultValue: "125", width: 2, submitOnChange: true, style:"margin-right:25px; margin-left:20px")
+				input(name: "htc", type: "color", title: bold2("Header Text Color", htc), required: false, defaultValue: "#000000", width: 2, submitOnChange: true)
+				input(name: "hbc", type: "color", title: bold2("Header Background Color", hbc), required: false, defaultValue: "#2375b8", width: 2, submitOnChange: true)
+				input(name: "hbo", type: "enum", title: bold("Header Opacity"), options: opacity(), required: false, defaultValue: "1", width:2, submitOnChange: true)
+				paragraph line(2)
+				input (name: "crts", type: "enum", title: bold("Custom Row Text Size %"), options: textScale(), required: false, defaultValue: "100", submitOnChange: true, width: 2, style:"margin-right:25px; margin-left:20px")
+				input (name: "crtc", type: "color", title: bold2("Custom Row Text Color", crtc), required: false, defaultValue: "#000000" , submitOnChange: true, width: 2)
+				input (name: "crbc", type: "color", title: bold2("Custom Row Background Color #1", crbc), required: false, defaultValue: "#b6d7f1" , submitOnChange: true, width: 2)
+				input (name: "crbc2", type: "color", title: bold2("Custom Row Background Color #2", crbc2), required: false, defaultValue: "#2375b8" , submitOnChange: true, width: 2)
+				paragraph line(2)
+				input(name: "rts", type: "enum", title: bold("Device Row Text Size %"), options: textScale(), required: false, defaultValue: "100", submitOnChange: true, width:2, style:"margin-right:25px; margin-left:20px")
+				input(name: "rtc", type: "color", title: bold2("Device Row Text Color", rtc), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
+				input(name: "rbc", type: "color", title: bold2("Device Row Background Color", rbc), required: false, defaultValue: "#b6d7f1", submitOnChange: true, width:2)
+				input(name: "rbo", type: "enum", title: bold("Device Row Background Opacity"), options: opacity(), required: false, defaultValue: "1", submitOnChange: true, width:2)	
+				paragraph line(2)	
+				input(name: "highlightSelectedRows", type: "enum", title: bold("Highlight Selected Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px; margin-left:20px")
+				if (highlightSelectedRows == "True" ) input(name: "rbs", type: "color", title: bold2("Selected Row Background Color", rbs), required: false, defaultValue: "#fdf09b", submitOnChange: true, width:2)
+
+				input(name: "highlightPinnedRows", type: "enum", title: bold("Highlight Pinned Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: false)
+				if (highlightPinnedRows == "True") input(name: "rbpc", type: "color", title: bold2("Pinned Row Background Color", rbpc), required: false, defaultValue: "#FFBFA8", submitOnChange: true, width: 2)
+				paragraph line(2)
+
+				input (name: "bc", type: "color", title: bold2("Border Color", bc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2, style:"margin-right:25px; margin-left: 20px;" )
+				input (name: "bwo", type: "enum", title: bold('Border Width - Outer'), options: elementSize2(), required: false, defaultValue: '2.5', width: 2, submitOnChange: true, style:"margin-right:25px;" )
+				input (name: "bwi", type: "enum", title: bold('Border Width - Inner'), options: elementSize2(), required: false, defaultValue: '2', width: 2, submitOnChange: true)
+				paragraph line(2)
+
+				input (name: "theme", type: "enum", title: bold('Select Color Theme'), options: ['Blue','Green','Orange', 'Brown', 'Purple', 'Pink', 'Mono'], required: false, defaultValue: 'Blue', width: 2, submitOnChange: true)
+				input (name: "applyTheme", type: "button", title: "Apply Theme", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left:20px;margin-top:25px;")
+			}
+
+			if (state.activeButtonB == 23){ //Title
+				input(name: "tt", type: "string", title: bold("Title Text (? to disable)"), required: false, defaultValue: "[b]My Title[/b]?", submitOnChange: true, width: 2, style:"margin-right:25px" )
+				input(name: "ts", type: "enum", title: bold("Text Size %"), options: textScale(), required: false, defaultValue: "150", submitOnChange: true, width: 2, style:"margin-right:25px" )
+				input(name: "tp", type: "enum", title: bold("Text Padding"), options: elementSize(), required: false, defaultValue: "5", submitOnChange: true, width: 2, style:"margin-right:25px" )
+				input(name: "ta", type: "enum", title: bold("Text Alignment"), options: textAlignment(), required: false, defaultValue: "Center", submitOnChange: true, width: 2, style:"margin-right:25px" )
+				input(name: "tc", type: "color", title: bold2("Text Color", tc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2, newLine:true, style:"margin-right:25px" )
+				input(name: "tb", type: "color", title: bold2("Background Color", tb), required: false, defaultValue: "#a09fce", submitOnChange: true, width: 2, style:"margin-right:25px" )
+				input(name: "to", type: "enum", title: bold("Background Opacity"), options: opacity(), required: false, defaultValue: "1", submitOnChange: true, width:2, style:"margin-right:25px" )
+			}
+
+			if (state.activeButtonB == 24){  //Columns
+				input(name: "hideColumn1", type: "bool", title: bold("Hide Column 1 - Selection Boxes?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px; margin-left:10px", newLine:true)
+				input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;", newLine:false)
+				input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:20px;", newLine:false)
+
+				input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:false)
+
+				input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+				if (hideColumn5 == false) {
+					input(name: "column5Header", type: "string", title: bold("Column 5 Header"), required: false, defaultValue: "Control A/B", width: 2, submitOnChange: true)
+					input(name: "column5Width", type: "enum", title: bold("Column 5 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px") 
+				}
+
+				input(name: "hideColumn6", type: "bool", title: bold("Hide Column 6 - Control C - Color?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+				if (hideColumn6 == false) {
+					input(name: "column6Header", type: "string", title: bold("Column 6 Header"), required: false, defaultValue: "Control C", width: 2, submitOnChange: true)
+					input(name: "column6Width", type: "enum", title: bold("Column 6 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
+				}
+
+				input(name: "hideColumn7", type: "bool", title: bold("Hide Column 7 - Info 1"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+				if (hideColumn7 == false) {
+					input(name: "column7Header", type: "string", title: bold("Info 1 Header Text"), required: false, width: 2, submitOnChange: true)	
+					input(name: "its1", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
+					input(name: "ita1", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
+					input(name: "info1Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "lastActive", options: devicePropertiesList(), submitOnChange: true, width: 2)
+				}
+				input(name: "hideColumn8", type: "bool", title: bold("Hide Column 8 - Info 2"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+				if (hideColumn8 == false) {
+					input(name: "column8Header", type: "string", title: bold("Info 2 Header Text"), required: false, width: 2, submitOnChange: true)
+					input(name: "its2", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
+					input(name: "ita2", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
+					input(name: "info2Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "lastActiveDuration", options: devicePropertiesList(), submitOnChange: true, width: 2)
+				}
+				input(name: "hideColumn9", type: "bool", title: bold("Hide Column 9 - Info 3"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+				if (hideColumn9 == false) {
+					input(name: "column9Header", type: "string", title: bold("Info 3 Header Text"), required: false, width: 2, submitOnChange: true)
+					input(name: "its3", type: "enum", title: bold("Size %"), options: textScale(), required: false, defaultValue: "80", width: 2, submitOnChange: true)
+					input(name: "ita3", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
+					input(name: "info3Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "roomName", options: devicePropertiesList(), submitOnChange: true, width: 2)
+				}	
+				input(name: "hideColumn10", type: "bool", title: bold("Hide Column 10 - Pin"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
+				input(name: "hideColumn11", type: "bool", title: bold("Hide Column 11 - Custom Sort Order (Diagnostic)"), required: false, defaultValue: true, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
+			}
+
+			if (state.activeButtonB == 25){ //Padding
+				input (name: "tpad", type: "enum", title: bold('Table Edge Padding'), options: elementSize(), required: false, defaultValue: '1', width: 2, submitOnChange: true, style:"margin-right:25px" )
+				input (name: "tmt", type: "enum", title: bold("Top Margin"), options: elementSize(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
+				paragraph line(1)
+				input (name: "thp", type: "enum", title: bold("Column Horizontal Padding"), options: elementSize(), required: false, defaultValue: 5, submitOnChange: true, width: 2, style:"margin-right:25px" )
+				input (name: "tvp", type: "enum", title: bold("Row Vertical Padding - Major"), options: elementSize(), required: false, defaultValue: 3, submitOnChange: true, width: 2, style:"margin-right:25px" )
+				input (name: "tvpm", type: "enum", title: bold("Row Vertical Padding - Minor"), options: elementSizeMinor(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
+			}
+
+			if (state.activeButtonB == 26){ //Experimental
+				paragraph "<b>There are no experimental settings at this time!<b>"
+			}
+
+			paragraph line(1)
+			paragraph "<b>Important: You must do a " + red("Publish and Subscribe") + " for SmartGrid to receive updates and work correctly in polling mode or to update automatically in the above window!</b><br>"
+		}
+
+		//Start of Footer Section
+        section {
             //Now add a footer.
             myDocURL = "<a href='https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote_Builder_SmartGrid_Help.pdf' target=_blank> <i><b>Remote Builder - SmartGrid Help</b></i></a>"
 			
@@ -475,22 +545,200 @@ def mainPage(){
             myText += '</div>'
             paragraph myText
         }
-        //End of More Section
+        //End of Footer Section
     }
 }
 
-// Functions pertaining to the internal handling of the Groovy Parent application
 
-//Checks for critical Null values that can be introduced by the user by clicking "No Selection" in a variety of enum dialog.
-def checkNulls() {
-    if (displayEndpoint == null) app.updateSetting("displayEndpoint", [value: "Local", type: "enum"])
-    if (localEndpointState == null ) app.updateSetting("localEndpointState", [value: "Enabled", type: "enum"])
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  Standard System Elements
+//**************
+//*******************************************************************************************************************************************************************************************
+
+//Configures all of the default settings values. This allows us to have some parts of the settings not be visible but still have their values initialized.
+//We do this to avoid errors that might occur if a particular setting were referenced but had not been initialized.
+def initialize() {
+	
+	//Handle the initial configurations of variables
+    if (state.initialized != true) {
+        if (isLogTrace) log.trace("<b>initialize: Initializing all variables.</b>")
+		//This is a first time install so the variables should all be current.
+		//Device Selection
+		app.updateSetting("filter", [value: "All Selectable Controls", type: "enum"])
+
+		//Endpoints and Polling
+		createAccessToken()
+		state.localEndpoint = "${getFullLocalApiServerUrl()}/tb?access_token=${state.accessToken}"
+		state.cloudEndpoint = "${getFullApiServerUrl()}/tb?access_token=${state.accessToken}"
+		state.localEndpointData = "${getFullLocalApiServerUrl()}/tb/data?access_token=${state.accessToken}"
+		state.cloudEndpointData = "${getFullApiServerUrl()}/tb/data?access_token=${state.accessToken}"
+		state.localEndpointPoll = "${getFullLocalApiServerUrl()}/tb/poll?access_token=${state.accessToken}"
+		state.cloudEndpointPoll = "${getFullApiServerUrl()}/tb/poll?access_token=${state.accessToken}"
+
+		app.updateSetting("isPolling", [value: "Enabled", type: "enum"])
+		app.updateSetting("pollInterval", "3")
+		app.updateSetting("pollUpdateColorSuccess", [value: "#00FF00", type: "color"])
+		app.updateSetting("pollUpdateColorFail", [value: "#FF0000", type: "color"])
+		app.updateSetting("pollUpdateColorPending", [value: "#FFA500", type: "color"])
+		app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
+		app.updateSetting("shuttleColor", [value: "#99C5FF", type: "color"])
+		app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
+
+		//Tile Size
+		app.updateSetting("tilePreviewWidth", "3")
+		app.updateSetting("tilePreviewHeight", "2")
+		app.updateSetting("tilePreviewBackground", [value: "#696969", type: "color"])
+
+		//Global Settings
+		app.updateSetting("invalidAttribute", [value: "N/A", type: "enum"])
+		app.updateSetting("defaultDateTimeFormat", 3)
+		app.updateSetting("defaultDurationFormat", 21)
+
+		//Table Properties
+		app.updateSetting("controlSize", [value: "15", type: "enum"])
+		app.updateSetting("thp", "5")
+		app.updateSetting("tvp", "3")
+		app.updateSetting("tvpm", "0")
+		app.updateSetting("tmt", "0")
+		app.updateSetting("ha", [value: "Stretch", type: "enum"])
+		app.updateSetting("va", [value: "Center", type: "enum"])
+
+		//General Properties
+		app.updateSetting("tempUnits", [value: "°F", type: "enum"])
+		app.updateSetting("sortHeaderHintAZ", [value: "#00FF00", type: "color"])
+		app.updateSetting("sortHeaderHintZA", [value: "#FF0000", type: "color"])
+		app.updateSetting("tempDecimalPlaces", [value: "0 Decimal Places", type: "enum"])
+		
+		//Column Properties
+		app.updateSetting("column2Header", "Icon")
+		app.updateSetting("column3Header", "Name")
+		app.updateSetting("column4Header", "State")
+		app.updateSetting("column5Header", "Control A/B")
+		app.updateSetting("column6Header", "Control C")
+		app.updateSetting("column7Header", "Last Active")
+		app.updateSetting("column8Header", "Duration")
+		app.updateSetting("column9Header", "Room")
+		app.updateSetting("column10Header", "Pin")
+		app.updateSetting("column11Header", "Custom Sort")
+		
+		//Hidden Columns
+		app.updateSetting("hideColumn1", false)
+		app.updateSetting("hideColumn2", false)
+		app.updateSetting("hideColumn3", false)
+		app.updateSetting("hideColumn4", false)
+		app.updateSetting("hideColumn5", false)
+		app.updateSetting("hideColumn6", false)
+		app.updateSetting("hideColumn7", true)
+		app.updateSetting("hideColumn8", true)
+		app.updateSetting("hideColumn9", true)
+		app.updateSetting("hideColumn10", true)
+		app.updateSetting("hideColumn11", true)
+
+		//Info Column Properties
+		app.updateSetting("info1Source", "lastActive")
+		app.updateSetting("its1", "80")
+		app.updateSetting("ita1", "Center")
+		app.updateSetting("info2Source", "lastActiveDuration")
+		app.updateSetting("its2", "80")
+		app.updateSetting("ita2", "Center")
+		app.updateSetting("info3Source", "roomName")
+		app.updateSetting("its3", "80")
+		app.updateSetting("ita3", "Center")
+
+		 //Title Properties
+		app.updateSetting("tt", "?")
+		app.updateSetting("ts", "125")
+		app.updateSetting("tp", "5")
+		app.updateSetting("tc", [value: "#000000", type: "color"])
+		app.updateSetting("tb", [value: "#a09fce", type: "color"])
+		app.updateSetting("ta", "Center")
+		app.updateSetting("to", "1")
+
+		//Header Properties
+		app.updateSetting("hts", "100")
+		app.updateSetting("htc", [value: "#ffffff", type: "color"])
+		app.updateSetting("hbc", [value: "#2375b8", type: "color"])
+		app.updateSetting("hbo", "1")
+
+		//Row Properties
+		app.updateSetting("rts", "90")
+		app.updateSetting("rtc", [value: "#000000", type: "color"])
+		app.updateSetting("rbc", [value: "#cccccc", type: "color"])
+		app.updateSetting("rbo", "1")
+
+		app.updateSetting("highlightSelectedRows", "True")
+		app.updateSetting("rbs", [value: "#FFE18F", type: "color"])
+
+		app.updateSetting("highlightPinnedRows", "True")
+		app.updateSetting("rbpc", [value: "#FFBFA8", type: "color"])
+
+		//Borders
+		app.updateSetting("bc", [value: "#000000", type: "color"])
+		app.updateSetting("bwo", [value: "4", type: "enum"] )  //Border Width - Outer
+		app.updateSetting("bwi", [value: "2", type: "enum"] )  //Border Width - Inner
+		app.updateSetting("tpad", [value: "3", type: "enum"] )  //Border Width - Inner
+
+		//Publishing
+		app.updateSetting("mySelectedRemote", "")
+		app.updateSetting("publishEndpoints", [value: "Local", type: "enum"])
+		app.updateSetting("eventTimeout", "Never")
+
+		//Set initial Log settings
+		app.updateSetting('isLogConnections', false)
+		app.updateSetting('isLogActions', true)
+		app.updateSetting('isLogPublish', false)
+		app.updateSetting('isLogDeviceInfo', false)
+		app.updateSetting('isLogError', true)
+		app.updateSetting('isLogDebug', false)
+		app.updateSetting('isLogTrace', false)
+
+		//Have all the sections expanded to begin with except devices
+		state.updatedSessionList = []
+		state.compiledLocal = "<span style='font-size:32px;color:yellow'>No Devices or Not Published!</span><br>"
+		state.compiledCloud = "<span style='font-size:32px;color:yellow'>No Devices or Not Published!</span><br>"
+		
+		//Set the initial Color Theme
+		applyTheme()
+
+		//Set the initialization flag so this whole section only happens once.
+		state.initialized = true
+				
+    } //End of first time initialization of variables.
+        
+	//Start of section where variables are added to the app after the initial release and may need to be initialised
+	if (state.hidden == null) state.hidden = [Configure: false, Preview: false, Design: false]	
+	if (state.activeButtonA == null ) state.activeButtonA = 1
+	if (state.activeButtonB == null ) state.activeButtonB = 21
+	if (customRowCount == null)	app.updateSetting("customRowCount", [value: "0", type: "enum"])
+	if (isCustomSort == null) app.updateSetting("isCustomSort", false)
+	if (state.customSortOrder == null) state.customSortOrder = JsonOutput.toJson([ [ID: "1", row: 1] ])
+	if (isDragDrop == null) app.updateSetting("isDragDrop", false)
+	
+	if (localEndpointState == null ) app.updateSetting("localEndpointState", [value: "Enabled", type: "enum"])
 	if (cloudEndpointState == null ) app.updateSetting("cloudEndpointState", [value: "Disabled", type: "enum"])
+	
+	//Custom Row Properties
+	if (crbc == null ) app.updateSetting("crbc", [value: "#b6d7f1", type: "color"])
+	if (crbc2 == null ) app.updateSetting("crbc2", [value: "#2375b8", type: "color"])
+	if (crtc == null ) app.updateSetting("crtc", [value: "#000000", type: "color"])
+	if (crts == null ) app.updateSetting("crts", [value: "100", type: "enum"] )
+	
+	if (state.hidden.Preview == null ) state.hidden.Preview ? false : true
+					
+	//Start of Section where we check for the presence of null values, usually caused by the user selecting "No Selection" in a dialog box.
+	if (tilePreviewWidth == null) app.updateSetting("tilePreviewWidth", [value: "3", type: "enum"])	
+	if (tilePreviewHeight == null) app.updateSetting("tilePreviewHeight", [value: "2", type: "enum"])	
+	if (myRemote == null) app.updateSetting("myRemote", [value: "25", type: "enum"])
+	if (myRemoteName == null) app.updateSetting("myRemoteName", "New Remote")	
+	if (commandTimeout == null ) app.updateSetting("commandTimeout", [value: "10", type: "enum"])
+	if (displayEndpoint == null) app.updateSetting("displayEndpoint", [value: "Local", type: "enum"])
+	
 	if (pollInterval == null ) app.updateSetting("pollInterval", [value: "3", type: "enum"])
 	if (pollUpdateWidth == null ) app.updateSetting("pollUpdateWidth", [value: "3", type: "enum"])
 	if (pollUpdateDuration == null ) app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
 	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
-	if (commandTimeout == null ) app.updateSetting("commandTimeout", [value: "10", type: "enum"])
+	
 	if (tvp == null ) app.updateSetting("tvp", [value: "3", type: "enum"])
 	if (thp == null ) app.updateSetting("thp", [value: "5", type: "enum"])
 	if (hts == null ) app.updateSetting("hts", [value: "100", type: "enum"])
@@ -503,67 +751,83 @@ def checkNulls() {
 	if (ita1 == null ) app.updateSetting("ita1", [value: "Center", type: "enum"])
 	if (ita2 == null ) app.updateSetting("ita2", [value: "Center", type: "enum"])
 	if (ita3 == null ) app.updateSetting("ita3", [value: "Center", type: "enum"])
-	if (state.compiledLocal == null) state.compiledLocal = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
-	if (state.compiledCloud == null) state.compiledCloud = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
+	
+	//These are settings that we want to force once
+	if ( state.variablesVersion < codeVersion){
+		app.updateSetting("hideColumn11", true)
+		state.variablesVersion = codeVersion	
+	}
 }
 
-//Used to update variables when upgrading software versions.
-def updateVariables() {
-	//This is a first time install so the variables should all be current.
-    if (state.variablesVersion == null) {
-        log.info("Initializing variablesVersion to: $codeVersion")
-        state.variablesVersion = codeVersion
-    }
+//Sets the basic table colors.  //Blue is the default.
+def applyTheme() {
+    def themes = [
+        Blue: [ crbc: "#b6d7f1", crbc2: "#2375b8", crtc: "#000000", htc: "#ffffff", hbc: "#2375b8", rtc: "#000000", rbc: "#cccccc" ],
+        Green: [ crbc: "#c8e6c9", crbc2: "#388e3c", crtc: "#000000", htc: "#ffffff", hbc: "#388e3c", rtc: "#000000", rbc: "#d6e8d4" ],
+		Orange: [ crbc: "#ffe0b2", crbc2: "#f57c00", crtc: "#000000", htc: "#ffffff", hbc: "#f57c00", rtc: "#000000", rbc: "#ffddaa" ],
+		Brown: [ crbc: "#d7ccc8", crbc2: "#5d4037", crtc: "#000000", htc: "#ffffff", hbc: "#5d4037", rtc: "#000000", rbc: "#dacea4" ],
+        Purple: [ crbc: "#e1bee7", crbc2: "#7b1fa2", crtc: "#000000", htc: "#ffffff", hbc: "#7b1fa2", rtc: "#000000", rbc: "#d9b8db" ],
+		Pink: [ crbc: "#fce4ec", crbc2: "#f8bbd0", crtc: "#333333", htc: "#333333", hbc: "#f48fb1", rtc: "#333333", rbc: "#c6dee2" ],
+		Mono: [crbc:"#E0E0E0", crbc2:"#393939", crtc:"#212121", htc:"#FFFFFF", hbc:"#4b4949", rtc:"#000000", rbc:"#d1d1d1"],
+		]
 
-    //Check to see if there has been an update. If there has the variablesVersion will be less than the codeVersion
-    if (state.variablesVersion < 311) {
-        log.info("Updating Variables to $codeVersion")
-        //Add the newly created variables here such as:
-		app.updateSetting("highlightPinnedRows", "True")
-		app.updateSetting("rbpc", [value: "#A7C7FB", type: "color"])
-		app.updateSetting("highlightSelectedRows", "True")
-		app.updateSetting("column9Header", "Room")
-		app.updateSetting("column10Header", "Pin")
-		app.updateSetting("hideColumn10", true)
-		app.updateSetting("shuttleColor", [value: "#99C5FF", type: "color"])
-		app.updateSetting("tempUnits", [value: "°F", type: "enum"])
-		state.variablesVersion = codeVersion
-		compile()
-    }
+	def myTheme = settings.theme.toString()
 	
-	    //Check to see if there has been an update. If there has the variablesVersion will be less than the codeVersion
-    if (state.variablesVersion < 313) {
-        log.info("Updating Variables to $codeVersion")		
-		app.updateSetting("sortHeaderHintAZ", [value: "#00FF00", type: "color"])
-		app.updateSetting("sortHeaderHintZA", [value: "#FF0000", type: "color"])
-		compile()
-    }
-	if (state.variablesVersion < 314) {
-        log.info("Updating Variables to $codeVersion")		
-		app.updateSetting("tempDecimalPlaces", [value: "0 Decimal Places", type: "enum"])
-		state.variablesVersion = codeVersion
-		compile()
-	}
-	if (state.variablesVersion < 317) {
-        log.info("Updating Variables to $codeVersion")
-		app.updateSetting("tmt", [value: "0", type: "enum"])
-		state.variablesVersion = codeVersion
-		compile()
-	}
+    def t = themes[myTheme] ?: themes.Blue // fallback to Blue if theme not found
+
+    // Custom Row Properties
+    app.updateSetting("crbc", [value: t.crbc,  type: "color"])
+    app.updateSetting("crbc2", [value: t.crbc2, type: "color"])
+    app.updateSetting("crtc", [value: t.crtc,  type: "color"])
+    app.updateSetting("crts", [value: "100", type: "enum"])
+
+    // Header
+    app.updateSetting("hts", "100")
+    app.updateSetting("htc", [value: t.htc, type: "color"])
+    app.updateSetting("hbc", [value: t.hbc, type: "color"])
+    app.updateSetting("hbo", "1")
+
+    // Row
+    app.updateSetting("rts", "90")
+    app.updateSetting("rtc", [value: t.rtc, type: "color"])
+    app.updateSetting("rbc", [value: t.rbc, type: "color"])
+    app.updateSetting("rbo", "1")
 	
-	if (state.variablesVersion < 320) {
-        log.info("Updating Variables to $codeVersion")
-		app.updateSetting("bc", [value: "#000000", type: "color"])
-		app.updateSetting("bwo", [value: "2.5", type: "enum"])
-		app.updateSetting("bwi", [value: "1", type: "enum"])
-		app.updateSetting("bwi", [value: "1", type: "enum"])
-		app.updateSetting("tvpm", [value: "0", type: "enum"])
-		app.updateSetting("tpad", [value: "3", type: "enum"])
-		app.updateSetting("pollUpdateColorPending", [value: "#FFA500", type: "color"])
-		state.variablesVersion = codeVersion
-		compile()
-	}
+	// Header Properties
+    app.updateSetting("htc", [value: t.htc, type: "color"])
+    app.updateSetting("hbc", [value: t.hbc, type: "color"])
+
+    // Row Properties
+    app.updateSetting("rtc", [value: t.rtc, type: "color"])
+    app.updateSetting("rbc", [value: t.rbc, type: "color"])
+
+    // Highlight Colors
+    app.updateSetting("rbs",  [value: "#DCE775", type: "color"]) // selected row
+    app.updateSetting("rbpc", [value: "#FFCC80", type: "color"]) // pinned row
+	
+	// Common Properties (general + highlight + borders)
+    [tvp: "3", thp: "5", hts: "100", hbo: "1", rts: "90", rbo: "1", its1: "80", its2: "80", its3: "80", ita1: "Center", ita2: "Center", ita3: "Center", bwo: "4", bwi: "2", tpad: "3", highlightSelectedRows: "True", highlightPinnedRows  : "True" ].each { k, v -> app.updateSetting(k, [value: v.toString(), type: "enum"]) }
+   
+    // Borders
+    app.updateSetting("bc", [value: "#000000", type: "color"]) // black border
 }
+
+def updated(){
+    if(!state?.isInstalled) { state?.isInstalled = true }
+}
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  End Standard System Elements
+//**************
+//*******************************************************************************************************************************************************************************************
+
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  Device Data Collection and Preparation Functions
+//**************
+//*******************************************************************************************************************************************************************************************
 
 // Receives a list of items and allows them to be selected for pinning
 def getPinnedItems(collection) {
@@ -581,7 +845,10 @@ def getJSON() {
     // List to hold device attribute data
     def deviceAttributesList = []
 	def eventData = [:]
-			    
+	
+	//Gets the device info that does not change, such as name, type, ID etc and saves it to state so we only look it up once.
+	cacheDeviceInfo()
+	
     // Iterate through each device
     myDevices.each { device ->
 		// Use LinkedHashMap to maintain the order of fields
@@ -591,113 +858,32 @@ def getJSON() {
 		
 		//Get the cached version of the name which may be short from device name modification
 		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
-				
 		def mySwitch = device.currentValue("switch")
 		deviceData.put("switch", mySwitch)
+		
 		if ( containsDeviceID(myPinnedControls, deviceID) ) { deviceData.put("pin", "on") }
 		
         //Get the device Type from cache so we don't have to calculate it every time. Makes the code on this end simpler.
 		deviceType = state.deviceList.find { it.ID == deviceID }?.type
 		deviceData.put("type", deviceType)
         		
-		switch (deviceType) {
-			case 1: //Attributes are switch - ENUM ["on", "off"]
-				deviceData.put("icon", getIcon(1, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(1, mySwitch)?.class)
-				break
-			case 2: //Attributes are: level - NUMBER, unit:%
-				//def status = 
-				deviceData.put("level", device.currentValue("level")?.toInteger() ?: 100)
-				deviceData.put("icon", getIcon(2, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(2, mySwitch)?.class)
-				break
-			case 3: //If the device has ColorTemperature but NOT ColorControl then it is a CT only device. Attributes are: colorName - STRING colorTemperature - NUMBER, unit:°K
-				deviceData.put("level", device.currentValue("level")?.toInteger() ?: 100)
-				deviceData.put("CT", device.currentValue("colorTemperature")?.toInteger() ?: 2000)
-				deviceData.put("icon", getIcon(3, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(3, mySwitch)?.class)
-				break
-			case 4: //If the device has ColorControl but NOT ColorTemperature then it is an RGB device. Attributes are: RGB - STRING color - STRING colorName - STRING hue - NUMBER saturation - NUMBER, unit:%
-				deviceData.put("level", device.currentValue("level")?.toInteger() ?: 100)
-				deviceData.put("CT", device.currentValue("colorTemperature")?.toInteger() ?: 2000)
-				def hsvMap = [hue: device.currentValue("hue") ?: 100, saturation: device.currentValue("saturation") ?: 100, value: device.currentValue("level")?.toInteger() ?: 100 ]
-				def color = getHEXfromHSV(hsvMap)	
-				deviceData.put("color", color)
-				deviceData.put("icon", getIcon(4, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(4, mySwitch)?.class)
-				break
-			case 5: //If the device has ColorControl AND ColorTemperature then it is a RGBW device. Attributes are: RGB - STRING color - STRING colorName - STRING hue - NUMBER saturation - NUMBER, unit:% +++++ colorTemperature - NUMBER, unit:°K
-				deviceData.put("level", device.currentValue("level")?.toInteger() ?: 100)
-				deviceData.put("CT", (device.currentValue("colorTemperature")?.toInteger() ?: 2000))
-				def hsvMap = [hue: device.currentValue("hue") ?: 100, saturation: device.currentValue("saturation") ?: 100, value: device.currentValue("level")?.toInteger() ?: 100 ]
-				def color = getHEXfromHSV(hsvMap)	
-				deviceData.put("color", color)
-				deviceData.put("colorMode", device.currentValue("colorMode"))
-				deviceData.put("icon", getIcon(5, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(5, mySwitch)?.class)
-				break
-			case 10: //Check for valves - ENUM ["open", "closed"]
-				myValve = device.currentValue("valve")
-				mySwitch = (myValve == "open") ? "on" : "off"
-				deviceData.put("switch", mySwitch)
-				deviceData.put("icon", getIcon(10, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(10, mySwitch)?.class)
-				break
-			case 11: //Check for locks - states for lock are: ENUM ["locked", "unlocked with timeout", "unlocked", "unknown"]  //Only locked and unlocked are implemented.
-				myLock = device.currentValue("lock")
-				mySwitch = (myLock == "locked") ? "on" : "off"
-				deviceData.put("switch", mySwitch)
-				deviceData.put("icon", getIcon(11, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(11, mySwitch)?.class)
-				break
-			case 12: //Check for Fans - States for speed are: ENUM ["low","medium-low","medium","medium-high","high","on","off","auto"]
-				mySpeed = device.currentValue("speed")
-				mySwitch = (mySpeed == "off") ? "off" : "on"
-				deviceData.put("speed", mySpeed)
-				deviceData.put("switch", mySwitch)
-				deviceData.put("icon", getIcon(12, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(12, mySpeed)?.class)
-				break
-			case 13: //Check for Garage Doors - States are: ENUM ["unknown", "open", "closing", "closed", "opening"]
-				myDoor = device.currentValue("door")
-				mySwitch = (myDoor == "closed") ? "on" : "off"
-				deviceData.put("door", myDoor)
-				deviceData.put("switch", mySwitch)
-				deviceData.put("icon", getIcon(13, myDoor)?.icon)
-				deviceData.put("cl", getIcon(13, myDoor)?.class)
-				break
-			case 14: // Check for Shades and exclude blinds - States for windowShade are: ENUM ["opening", "partially open", "closed", "open", "closing", "unknown"]
-				myStatus = device.currentValue("windowShade")
-				myPosition = device.currentValue("position")
-				mySwitch = (myStatus == "closed") ? "off" : "on"
-				deviceData.put("windowShade", myStatus)
-				deviceData.put("position", myPosition)
-				deviceData.put("switch", mySwitch)
-				deviceData.put("icon", getIcon(14, myStatus)?.icon)
-				deviceData.put("cl", getIcon(14, myStatus)?.class)				
-				break
-			case 15: // Check for Blinds - States for windowBlind are: ENUM ["opening", "partially open", "closed", "open", "closing", "unknown"]
-				myStatus = device.currentValue("windowShade")
-				myPosition = device.currentValue("position")
-				mySwitch = (myStatus == "closed") ? "off" : "on"
-				deviceData.put("position", device.currentValue("position"))
-				deviceData.put("tilt", Math.round(device.currentValue("tilt") * 0.9)) 
-				deviceData.put("switch", mySwitch)
-				deviceData.put("icon", getIcon(15, myStatus)?.icon)
-				deviceData.put("cl", getIcon(15, myStatus)?.class)
-				break
-			case 16: //Check for Audio Volume - States for Mute are: ENUM ["unmuted", "muted"]
-				def myStatus = device.currentValue("mute")
-				mySwitch = (myStatus == "muted") ? "off" : "on"
-				deviceData.put("switch", mySwitch)
-				deviceData.put("volume", device.currentValue("volume"))
-				deviceData.put("icon", getIcon(16, mySwitch)?.icon)
-				deviceData.put("cl", getIcon(16, mySwitch)?.class)
-				break
-			default:
-				break		
-		}
+		def deviceTypeHandlers = [
+			1 : { d, dd -> def s = d.currentValue("switch"); dd.icon = getIcon(1, s)?.icon; dd.cl = getIcon(1, s)?.class },
+			2 : { d, dd -> def s = d.currentValue("switch"); dd.level = d.currentValue("level")?.toInteger() ?: 100; dd.icon = getIcon(2, s)?.icon; dd.cl = getIcon(2, s)?.class },
+			3 : { d, dd -> def s = d.currentValue("switch"); dd.level = d.currentValue("level")?.toInteger() ?: 100; dd.CT = d.currentValue("colorTemperature")?.toInteger() ?: 2000; dd.icon = getIcon(3, s)?.icon; dd.cl = getIcon(3, s)?.class },
+			4 : { d, dd -> def s = d.currentValue("switch"); dd.level = d.currentValue("level")?.toInteger() ?: 100; dd.CT = d.currentValue("colorTemperature")?.toInteger() ?: 2000; def hsv = [hue: d.currentValue("hue") ?: 100, saturation: d.currentValue("saturation") ?: 100, value: dd.level]; dd.color = getHEXfromHSV(hsv); dd.icon = getIcon(4, s)?.icon; dd.cl = getIcon(4, s)?.class },
+			5 : { d, dd -> def s = d.currentValue("switch"); dd.level = d.currentValue("level")?.toInteger() ?: 100; dd.CT = d.currentValue("colorTemperature")?.toInteger() ?: 2000; def hsv = [hue: d.currentValue("hue") ?: 100, saturation: d.currentValue("saturation") ?: 100, value: dd.level]; dd.color = getHEXfromHSV(hsv); dd.colorMode = d.currentValue("colorMode"); dd.icon = getIcon(5, s)?.icon; dd.cl = getIcon(5, s)?.class },
+			10: { d, dd -> def v = d.currentValue("valve"); def s = (v == "open") ? "on" : "off"; dd.switch = s; dd.icon = getIcon(10, s)?.icon; dd.cl = getIcon(10, s)?.class },
+			11: { d, dd -> def l = d.currentValue("lock"); def s = (l == "locked") ? "on" : "off"; dd.switch = s; dd.icon = getIcon(11, s)?.icon; dd.cl = getIcon(11, s)?.class },
+			12: { d, dd -> def sp = d.currentValue("speed"); def s = (sp == "off") ? "off" : "on"; dd.speed = sp; dd.switch = s; dd.icon = getIcon(12, s)?.icon; dd.cl = getIcon(12, sp)?.class },
+			13: { d, dd -> def dr = d.currentValue("door"); def s = (dr == "closed") ? "on" : "off"; dd.door = dr; dd.switch = s; dd.icon = getIcon(13, dr)?.icon; dd.cl = getIcon(13, dr)?.class },
+			14: { d, dd -> def st = d.currentValue("windowShade"); def pos = d.currentValue("position"); def s = (st == "closed") ? "off" : "on"; dd.windowShade = st; dd.position = pos; dd.switch = s; dd.icon = getIcon(14, st)?.icon; dd.cl = getIcon(14, st)?.class },
+			15: { d, dd -> def st = d.currentValue("windowShade"); def s = (st == "closed") ? "off" : "on"; dd.position = d.currentValue("position"); dd.tilt = Math.round(d.currentValue("tilt") * 0.9); dd.switch = s; dd.icon = getIcon(15, st)?.icon; dd.cl = getIcon(15, st)?.class },
+			16: { d, dd -> def m = d.currentValue("mute"); def s = (m == "muted") ? "off" : "on"; dd.switch = s; dd.volume = d.currentValue("volume"); dd.icon = getIcon(16, s)?.icon; dd.cl = getIcon(16, s)?.class }
+		]
 
+		def handler = deviceTypeHandlers[deviceType]
+		if (handler) { handler(device, deviceData) }
 		deviceDetails = getDeviceInfo(device, deviceData.get("type") )
 						
 		//Gather event information if needed for either of the two columns.
@@ -710,103 +896,142 @@ def getJSON() {
 		//log.info("Device: $deviceData.name is type: $deviceData.type and data is: $deviceData")
     }
 	
-	myContacts.each { device ->
-        def deviceData = new LinkedHashMap()
-		def deviceID = device.getId().toString()
-		deviceData.put("ID", deviceID)
-		//Get the cached version of the name which may be short from device name modification
-		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
-		deviceData.put("type", 31)
-		
-		def myContact = device.currentValue("contact")
-		deviceData.put("switch", myContact)
-		deviceData.put("icon", getIcon(31, myContact)?.icon)
-		deviceData.put("cl", getIcon(31, myContact)?.class)
-		
-		//See if it is in the pinned list. If it is then it is always shown regardless of the state
-		if ( containsDeviceID(myPinnedContacts, device.getId() )) { deviceData.put("pin", "on")	; deviceAttributesList << deviceData }
-		else {
-			if (onlyOpenContacts == "False" ) deviceAttributesList << deviceData
-			if (onlyOpenContacts == "True" && myContact == "open") deviceAttributesList << deviceData	
-		}
-				
-		//Gather event information if needed for either of the two columns.
-		deviceDetails = getDeviceInfo(device, 31 )
-		if (hideColumn7 == false ) deviceData.put("i1", deviceDetails."${info1Source}")
-		if (hideColumn8 == false ) deviceData.put("i2", deviceDetails."${info2Source}")
-		if (hideColumn9 == false ) deviceData.put("i3", deviceDetails."${info3Source}")
-	}
-	
-	myTemps.each { device ->
-		def deviceData = new LinkedHashMap()
-		def deviceID = device.getId().toString()
-		deviceData.put("ID", deviceID)
-		//Get the cached version of the name which may be short from device name modification
-		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
-		deviceData.put("type", 32)
-		
-		def myTemperature = device.currentValue("temperature") as float
-		if (tempDecimalPlaces == "0 Decimal Places") { myTemperature = myTemperature.round(0).toInteger() }
-		if (tempDecimalPlaces == "1 Decimal Place") { myTemperature = myTemperature.round(1) }
-		
-		deviceData.put("switch", myTemperature.toString() + tempUnits)
-		deviceData.put("icon", getIcon(32, "temp")?.icon)
-		deviceData.put("cl", getIcon(32, "temp")?.class)
-		
-		//See if it is in the pinned list. If it is then it is always shown ragardless of the state
-		if ( containsDeviceID(myPinnedTemps, device.getId() )) { deviceData.put("pin", "on"); deviceAttributesList << deviceData }
-		else {
-			if (onlyReportOutsideRange == "False" ) deviceAttributesList << deviceData
-			if ( onlyReportOutsideRange == "True" && ( myTemperature < minTemp.toInteger() || myTemperature > maxTemp.toInteger() ) ) deviceAttributesList << deviceData
-		}
-						
-		//Gather event information if needed for either of the two columns.
-		deviceDetails = getDeviceInfo(device, 32 )
-		if (hideColumn7 == false ) deviceData.put("i1", deviceDetails."${info1Source}")
-		if (hideColumn8 == false ) deviceData.put("i2", deviceDetails."${info2Source}")
-		if (hideColumn9 == false ) deviceData.put("i3", deviceDetails."${info3Source}")
-	}
-	
-	myLeaks.each { device ->
-		// Use LinkedHashMap to maintain the order of fields
-        def deviceData = new LinkedHashMap()
-		def deviceID = device.getId().toString()
-		deviceData.put("ID", deviceID)
-		//Get the cached version of the name which may be short from device name modification
-		deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
-		deviceData.put("type", 33)
-		
-		def myLeak = device.currentValue("water")
-		deviceData.put("switch", myLeak)
-		deviceData.put("icon", getIcon(33, myLeak)?.icon)
-		deviceData.put("cl", getIcon(33, myLeak)?.class)
-						
-		//See if it is in the pinned list. If it is then it is always shown ragardless of the state
-		if ( containsDeviceID(myPinnedLeaks, device.getId() )) { deviceData.put("pin", "on") ; deviceAttributesList << deviceData }
-		else {
-			if (onlyWetSensors == "False" ) deviceAttributesList << deviceData
-			if (onlyWetSensors == "True" && myLeak == "wet") deviceAttributesList << deviceData
-		}
-				
-		//Gather event information if needed for either of the two columns.
-		deviceDetails = getDeviceInfo(device, 33 )
-		if (hideColumn7 == false ) deviceData.put("i1", deviceDetails."${info1Source}")
-		if (hideColumn8 == false ) deviceData.put("i2", deviceDetails."${info2Source}")
-		if (hideColumn9 == false ) deviceData.put("i3", deviceDetails."${info3Source}")
+	def sensorConfigs = [
+		31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> onlyOpenContacts == "False" || (onlyOpenContacts == "True" && val == "open") }, pinnedList: myPinnedContacts],
+		32: [list: myTemps, attr: "temperature", iconAttrVal: { "temp" }, processVal: { val -> float t = val as float; if (tempDecimalPlaces == "0 Decimal Places") return t.round(0).toInteger().toString() + 
+				tempUnits; if (tempDecimalPlaces == "1 Decimal Place") return t.round(1).toString() + tempUnits; return t.toString() + tempUnits }, condition: { val -> if (onlyReportOutsideRange == "False") 
+				return true; float t = val as float; return (t < minTemp.toInteger() || t > maxTemp.toInteger()) }, pinnedList: myPinnedTemps],
+		33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> onlyWetSensors == "False" || (onlyWetSensors == "True" && val == "wet") }, pinnedList: myPinnedLeaks]
+		//, 34: [list: myBatteries, attr: "battery", iconAttrVal: { "battery" }]
+	]
+	//Loops through the sensor types
+	sensorConfigs.each { type, cfg ->
+		cfg.list.each { device ->
+			def deviceData = new LinkedHashMap()
+			def deviceID = device.getId().toString()
+			deviceData.put("ID", deviceID.toString())
+			deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
+			deviceData.put("type", type)
 
+			def rawVal = device.currentValue(cfg.attr)
+			def displayVal = cfg.processVal ? cfg.processVal(rawVal) : rawVal
+
+			deviceData.put("switch", displayVal)
+			def iconInfo = getIcon(type, cfg.iconAttrVal(rawVal))
+			deviceData.put("icon", iconInfo?.icon)
+			deviceData.put("cl", iconInfo?.class)
+
+			def isPinned = cfg.pinnedList ? containsDeviceID(cfg.pinnedList, device.getId()) : false
+			def meetsCondition = cfg.condition ? cfg.condition(rawVal) : true
+
+			if (isPinned) {
+				deviceData.put("pin", "on")
+				deviceAttributesList << deviceData
+			} else if (meetsCondition) {
+				deviceAttributesList << deviceData
+			}
+
+			def deviceDetails = getDeviceInfo(device, type)
+			if (!hideColumn7) deviceData.put("i1", deviceDetails."${info1Source}")
+			if (!hideColumn8) deviceData.put("i2", deviceDetails."${info2Source}")
+			if (!hideColumn9) deviceData.put("i3", deviceDetails."${info3Source}")
+		}
 	}
-		    
-    // Convert the list of device attributes to JSON format
+		
+	// Gather the data for the custom rows and separators
+	if (customRowCount.toInteger() > 0 && isCustomSort == "true") {		
+		(1..customRowCount.toInteger()).each { i ->
+			// Skip if the row type is Disabled
+			def rowType = settings["customRowType$i"]?.toString()
+			if (rowType == "Disabled") return
+
+			// Use LinkedHashMap to maintain the order of fields
+			def deviceData = new LinkedHashMap()
+			def deviceID = i
+			def myType
+			deviceData.put("ID", "$i") // The Device ID is the position in the array.
+
+			if (rowType == "Seperator Row") {
+				myType = 51 // Custom Separator Row
+				deviceData.put("icon", getIcon(myType, "seperatorRow")?.icon)
+				deviceData.put("cl", getIcon(myType, "seperatorRow")?.class)
+			} else if (rowType == "Device Row") {
+				myType = 52 // Custom Device Row
+				deviceData.put("icon", getIcon(myType, "deviceRow")?.icon)
+				deviceData.put("cl", getIcon(myType, "deviceRow")?.class)
+			}
+
+			deviceData.put("type", myType)
+			deviceData.put("name", toHTML(replaceVarsInString(settings["myNameText$i"]?.toString())))
+			deviceData.put("switch", toHTML(replaceVarsInString(settings["myStateText$i"]?.toString())))
+			deviceData.put("level", toHTML(replaceVarsInString(settings["myControlABText$i"]?.toString())))
+			if (!hideColumn7) deviceData.put("i1", toHTML(replaceVarsInString(settings["myInfoAText$i"]?.toString())))
+			if (!hideColumn8) deviceData.put("i2", toHTML(replaceVarsInString(settings["myInfoBText$i"]?.toString())))
+			if (!hideColumn9) deviceData.put("i3", toHTML(replaceVarsInString(settings["myInfoCText$i"]?.toString())))
+
+			deviceAttributesList << deviceData
+		}
+	}
+	
+	// Convert the list of device attributes to JSON format
     def compactJSON = JsonOutput.toJson(deviceAttributesList)
 	    
 	if (isLogDebug) {
 		// Pretty print the JSON output
-    	def prettyJSON = JsonOutput.prettyPrint(compactJSON)
-		log.debug("getJSON Output: $prettyJSON")
+    	prettyJSON = JsonOutput.prettyPrint(compactJSON)
+		log.debug("getJSON Output 1B: $prettyJSON")
 	}
 			
 	//Save the compact JSON. This is the version that is collected by the client.
-    state.JSON = compactJSON
+	state.JSON = compactJSON
+	
+	//If we are using a Custom Sort we have to calculate the new Sort Order and save it to state.JSON
+	if (isCustomSort == "true"){
+		// Parse JSON into lists
+		def slurper = new JsonSlurper()
+		def list1 = slurper.parseText(state?.JSON)
+		def list2 = slurper.parseText(state.customSortOrder)
+		
+		// Create a map from JSON2 for quick lookup
+		def rowMap = list2.collectEntries { [(it.ID): it.row] }
+
+		// Merge data
+		def mergedList = list1.collect { item ->
+			if (rowMap.containsKey(item.ID)) {
+				item.row = rowMap[item.ID]  // Add row field
+			}
+			return item
+		}
+		state.JSON = JsonOutput.prettyPrint(JsonOutput.toJson(mergedList))
+		if (isLogDebug) log.debug  ("Merged List: " + JsonOutput.prettyPrint(JsonOutput.toJson(mergedList)) )
+	}
+}
+
+//Replace %var1% - %var10% that can be placed in the device and seperator strings with the actual expanded values.
+def replaceVarsInString(str) {
+	(1..10).each { i ->
+        def placeholder = "%var${i}%"
+        def replacement = getVariableText(i)
+	    str = str?.replace(placeholder, replacement)
+    }
+    return str
+}
+
+//Returns the variable value for a the variable with index i.
+String getVariableText(i) {
+	def myValue = ""
+	if (settings["variableSource$i"] == "Device Attribute" && settings["myDevice$i"] != null && settings["myAttribute$i"] != null) {
+		myValue = settings["myDevice$i"]?.currentValue(settings["myAttribute$i"])
+		if (myValue == null) myValue = invalidAttribute.toString()
+		//log.info ("getVariableText($i) - Attribute: " + settings["myAttribute$i"] + ":$myValue")
+	}
+
+	if (settings["variableSource$i"] == "Hub Variable" && settings["myHubVariable$i"] != null) {
+		myMap = getGlobalVar(settings["myHubVariable$i"])
+		myValue = myMap.value
+		//log.info ("getVariableText($i) - Hub Var: " + settings["myHubVariable$i"] + ":$myValue")
+	}
+	return myValue
 }
 
 //Checks the cached list to see if the received deviceID is part of that list.  This is used to determine whether something is pinned or not.
@@ -820,8 +1045,7 @@ def containsDeviceID(deviceList, deviceID) {
 
 // Return the appropriate icon and class to match the type and deviceState
 def getIcon(type, deviceState) {
-	//log.info ("Received: $type $deviceState)")
-    def icons = [
+	def icons = [
         1  : [on: [icon: "toggle_on", class: "on"], off: [icon: "toggle_off", class: "off"]],
         2  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
         3  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
@@ -841,7 +1065,11 @@ def getIcon(type, deviceState) {
         // Sensors start at 31
         31 : [open: [icon: "expand_content", class: "warn"], closed: [icon: "collapse_content", class: "off"]],
 		32 : [temp: [icon: "device_thermostat", class: "off"]],
-		33 : [wet: [icon: "water_drop", class: "warn"], dry: [icon: "format_color_reset", class: "off"] ]
+		33 : [wet: [icon: "water_drop", class: "warn"], dry: [icon: "format_color_reset", class: "off"] ],
+		34 : [battery: [icon: "battery_android_4", class: "off"] ],
+		//Custom Devices start at 51
+		51 : [seperatorRow: [icon: "atr", class: "off"] ],
+		52 : [deviceRow: [icon: "info", class: "off"] ]
     ]
 
     // Retrieve the entry for the given type and deviceState
@@ -851,7 +1079,6 @@ def getIcon(type, deviceState) {
 	//log.info ("Returning: $result")
     return result ?: [icon: "error", class: "warn"]
 }
-
 
 //Check to see if a given infoSource is in use across all three possibilities
 def isInfoSource(source){
@@ -1056,6 +1283,17 @@ def setDeviceColor(device, hexColor) {
     device.setColor([hue: HSV[0], saturation: HSV[1], level: HSV[2]])
 }
 
+// Iterate over each device in myDevices and check if ID matches. If it does match return that device.
+def findDeviceById(ID) {
+    def foundDevice = null  // Variable to store the found device
+    myDevices.each { device ->
+        if (device.getId() == ID) {
+            foundDevice = device
+            return foundDevice
+        }
+    }
+    return foundDevice
+}
 
 //*******************************************************************************************************************************************************************************************
 //**************
@@ -1164,7 +1402,7 @@ String convertSecondsToDHMS(long seconds, boolean includeSeconds) {
 
 //Gets the duration between two instants (lastActive / lastInactive) that would typically be an on/off pairing.
 def getDuration(long lastActiveEvent, long lastInactiveEvent) {
-	if (isLogTrace) log.trace("<b>getDuration: Received $lastActiveEvent, $lastInactiveEvent</b>")
+	//if (isLogTrace) log.trace("<b>getDuration: Received $lastActiveEvent, $lastInactiveEvent</b>")
     def includeSeconds = false
     long diff = lastActiveEvent - lastInactiveEvent
 	
@@ -1202,18 +1440,28 @@ def getDuration(long lastActiveEvent, long lastInactiveEvent) {
 
 //*******************************************************************************************************************************************************************************************
 //**************
+//**************  End of Time and Date Related Functions
+//**************
+//*******************************************************************************************************************************************************************************************
+
+
+
+//*******************************************************************************************************************************************************************************************
+//**************
 //**************  Compile Time Functions
 //**************
 //*******************************************************************************************************************************************************************************************
 
 //Compress the fixed components text output and generate the version that will be used by the browser.
 def compile(){
-	try{
+	//Assign the device types
+	//try{
 		if (isLogTrace) log.trace("<b>Entering: Compile</b>")
 		if (isLogDebug) log.debug("Running Compile")
-
+			
 		def html1 = myHTML()
 		def content = condense(html1)
+		
 		def localContent
 		def cloudContent
 
@@ -1223,7 +1471,7 @@ def compile(){
 		//The AppID is used as a unique key for saving items in local and session storage so that preferences are tied to the each unique SmartGrid
 		state.AppID = state.accessToken.toString()[-4..-1]
 		content = content.replace('#AppID#', state.AppID )
-				
+		
 		//Table Horizontal Alignment
 		if (ha == "Stretch") content = content.replace('#ha#', "stretch" )
 		if (ha == "Left") content = content.replace('#ha#', "flex-start" )
@@ -1242,7 +1490,7 @@ def compile(){
 		content = content.replace('#bc#', bc )
 		content = content.replace('#bwo#', bwo )
 		content = content.replace('#bwi#', bwi )
-		
+
 		//Column Headers
 		content = content.replace('#column3Header#', toHTML(column3Header) )	// Column 3 header text
 		content = content.replace('#column5Header#', toHTML(column5Header) )	// Column 5 header text
@@ -1255,7 +1503,13 @@ def compile(){
 		if ( highlightPinnedRows == "True" ) content = content.replace('#rbpc#', rbpc )
 		if ( highlightSelectedRows == "True" ) content = content.replace('#rbs#', rbs ) 
 		else content = content.replace('#rbs#', "00000000" ) 
-		
+	
+		//Custom Rows
+		content = content.replace('#crbc#', crbc )
+		content = content.replace('#crbc2#', crbc2 )
+		content = content.replace('#crtc#', crtc )
+		content = content.replace('#crts#', crts )
+
 		//Info Columns
 		content = content.replace('#Info1#', toHTML(column7Header) )	// Info 1 Header Text
 		content = content.replace('#its1#', its1 )	// Info 1 Text Size
@@ -1295,7 +1549,7 @@ def compile(){
 		def myrbc = convertToHex8(rbc, rbo.toFloat())  //Calculate the new color including the opacity.
 		content = content.replace('#rbc#', myrbc )	// Row Background Color
 		content = content.replace('#rbs#', rbs )	// Row Background Color Selected
-		
+	
 		//Hide unwanted columns
 		content = content.replace('#hideColumn1#', hideColumn1 ? 'none' : 'table-cell')
 		content = content.replace('#hideColumn2#', hideColumn2 ? 'none' : 'table-cell')
@@ -1307,9 +1561,10 @@ def compile(){
 		content = content.replace('#hideColumn8#', hideColumn8 ? 'none' : 'table-cell')
 		content = content.replace('#hideColumn9#', hideColumn9 ? 'none' : 'table-cell')
 		content = content.replace('#hideColumn10#', hideColumn10 ? 'none' : 'table-cell')
-
+		content = content.replace('#hideColumn11#', hideColumn11 ? 'none' : 'table-cell')
 		content = content.replace('#BrowserTitle#', myRemoteName)
-
+	
+		content = content.replace('#pollInterval#', (pollInterval.toInteger() * 1000).toString() )
 		content = content.replace('#pollInterval#', (pollInterval.toInteger() * 1000).toString() )
 		content = content.replace('#pollUpdateColorSuccess#', pollUpdateColorSuccess)
 		content = content.replace('#pollUpdateColorFail#', pollUpdateColorFail)
@@ -1318,12 +1573,26 @@ def compile(){
 		content = content.replace('#pollUpdateDuration#', (pollUpdateDuration.toInteger() * 1000).toString() )
 		content = content.replace('#commandTimeout#', (commandTimeout.toInteger() * 1000).toString() )
 	
-		if (isPollingEnabled == "Enabled") content = content.replace('#isPollingEnabled#', "true")
-		if (isPollingEnabled == "Disabled") content = content.replace('#isPollingEnabled#', "false")
+		if (isPolling == "Enabled") content = content.replace('#isPolling#', "true")
+		if (isPolling == "Disabled") content = content.replace('#isPolling#', "false")
 
 		content = content.replace('#shuttleColor#', shuttleColor)
 		content = content.replace('#shuttleHeight#', shuttleHeight)
-
+	
+		//Drag & Drop - Custom Sort
+		content = content.replace('#isDragDrop#', "$isDragDrop" )
+		if (isDragDrop == true) {	//This is a boolean variable so it uses true\false.
+			content = content.replace('#isDragDropCSS#',  "tbody tr {cursor: grab;} .dragging {opacity: 0.5;}" )
+			content = content.replace('#isDragDrop#',  "true" )
+		}
+		else {
+			content = content.replace('#isDragDropCSS#',  "tbody tr {cursor: normal;}" )
+			content = content.replace('#isDragDrop#',  "false" )
+		}
+	
+		if (isCustomSort == "true") content = content.replace('#isCustomSort#',  "true" )  //This is an ENUM so it uses a string compare.
+		else content = content.replace('#isCustomSort#',  "false" )  //This is an ENUM so it uses a string compare.
+		 		
 		//Put the proper statement in for the Materials Font. It's done this way because the cleaning of comments catches the // in https://
 		content = content.replace('#MaterialsFont#', "<link href='https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined' rel='stylesheet'>")
 		
@@ -1348,16 +1617,12 @@ def compile(){
 
 		def now = new Date()
 		state.compiledDataTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
-	}
+	//}
+	if (isLogTrace) log.trace("<b>Leaving: Compile</b>")
 		
-	catch (Exception exception) {
-        log.error("Function compile() - Exception is: $exception")
-	}
-
-
-		 
-	//Assign the device types
-	cacheDeviceInfo()
+	//catch (Exception exception) {
+//    	log.error("Function compile() - Exception is: $exception")
+//	}
 }
 
 //Remove any wasted space from the compiled version to shorten load times.
@@ -1402,6 +1667,7 @@ def condense(String input) {
 //Determines the deviceInfo (type) for each device and saves it in state along with the deviceID and the short device name as these can only change at compile time. 
 //This function only runs at compile() so it reduces the amount of work being performed by the Hub by caching these results vs calculating them each time.
 def cacheDeviceInfo(){
+	if (isLogTrace) log.trace(red("In Cache Device Info"))
 	def myDeviceList = []
 	myDevices.each { device ->
 		def deviceInfo = new LinkedHashMap()
@@ -1437,7 +1703,8 @@ def cacheDeviceInfo(){
     }
 		
 	//Now go through each of the sensor lists and get the Name, deviceID and type and put it into the deviceInfo
-	def mySensorMap = [ myContacts: 31, myTemps: 32, myLeaks: 33]
+	//def mySensorMap = [ myContacts: 31, myTemps: 32, myLeaks: 33, myBatteries: 34]
+	def mySensorMap = [ myContacts: 31, myTemps: 32, myLeaks: 33 ]
 
 	mySensorMap.each { sensorKey, type ->
     	def deviceList = this."$sensorKey" // Dynamically get the list by its name
@@ -1453,7 +1720,6 @@ def cacheDeviceInfo(){
 		
 	// Add device data to the list
     state.deviceList = myDeviceList
-	//log.info ( "deviceList is: $deviceList")
 }
 
 //Perform any Device Renaming requested using the Device Name Modification Fields
@@ -1541,14 +1807,29 @@ def toHub() {
 
     // Parse JSON
     def slurper = new JsonSlurper()
-    def group1 = slurper.parseText(state.JSON)  // Original state
-    def group2 = slurper.parseText(bodyJson)   // New state
+    def group1 = slurper.parseText(state.JSON)  // This is the state of all of the devices as currerntly known on the Hub
+    def group2 = slurper.parseText(bodyJson)   // This is the state of all of the devices as known to the App. It may alternately contain the customSortOrder.
 	
-    if (isLogDebug) log.debug ("state.JSON is: $group1")
-    if (isLogDebug) log.debug ("Device Data is: $group2")
+    if (isLogDebug) log.debug ("Hub data (state.JSON): $group1")
+    if (isLogDebug) log.debug ("App data: $group2")
 	
+	// Test to see whether we are receiving a customSortOrder. If so, we save it in state.customSortOrder as a JSON string.
+	if (group2 instanceof Map && group2.customSortOrder instanceof List) {
+		if (isLOgDebug) log.debug("customSortOrder exists: ${group2.customSortOrder}")
+
+		def myCustomSortOrder = group2.customSortOrder
+
+		// Convert the updated object back to a JSON string for storage into the state variable.
+		state.customSortOrder = JsonOutput.toJson(myCustomSortOrder)
+
+		if (isLogDebug) log.debug(dodgerBlue("state.customSortOrder is: $state.customSortOrder"))
+
+		return // Nothing further to do.
+	}
+	
+	//If the app is reporting a device state change if will now be processed
     // Map the second group by 'ID' for easier comparison
-    def group2Map = group2.collectEntries { [(it.ID): it] }
+	def group2Map = group2.findAll { it instanceof Map && it.ID != null } .collectEntries { [(it.ID): it] }
     
     // Find changes
     def changes = []
@@ -1588,10 +1869,7 @@ def toHub() {
 
 	// Print changes for each device one at a time
 	changes.each { change ->
-        
         def myDeviceName = findDeviceById(change.ID)
-        //log.info ("My deviceName is: $myDeviceName")
-            
     	def key = change.changes.keySet().first()  // Get the key of the change (since there's only one)
     	def values = change.changes[key]           // Get the old and new values
     	if (isLogActions) log.info dodgerBlue("<b>Action: ${myDeviceName} (ID: ${change.ID}): $key: ${values[0]} ---> ${values[1]} </b>")
@@ -1655,8 +1933,27 @@ def poll() {
 //This is the standard button handler that receives the click of any button control.
 def appButtonHandler(btn) {
 	if (isLogTrace) log.trace("<b>Entering: appButtonHandler: Clicked on button: $btn</b>")
-    
+	def buttonNumber
+	def buttonMap = ['Controls':1, 'Sensors':2, 'Batteries':3, 'Inactivity':4, 'Endpoints':5, 'Polling':6, 'Variables':7, 'CustomRows':8, 'Publish':9, 'Logging':10, 'General': 21, 'Appearance': 22, 'Title': 23, 'Columns':  24, 'Padding': 25, 'Experimental': 26]
+	
+	try {
+		buttonNumber = buttonMap[btn]
+		//if ( buttonNumber != null ) log.info ("buttonNumber is: $buttonNumber")
+	}
+	catch (Exception ignored) { }
+	
+	if (buttonNumber in 1..10)      { state.activeButtonA = buttonNumber; return }
+	if (buttonNumber in 20..30)     { state.activeButtonB = buttonNumber; return }
+	    
 	switch (btn) {
+		case 'EnableDragDrop':
+			app.updateSetting("isDragDrop", true)
+			compile()
+			break
+		case 'saveCustomSort':
+			app.updateSetting("isDragDrop", false)
+			compile()
+			break
 		case "rebuildEndpoints":
 			createAccessToken()
             state.localEndpoint = "${getFullLocalApiServerUrl()}/tb?access_token=${state.accessToken}"
@@ -1671,23 +1968,17 @@ def appButtonHandler(btn) {
 		case "Compile":
             compile()
             break
-        case "btnHideControls":
-            state.hidden.Controls = state.hidden.Controls ? false : true
-            break
-		case "btnHideSensors":
-            state.hidden.Sensors = state.hidden.Sensors ? false : true
-            break
-        case "btnHideEndpoints":
-            state.hidden.Endpoints = state.hidden.Endpoints ? false : true
-            break
-		case "btnHidePolling":
-            state.hidden.Polling = state.hidden.Polling ? false : true
+		case "applyTheme":
+			applyTheme()
+			break
+        case "btnHideConfigure":
+            state.hidden.Configure = state.hidden.Configure ? false : true
             break
         case "btnHideDesign":
             state.hidden.Design = state.hidden.Design ? false : true
             break
-        case "btnHidePublish":
-            state.hidden.Publish = state.hidden.Publish ? false : true
+		case "btnHidePreview":
+            state.hidden.Preview = state.hidden.Preview ? false : true
             break
 		case "publishSubscribe":
             publishSubscribe()
@@ -1700,24 +1991,9 @@ def appButtonHandler(btn) {
 
 //Returns a formatted title for a section header based on whether the section is visible or not.
 def getSectionTitle(section) {
-	if (section == "Introduction") { if (state.hidden.Intro == true) return sectionTitle("Introduction ▶") else return sectionTitle("Introduction ▼") }
-	if (section == "Controls") { if (state.hidden.Controls == true) return sectionTitle("Controls ▶") else return sectionTitle("Controls ▼") }
-	if (section == "Sensors") { if (state.hidden.Sensors == true) return sectionTitle("Sensors ▶") else return sectionTitle("Sensors ▼") }
-    if (section == "Endpoints") { if (state.hidden.Endpoints == true) return sectionTitle("Endpoints ▶") else return sectionTitle("Endpoints ▼") }
-	if (section == "Polling") { if (state.hidden.Polling == true) return sectionTitle("Polling ▶") else return sectionTitle("Polling ▼") }
-    if (section == "Design") { if (state.hidden.Design == true) return sectionTitle("Design SmartGrid ▶") else return sectionTitle("Design SmartGrid ▼") }
-    if (section == "Publish") { if (state.hidden.Publish == true) return sectionTitle("Publish Remote ▶") else return sectionTitle("Publish Remote ▼") }
-}
-
-String buttonLink(String btnName, String linkText, int buttonNumber) {
-    //if (isLogTrace) log.trace("<b>buttonLink: Entering with $btnName  $linkText  $buttonNumber</b>")
-    def myColor, myText
-    Integer myFont = 16
-
-    if (buttonNumber == settings.activeButton) myColor = "#00FF00" else myColor = "#000000"
-    if (buttonNumber == settings.activeButton) myText = "<b><u>${linkText}</u></b>" else myText = "<b>${linkText}</b>"
-
-    return "<div class='form-group'><input type='hidden' name='${btnName}.type' value='button'></div><div><div class='submitOnChange' onclick='buttonClick(this)' style='color:${myColor};cursor:pointer;font-size:${myFont}px'>${myText}</div></div><input type='hidden' name='settings[$btnName]' value=''>"
+	if (section == "Configure") { if (state.hidden.Configure == true) return sectionTitle("Configure ▶") else return sectionTitle("Configure ▼") }
+	if (section == "Preview") { if (state.hidden.Preview == true) return sectionTitle("Preview ▶") else return sectionTitle("Preview ▼") }
+	if (section == "Design") { if (state.hidden.Design == true) return sectionTitle("Design ▶") else return sectionTitle("Design ▼") }
 }
 
 //*******************************************************************************************************************************************************************************************
@@ -1725,6 +2001,7 @@ String buttonLink(String btnName, String linkText, int buttonNumber) {
 //**************  End Screen UI and Management Functions
 //**************
 //*******************************************************************************************************************************************************************************************
+
 
 
 //*******************************************************************************************************************************************************************************************
@@ -1735,6 +2012,7 @@ String buttonLink(String btnName, String linkText, int buttonNumber) {
 
 //This function removes all existing subscriptions for this app and replaces them with new ones corresponding to the devices and attributes being monitored.
 void publishSubscribe() {
+	
     if (isLogTrace) log.trace("<b>Entering: publishSubscribe</b>")
 	if (isLogPublish) log.info("<b>Creating subscriptions for Tile: $myRemote with description: $myRemoteName.</b>")
 	
@@ -1745,34 +2023,49 @@ void publishSubscribe() {
 	def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature","valve","lock","speed","door","windowShade","position", "tilt", "mute","volume","contact","water"]
 	deleteSubscription()
 	
-	// Configure subscriptions
+	// Configure subscriptions to devices
 	myDevices?.each { device ->
 		attributesToSubscribe.each { attribute ->
 			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
 		}
 	}
 	
-	// Configure subscriptions
+	// Configure subscriptions to contacts
 	myContacts?.each { device ->
 		attributesToSubscribe.each { attribute ->
 			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
 		}
 	}
 	
-	// Configure subscriptions
+	// Configure subscriptions to temperatures
 	myTemps?.each { device ->
 		attributesToSubscribe.each { attribute ->
 			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
 		}
 	}
 	
-	// Configure subscriptions
+	// Configure subscriptions to leaks
 	myLeaks?.each { device ->
 		attributesToSubscribe.each { attribute ->
 			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
 		}
 	}
 	
+	// Configure subscriptions to variables
+	for (int i = 1; i <= myVariableCount; i++) {
+		if (settings["variableSource${i}"] == "Device Attribute") {
+			if ( settings["myDevice${i}"].hasAttribute(settings["myAttribute${i}"]) ) {
+				subscribe(settings["myDevice${i}"], settings["myAttribute${i}"], handler)	} 
+				if (isLogDebug) log.debug("Attribute Subscribed")
+		}	
+		
+		if (settings["variableSource${i}"] == "Hub Variable") {
+			if (isLogDebug) log.debug ("It's a Hub variable")
+			variable = settings["myHubVariable${i}"].toString()
+			subscribe(location, "variable:$variable", "handler")
+		}	
+	}
+			
     //Now we call the publishRemote routine to push the new information to the device attribute.
     publishRemote()
 }
@@ -1785,10 +2078,10 @@ void publishRemote(){
     try {
 		if( !state.accessToken ) createAccessToken()
         state.cloudEndpoint = getFullApiServerUrl() + "/tb?access_token=" + state.accessToken
-        }
+     }
 	catch (Exception e){
         if (isLogError) log.error("This app is not OAuth Enabled.  Go to: <b>Developer Tools</b> / <b>Apps Code</b> and open the code for this app.  Click on <b>OAuth</b> and then <b>Enable OAuth in App</b> and leave it athe default values.")
-        }
+     }
     
     if (isLogPublish) log.info("publishTable: Remote $myRemote ($myRemoteName) is being refreshed.")
     
@@ -1798,12 +2091,17 @@ void publishRemote(){
         return
     }
     
-	def tileLink1 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.localEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][/div]"
-	def tileLink2 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][/div]"
-		
+	def tileLink1 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe name=" + state.AppID + "-A src=" + state.localEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][/div]"
+	def tileLink2 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe name=" + state.AppID + "-A src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][/div]"
+	def tileLink3 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe name=" + state.AppID + "-B src=" + state.localEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][/div]"
+	def tileLink4 = "[!--Generated:" + now() + "--][div style='height:100%; width:100%; scrolling:no; overflow:hidden;'][iframe name=" + state.AppID + "-B src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe][/div]"
+	
+	if (settings.myRemote.toInteger() <= 20) { myStorageDevice.createTile(settings.myRemote, tileLink1, tileLink2, settings.myRemoteName) }
+	else myStorageDevice.createTile2(settings.myRemote, tileLink1, tileLink2, tileLink3, tileLink4, settings.myRemoteName)
+			
 	if (isLogPublish) log.info ("publishRemote: tileLink1 is: $tileLink1")
-		
-    myStorageDevice.createTile(settings.myRemote, tileLink1, tileLink2, settings.myRemoteName)
+	
+	
 }
 
 //This should get executed whenever any of the subscribed devices receive an update to the monitored attribute. Delays will occur if the eventTimeout is > 0
@@ -1811,7 +2109,7 @@ def handler(evt) {
 	if (isLogTrace) log.trace("<b>Entering: handler with $evt</b>")
 	
     //Handles the initialization of new variables added in code updates.
-    if (state.variablesVersion == null || state.variablesVersion < codeVersion) updateVariables()
+    initialize()
 	
 	//Change the flag used by the polling process to indicate a change has been detected.
 	if (isLogDebug) log.debug("fromHub: Changing isPollUpdate to true.")
@@ -1877,6 +2175,7 @@ static String line(myHeight) { return "<div style='background:#005A9C; height: "
 static String dodgerBlue(s) { return '<font color = "DodgerBlue">' + s + '</font>' }
 
 static String red(s) { return '<font color = "Red">' + s + '</font>' }
+static String green(s) { return '<font color = "Green">' + s + '</font>' }
 
 // Convert HSV to RGB using the values in the received map.
 def getHEXfromHSV(hsvMap){
@@ -1903,30 +2202,50 @@ def convertToHex8(String hexColor, float opacity) {
     return Hex8
 }
 
-// Iterate over each device in myDevices and check if ID matches. If it does match return that device.
-def findDeviceById(ID) {
-    def foundDevice = null  // Variable to store the found device
-    myDevices.each { device ->
-        if (device.getId() == ID) {
-            foundDevice = device
-            return foundDevice
-        }
-    }
-    return foundDevice
-}
-
-//Convert [HTML] tags to <HTML> for display.
-def toHTML(HTML) {
-    if (HTML == null) return ""
-    myHTML = HTML.replace("[", "<")
-    myHTML = myHTML.replace("]", ">")
-    return myHTML
-}
-
 //Set the notes to a consistent style.
 static String summary(myTitle, myText) {
     myTitle = dodgerBlue(myTitle)
     return "<details><summary>" + myTitle + "</summary>" + myText + "</details>"
+}
+
+//Used to create on screen buttons with links.
+String buttonLink(String btnName, String linkText, int buttonNumber) {
+	//if (isLogTrace) log.trace("<b>buttonLink: Entering with $btnName  $linkText  $buttonNumber</b>")
+    def myColor = "#000000"
+    def myText = "<b>${linkText}</b>"
+    def myFont = 16
+
+    if ((buttonNumber in 1..10 && buttonNumber == state.activeButtonA) ||
+        (buttonNumber in 20..30 && buttonNumber == state.activeButtonB)) {
+        myColor = "#ffFFFF"
+        myText = "<b><u>${linkText}</u></b>"
+    }
+    return "<div class='form-group'><input type='hidden' name='${btnName}.type' value='button'></div><div><div class='submitOnChange' onclick='buttonClick(this)' style='color:${myColor};cursor:pointer;font-size:${myFont}px'>${myText}</div></div><input type='hidden' name='settings[$btnName]' value=''>"
+}
+
+//Get a list of supported attributes for a given device and return a sorted list.
+def getAttributeList (thisDevice){
+    if (thisDevice != null) {
+        myAttributesList = []
+        supportedAttributes = thisDevice.supportedAttributes
+        supportedAttributes.each { attributeName -> myAttributesList << attributeName.name }
+        return myAttributesList.unique().sort()
+     }     
+}
+
+//Convert <HTML> tags to (HTML) for storage.
+def unHTML(HTML){
+    myHTML = HTML.replace("<", "[")
+    myHTML = myHTML.replace(">", "]")
+    return myHTML
+}
+
+//Convert (HTML) tags to <HTML> for display.
+def toHTML(HTML){    
+    if (HTML == null) return ""
+    myHTML = HTML.replace("[", "<")
+    myHTML = myHTML.replace("]", ">")
+    return myHTML
 }
 
 //*******************************************************************************************************************************************************************************************
@@ -1939,172 +2258,7 @@ static String summary(myTitle, myText) {
 
 //*******************************************************************************************************************************************************************************************
 //**************
-//**************  Standard System Elements
-//**************
-//*******************************************************************************************************************************************************************************************
-
-//Configures all of the default settings values. This allows us to have some parts of the settings not be visible but still have their values initialized.
-//We do this to avoid errors that might occur if a particular setting were referenced but had not been initialized.
-def initialize() {
-    if (state.initialized == true) {
-        if (isLogTrace) log.trace("<b>initialize: Initialize has already been run. Exiting</b>")
-        //return
-    }
-    log.trace("<b>Running Initialize</b>")
-	
-	//Device Selection
-	app.updateSetting("filter", [value: "All Selectable Controls", type: "enum"])
-
-	//Endpoints and Polling
-    createAccessToken()
-    state.localEndpoint = "${getFullLocalApiServerUrl()}/tb?access_token=${state.accessToken}"
-    state.cloudEndpoint = "${getFullApiServerUrl()}/tb?access_token=${state.accessToken}"
-	state.localEndpointData = "${getFullLocalApiServerUrl()}/tb/data?access_token=${state.accessToken}"
-    state.cloudEndpointData = "${getFullApiServerUrl()}/tb/data?access_token=${state.accessToken}"
-	state.localEndpointPoll = "${getFullLocalApiServerUrl()}/tb/poll?access_token=${state.accessToken}"
-    state.cloudEndpointPoll = "${getFullApiServerUrl()}/tb/poll?access_token=${state.accessToken}"
-
-	app.updateSetting("isPollingEnabled", [value: "Enabled", type: "enum"])
-	app.updateSetting("pollInterval", "3")
-	app.updateSetting("pollUpdateColorSuccess", [value: "#00FF00", type: "color"])
-	app.updateSetting("pollUpdateColorFail", [value: "#FF0000", type: "color"])
-	app.updateSetting("pollUpdateColorPending", [value: "#FFA500", type: "color"])
-	app.updateSetting("pollUpdateDuration", [value: "2", type: "enum"])
-	app.updateSetting("shuttleColor", [value: "#99C5FF", type: "color"])
-	app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
-		
-	//Tile Size
-	app.updateSetting("tilePreviewWidth", "3")
-    app.updateSetting("tilePreviewHeight", "2")
-	app.updateSetting("tilePreviewBackground", [value: "#696969", type: "color"])
-		
-	//Global Settings
-	app.updateSetting("invalidAttribute", [value: "N/A", type: "enum"])
-	app.updateSetting("defaultDateTimeFormat", 3)
-	app.updateSetting("defaultDurationFormat", 21)
-	
-	//Table Properties
-	app.updateSetting("controlSize", [value: "15", type: "enum"])
-	app.updateSetting("thp", "5")
-	app.updateSetting("tvp", "3")
-	app.updateSetting("tvpm", "0")
-	app.updateSetting("tmt", "0")
-	app.updateSetting("ha", [value: "Stretch", type: "enum"])
-	app.updateSetting("va", [value: "Center", type: "enum"])
-	
-	//General Properties
-	app.updateSetting("tempUnits", [value: "°F", type: "enum"])
-	app.updateSetting("sortHeaderHintAZ", [value: "#00FF00", type: "color"])
-	app.updateSetting("sortHeaderHintZA", [value: "#FF0000", type: "color"])
-	app.updateSetting("tempDecimalPlaces", [value: "0 Decimal Places", type: "enum"])
-		
-	//Column Properties
-	app.updateSetting("column2Header", "Icon")
-	app.updateSetting("column3Header", "Name")
-	app.updateSetting("column4Header", "State")
-	app.updateSetting("column5Header", "Control A/B")
-	app.updateSetting("column6Header", "Control C")
-	app.updateSetting("column7Header", "Last Active")
-	app.updateSetting("column8Header", "Duration")
-	app.updateSetting("column9Header", "Room")
-	app.updateSetting("column10Header", "Pin")
-	
-	//Hidden Columns
-	app.updateSetting("hideColumn1", false)
-	app.updateSetting("hideColumn2", false)
-	app.updateSetting("hideColumn3", false)
-	app.updateSetting("hideColumn4", false)
-	app.updateSetting("hideColumn5", false)
-	app.updateSetting("hideColumn6", false)
-	app.updateSetting("hideColumn7", true)
-	app.updateSetting("hideColumn8", true)
-	app.updateSetting("hideColumn9", true)
-	app.updateSetting("hideColumn10", true)
-	
-	//Info Column Properties
-	app.updateSetting("info1Source", "lastActive")
-	app.updateSetting("its1", "80")
-	app.updateSetting("ita1", "Center")
-	app.updateSetting("info2Source", "lastActiveDuration")
-	app.updateSetting("its2", "80")
-	app.updateSetting("ita2", "Center")
-	app.updateSetting("info3Source", "roomName")
-	app.updateSetting("its3", "80")
-	app.updateSetting("ita3", "Center")
-			
-	 //Title Properties
-    app.updateSetting("tt", "?")
-    app.updateSetting("ts", "125")
-	app.updateSetting("tp", "5")
-    app.updateSetting("tc", [value: "#000000", type: "color"])
-	app.updateSetting("tb", [value: "#8FC126", type: "color"])
-    app.updateSetting("ta", "Center")
-	app.updateSetting("to", "1")
-    	
-	//Header Properties
-	app.updateSetting("hts", "100")
-	app.updateSetting("htc", [value: "#000000", type: "color"])
-	app.updateSetting("hbc", [value: "#8FC126", type: "color"])
-	app.updateSetting("hbo", "1")
-	    
-	//Row Properties
-	app.updateSetting("rts", "90")
-	app.updateSetting("rtc", [value: "#000000", type: "color"])
-    app.updateSetting("rbc", [value: "#D9ECB1", type: "color"])
-	app.updateSetting("rbo", "1")
-	
-	app.updateSetting("highlightSelectedRows", "True")
-	app.updateSetting("rbs", [value: "#FFE18F", type: "color"])
-	
-	app.updateSetting("highlightPinnedRows", "True")
-	app.updateSetting("rbpc", [value: "#A7C7FB", type: "color"])
-	
-	//Borders
-	app.updateSetting("bc", [value: "#000000", type: "color"])
-	app.updateSetting("bwo", "2.5")  //Border Width - Outer
-	app.updateSetting("bwi", "1")  //Border Width - Inner
-	app.updateSetting("tpad", "3")  //Border Width - Inner
-	
-    //Publishing
-	app.updateSetting("mySelectedRemote", "")
-    app.updateSetting("publishEndpoints", [value: "Local", type: "enum"])
-    app.updateSetting("eventTimeout", "2000")
-    
-    //Set initial Log settings
-	app.updateSetting('isLogConnections', false)
-	app.updateSetting('isLogActions', true)
-	app.updateSetting('isLogPublish', false)
-	app.updateSetting('isLogDeviceInfo', false)
-	app.updateSetting('isLogError', true)
-    app.updateSetting('isLogDebug', false)
-    app.updateSetting('isLogTrace', false)
-    
-	//Have all the sections collapsed to begin with except devices
-    state.hidden = [Controls: false, Sensors: true, Endpoints: true, Polling: true, Design: false, Publish: false]
-    state.updatedSessionList = []
-    state.initialized = true
-	state.compiledLocal = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
-	state.compiledCloud = "<span style='font-size:32px;color:yellow'>No Devices!</span>"
-}
-
-def updated(){
-    if(!state?.isInstalled) { state?.isInstalled = true }
-}
-
-
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End Standard System Elements
-//**************
-//*******************************************************************************************************************************************************************************************
-
-
-
-
-
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Remote Control APPlet Code
+//**************  Remote Control APP-let Code
 //**************
 //*******************************************************************************************************************************************************************************************
 
@@ -2163,18 +2317,24 @@ def HTML =
 	table {width: calc(100%); border-collapse: collapse; table-layout: auto; border: #bwo#px solid #bc#; margin: 0 auto;}
 	th, td { padding: #tvp#px #thp#px; text-align:center; vertical-align:middle; border: #bwi#px solid #bc#; transition:background-color 0.3s; user-select:none;}
 	th { background-color: #hbc#; font-weight: bold; font-size: #hts#%; color: #htc#; margin:1px; }
+	
+	.ascSort { border-bottom: #bwi#px solid #sortHeaderHintAZ#;}
+	.descSort { border-bottom: #bwi#px solid #sortHeaderHintZA#;}
 
-	.ascSort { background: linear-gradient(to bottom, #hbc# -0%, #hbc# 95%, #sortHeaderHintAZ# 100%); text-decoration: underline;}
-	.descSort { background : linear-gradient(to bottom, #hbc# -0%, #hbc# 95%, #sortHeaderHintZA# 100%); text-decoration: underline;}
-	tr { background-color: #rbc#;}
-	tr:hover { background-color: #rbs#; }
+	tr { background-color: #rbc#; color: #rtc#; font-size:#rts#%;}
+	tr:hover { background-color: #rbs#;} 
+    
 	.selected-row {	background-color: #rbs#;}
 	.pinned-row {background-color: #rbpc#;}
+	.custom-row-seperator {background-color: #crbc#; color:#crtc#; font-size: #crts#%;}
+	//Drag and Drop Support
+	#isDragDropCSS#
 
 	/* Widths of columns 1, 2 & 10 are derived from the width of the control element. Columns 5 and 6 are fixed as set by the user. The remaining columns with be auto-calculated to best fit the text. */
 	th:nth-child(1), td:nth-child(1) { width:calc(var(--control) * 1.5); display:#hideColumn1#; }
 	th:nth-child(2), td:nth-child(2) { width:calc(var(--control) * 2.5); display:#hideColumn2#; }
-	th:nth-child(3) {padding-left:calc(#thp#px + 5px); text-align:left;}, td:nth-child(3) {text-align:left; padding-left:calc(#thp#px); }
+	th:nth-child(3) {padding-left:calc(#thp#px + 5px); text-align:left;}
+	td:nth-child(3) {text-align:left; padding-left:calc(#thp#px); }
 	th:nth-child(4), td:nth-child(4) { width:calc(var(--control) * 3); display:#hideColumn4#; }
 	th:nth-child(5), td:nth-child(5) { width:#column5Width#px; display:#hideColumn5#; }
 	th:nth-child(6), td:nth-child(6) { width:#column6Width#px; display:#hideColumn6#; }
@@ -2182,7 +2342,8 @@ def HTML =
 	th:nth-child(8), td:nth-child(8) { display:#hideColumn8#; }
 	th:nth-child(9), td:nth-child(9) { display:#hideColumn9#; }
 	th:nth-child(10), td:nth-child(10) { width:calc(var(--control) * 2); display:#hideColumn10#; }
-
+	th:nth-child(11), td:nth-child(11) { display:#hideColumn11#; }
+	
 	/* START OF CONTROLS CLASSES */			
 	/* Column 1 Checkboxes */
 	input[type="checkbox"] {height:var(--control); width:var(--control); margin:0px; margin-top:3px; cursor: pointer; }
@@ -2190,13 +2351,10 @@ def HTML =
 	/* Column 2 - Materials Symbols - Icons */
 	.material-symbols-outlined {padding:3px; border-radius: 50%; font-size:calc(var(--control) * 1.5 )}
 	.material-symbols-outlined.on { background-color:rgba(255,255,0, 0.3); color: #333333;}
-	.material-symbols-outlined.off {color: #AAA;}
+	.material-symbols-outlined.off {color: #000000; opacity:0.5;}
 	.open { background-color:rgba(255,213,128, 0.7); color:#333333;}
 	.warn { background-color:rgba(255,0,0, 0.7); color:#333333;}
 	.good { background-color:rgba(0,255,0, 0.7); color:#333333;}
-		
-	/* Column 3 Device Names */
-	.editable-input {border: none; width: 95%; background: transparent; font-size: #rts#%; color: #rtc#;}
 		
 	/* Column 4 On/Off Switch */
 	.toggle-switch { position: relative; display: inline-block; vertical-align: middle; margin-top: calc(var(--control) / 3); margin-bottom: calc(var(--control) / 5 ); width: calc(var(--control) * 2); height: var(--control); background-color: #CCC; cursor: pointer; border-radius: calc(var(--control) / 2); transition: background-color 0.3s ease; box-shadow: 0 0 calc(var(--control) / 1.5) 0px rgba(255, 99, 71, 1); }
@@ -2208,7 +2366,7 @@ def HTML =
 	.control-container {display:flex;position: relative; width: 95%; display: flex; justify-content: center; align-items: center; background-color:#rbc#; margin:auto; }
 	.CT-slider, .level-slider, .blinds-slider, .shades-slider, .volume-slider, .tilt-slider { width: 90%; opacity:0.75; border-radius:0px; height:var(--control); outline: 2px solid #888; cursor: pointer;}
 	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value, .state-value {position:absolute; top:50%; transform:translateY(-50%); font-size:#rts#%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;color: #rtc#;}
-	.state-text {font-size:#rts#%; pointer-events:none; cursor:pointer; color: #rtc#;}
+	.state-text {font-size:#rts#%; pointer-events:none; cursor:pointer;}
 
 	/* Custom properties for WebKit-based browsers (Chrome, Safari) */
 	.CT-slider::-webkit-slider-runnable-track { background: var(--CT); height: 100% }
@@ -2257,7 +2415,7 @@ def HTML =
 	.blinking { animation: blink 1s infinite; }
 
 	.button-group { display: flex; justify-content: space-between; align-items: center; margin: 0 auto; text-align: center;}
-	.button { flex:1;  max-height: var(--control); padding: 4px 8px; margin: 0 2px; border-radius: var(--control); background-color: #d3d3d3; text-align: center; transition: background-color 0.3s, border-color 0.3s, outline 0.3s; 
+	.button { flex:1;  max-height: var(--control); padding: 4px 8px; margin: 0 2px; border-radius: var(--control); background-color: #555555; text-align: center; transition: background-color 0.3s, border-color 0.3s, outline 0.3s; 
 			display: flex; align-items: center; justify-content: center; color: #FFF; font-size: calc(2 + var(--control) / 1.5); cursor: pointer; }
 	.button:hover { background-color: #3CB371;}
 	.button:active { background-color: #1C86EE;}
@@ -2268,6 +2426,11 @@ def HTML =
 	.spin-low {animation: spin 3s linear infinite;}
 	.spin-medium {animation: spin 1.5s linear infinite;}
 	.spin-high {animation: spin 0.75s linear infinite;}
+
+    .modal {display:none; position:fixed; z-index:1000; left:0; top:0; width:100%;height:100%; background-color:rgba(0,0,0,0.5);}
+	.modal-content {background-color:white; margin:20px auto; padding:20px; border-radius:8px; width:300px; text-align:left;}
+	.modal-content select, .modal-content input { margin-bottom: 10px; font-size: 16px; }
+    .close {cursor:pointer; float:right; font-size: 24px}
 
 </style>
 </head>
@@ -2293,37 +2456,110 @@ def HTML =
 				<th id="i2" class="sortLinks" onclick="sortTable(7, this);" title="Info2 - Alpha Sort"><span id="info2Header">#Info2#</span></th>
 				<th id="i3" class="sortLinks" onclick="sortTable(8, this);" title="Info3 - Alpha Sort"><span id="info3Header">#Info3#</span></th>
 				<th id="pin" title="Pinned Items"><span id="pinHeader">Pin</span></th>
+				<th id="sort">Custom Sort</th>
 			</tr>
 		</thead>
 		<tbody><!-- Table rows will be dynamically loaded from JSON --></tbody>
 	</table>
 	<div id="shuttle"></div>
 </div>
-<script>
-														  
-// Retrieve values from sessionStorage or initialize to default for the active column and direction. Session storage does no persist across the closing of the browser window. localStorage does persist across the closing of the browser.
-// Use a prefixed key for localStorage and sessionStorage
-const storageKey = (key) => `${"#AppID#"}_${key}`;
 
-// LocalStorage operations with AppID
+<!-- Settings Window -->
+<div id="myModal" class="modal">
+    <div class="modal-content">
+        <h2 style="text-align: center;"><u>Settings</u></h2>
+        <label for="filterSwitch"><strong>Display Switches:</strong></label>
+        <select id="filterSwitch"><option value="allSwitch" selected>All Switches</option><option value="onlyOn">Only On</option></select><br>
+		<label for="filterContact"><strong>Display Contacts:</strong></label>
+        <select id="filterContact"><option value="allContact" selected>All Contacts</option><option value="onlyOpen">Only Open</option></select><br>
+		<label for="filterLeak"><strong>Display Leak Sensors:</strong></label>
+        <select id="filterLeak"><option value="allLeak" selected>All Sensors</option><option value="onlyWet">Only Wet</option></select><br>
+		<label for="filterLock"><strong>Display Locks:</strong></label>
+        <select id="filterLock"><option value="allLock" selected>All Locks</option><option value="onlyUnlocked">Only Unlocked</option></select><br>
+        <label for="isPolling"><strong>Polling Enabled:</strong></label>
+		<select id="isPolling"><option value="true">true</option><option value="false">false</option></select><br>
+		<label for="pollInterval"><strong>Poll Interval(ms):</strong></label>
+		<input type="number" id="pollInterval" value="5000" min="1000" max="60000" step="1000" /><br>
+		<label for="isLogging"><strong>Logging Enabled:</strong></label>
+		<select id="isLogging"><option value="true">true</option><option value="false">false</option></select><br><br>
+		<button id="modalCloseBtn" style="display: block; margin: 0 auto; width: 50%; padding: 10px; font-size: 1rem; text-align: center;"><b>Close</b></button>
+    </div>
+</div>
+
+<script>
+// Ensure each iframe has a unique window.name to scope storage keys
+// The iFrame preview in the composer has a window.name of "AppID" followed by a "-P" so it looks like "4912-P".  An Applet loaded elsewhere will have no window.name so one must be assigned when the applet is first loaded.
+
+console.log("WN:", window.name);
+
+if (!window.name) { window.name = 'applet_' + Math.random().toString(36).substr(2, 5); }
+
+// Generate a scoped key using window.name instead of AppID
+const storageKey = (key) => `${window.name}_${key}`;
+console.log("storageKey:", storageKey);
+
+// Modal constants
+const modal = document.getElementById("myModal");
+
+// LocalStorage operations (persistent per iframe)
 let storedSortDirection = JSON.parse(localStorage.getItem(storageKey("sortDirection")));
 let sortDirection = storedSortDirection || { activeColumn: 2, direction: 'asc' };
-let showSlider = (localStorage.getItem(storageKey("showSlider")) === "A" || localStorage.getItem(storageKey("showSlider")) === "B")  ? localStorage.getItem(storageKey("showSlider")) : "A";
+let showSlider = ( localStorage.getItem(storageKey("showSlider")) === "A" || localStorage.getItem(storageKey("showSlider")) === "B" ) ? localStorage.getItem(storageKey("showSlider")) : "A";
+
 let lastCommand = "none";
+let pressTimer;  // Used to determine when to pop up the modal screen
 
-// SessionStorage operations with AppID
-sessionStorage.removeItem(storageKey('sessionID'));
-let sessionID = sessionStorage.getItem(storageKey('sessionID')) || (sessionStorage.setItem(storageKey('sessionID'), (Math.abs(Math.random() * 0x7FFFFFFF | 0)).toString(16).padStart(8, '0')), sessionStorage.getItem(storageKey('sessionID')));
-let isLogging = sessionStorage.getItem(storageKey('isLogging')) === 'true' ? true : false;
+// Use localStorage (instead of sessionStorage) for all settings
+let sessionID = localStorage.getItem(storageKey("sessionID"));
+if (!sessionID) { 
+	sessionID = (Math.abs(Math.random() * 0x7FFFFFFF | 0)).toString(16).padStart(8, '0');
+	localStorage.setItem(storageKey("sessionID"), sessionID);
+	}
 
-// Force Enable or Disable logging
-sessionStorage.setItem(storageKey('isLogging'), 'false');
-isLogging = false;
+let pollInterval = localStorage.getItem(storageKey("pollInterval")) || "#pollInterval#";
+localStorage.setItem(storageKey("pollInterval"), pollInterval);
 
-//Polling Related variables
-let pollInterval = #pollInterval#;
-let isPollingEnabled = #isPollingEnabled#;
-if (isPollingEnabled === true ) { 
+// Initialize isPolling as a Boolean
+if (!localStorage.getItem(storageKey("isPolling"))) { localStorage.setItem(storageKey("isPolling"), "#isPolling#"); }
+let isPolling = localStorage.getItem(storageKey("isPolling")) === "true";
+
+// Initialize Logging as a Boolean
+if (!localStorage.getItem(storageKey("isLogging"))) { localStorage.setItem(storageKey("isLogging"), "false"); }
+let isLogging = localStorage.getItem(storageKey("isLogging")) === "true";
+
+let isDragDrop = #isDragDrop#;
+let isCustomSort = #isCustomSort#;
+//Disable Polling if we are using Drag and Drop
+if ( isDragDrop ) isPolling = false;
+
+//These are all the filterValues used in the Modal window
+const filterValues = {};
+["filterSwitch", "filterContact", "filterLeak", "filterLock"].forEach(id => {
+  const key = storageKey(id);
+  let value = localStorage.getItem(key);
+  if (!value) {
+    const defaultVal=id === "filterSwitch" ? "allSwitch" : id === "filterContact" ? "allContact" : id === "filterLeak" ? "allLeak" : id === "filterLock" ? "allLock" : "";
+    localStorage.setItem(key, defaultVal);
+    value = defaultVal;
+  }
+  document.getElementById(id).value = value;
+  filterValues[id] = value;   // Store current values if needed later
+  document.getElementById(id).addEventListener("change", function () {
+    localStorage.setItem(key, this.value);
+  });
+});
+
+document.getElementById("isPolling").addEventListener("change", function() { localStorage.setItem(storageKey("isPolling"), this.value);});
+document.getElementById("pollInterval").addEventListener("change", function() { localStorage.setItem(storageKey("pollInterval"), this.value);});
+document.getElementById("isLogging").addEventListener("change", function() { localStorage.setItem(storageKey("isLogging"), this.value);});
+
+console.log ("isLogging", isLogging);
+if (isLogging) console.log ("isDragDrop", isDragDrop);
+if (isLogging) console.log ("isPolling", isPolling);
+if (isLogging === 'true'){ showVariables(); }
+
+//Polling Control
+if ( isPolling ) { 
 	const poller = startPolling('#URL1#', pollResult); 
 	//Start the Shuttle animation
 	const shuttle = document.getElementById('shuttle');
@@ -2335,117 +2571,160 @@ if (isPollingEnabled === true ) {
 let transactionTimeout = #commandTimeout#;
 let transaction = null;
 
+// Limit long-press detection to the nameHeader only
+const nameHeader = document.getElementById("nameHeader");
+nameHeader.addEventListener("mousedown", startPress, { passive: true });
+nameHeader.addEventListener("touchstart", startPress, { passive: true });
+["mouseup", "touchend", "dragstart", "dragend"].forEach(e => nameHeader.addEventListener(e, cancelPress) );
+
+// Modal control functions
+function openModal() { modal.style.display = "block"; document.getElementById("isPolling").value = isPolling; document.getElementById("isLogging").value = isLogging; document.getElementById("pollInterval").value = pollInterval;}
+function closeModal() { modal.style.display = "none"; refreshPage(50);}
+function startPress(event) { pressTimer = setTimeout(openModal, 1999); }
+function cancelPress() { clearTimeout(pressTimer); }
+document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
 
 
 //***********************************************  Table Body  *************************************************************************
 //**************************************************************************************************************************************
 
-//Updates the Table with the JSON received from the Hub.
-function loadTableFromJSON(myJSON) {
-    const tbody = document.querySelector("#sortableTable tbody");
-    tbody.innerHTML = ""; // Clear existing table rows
-	const savedCheckboxStates = JSON.parse(sessionStorage.getItem(storageKey("checkboxStates"))) || {};
-
-    myJSON.forEach((item, index) => {
-        const row = document.createElement('tr');
-
-		let stateHTML = "";		//Holds the HTML for the state control column
-		let control1HTML = "";	//Holds HTML for the first controls column
-		let control2HTML = "";   //Holds HTML for the second controls column
-		let pinHTML = ""; //Holds HTML for the Pin column
-		
-		// Data mapping for row dataset
-		const dataMap = { ID: item.ID, type: item.type, speed:item.speed, level:item.level, position:item.position, tilt:item.tilt, volume:item.volume, colorMode:item.colorMode || "None", info1:item.i1, info2:item.i2, info3:item.i3, icon:item.icon, class:item.cl, pin:item.pin };
-		
-		// Apply each property to the row dataset using a loop and map
-		Object.entries(dataMap).forEach(([key, value]) => { row.dataset[key] = value; });
-
-        // Ensure color is defined and in the correct format
-        const colorValue = item.color && /^#[0-9A-F]{6}$/i.test(item.color) ? item.color : "#FFF";
-	
-		//Configure the Icon text.
-		let iconText = `<i class='material-symbols-outlined ${item.cl}'>${item.icon}</i>`;
-
-	     // Sliders for type <= 5 which is all kinds of bulbs and switches. 
-		if (item.type <= 5 ){
-			control1HTML = `<div class="control-container">
-               	<input type="range" class="level-slider" min="0" max="100" value="${item.level}"
-                style="display: ${showSlider === 'A' && [2, 3, 4, 5].includes(item.type) ? 'block' : 'none'}"
-                oninput="updateSliderValue(this, 'level')" onchange="updateHUB()">
-             	<span class="level-value" style="display: ${showSlider === 'A' ? 'block' : 'none'}">${item.level}%</span>
-
-				<input type="range" class="CT-slider ${item.colorMode === 'CT' ? 'glow-EffectCT' : ''}" min="2000" max="6500" value="${item.CT}"
-       			style="display: ${showSlider === 'B' && [3,5].includes(item.type) ? 'block' : 'none'}"
-       			oninput="updateSliderValue(this, 'CT')" onchange="updateHUB()">
-				<span class="CT-value" style="color:black; display: ${showSlider === 'B' && [3,5].includes(item.type) ? 'block' : 'none'}">${item.CT}°K</span>
-            </div>`;
-		};
-
-		// Buttons for Fan (Radio buttons did not re-size properly)
-		if (item.type === 12) {
-    		const isDisabled = item.switch === 'off' ? 'disabled' : ''; // Determine if buttons should be disabled
-    		const disabledClass = item.switch === 'off' ? 'disabled' : ''; // Add a visual class for the disabled state for the whole radio group
-			control1HTML = `<div class="button-group ${disabledClass}">
-        					<div class="button ${item.speed === 'low' ? 'selected' : ''} ${isDisabled}" data-speed="low" onclick="speed(this); updateHUB(); toggleChecked(this)">L</div>
-        					<div class="button ${item.speed === 'medium' ? 'selected' : ''} ${isDisabled}" data-speed="medium" onclick="speed(this); updateHUB(); toggleChecked(this)">M</div>
-        					<div class="button ${item.speed === 'high' ? 'selected' : ''} ${isDisabled}" data-speed="high" onclick="speed(this); updateHUB(); toggleChecked(this)">H</div></div>
-			`};
-
-		//Shade
-		if (item.type === 14 || item.type === 15){
-			control1HTML = `<div class="control-container"><input type="range" class="shades-slider" min="0" max="100" value="${item.position}" oninput="updateSliderValue(this, 'position')" onchange="updateHUB()">
-                			<span class="shades-value"><b>${item.position}%</b></span></div>`;
-		};
-
-		//Blind
-		if (item.type === 15){
-			control2HTML = `<div style="display: flex; align-items: center;"> <div class="control-container" style="display: flex; align-items: center;">
-      						<input type="range" class="tilt-slider" min="0" max="90" value="${item.tilt}" oninput="updateSliderValue(this, 'tilt')" onchange="updateHUB()"> 
-      						<span class="tilt-value"}">${item.tilt}°</span>
-    						</div><div id="tilt-indicator" class="tilt-indicator" style="margin-left: 20px; margin-right: 10px; display: inline-block; vertical-align: middle;"> | </div></div>`;
-    	};   
-		
-		//Volume
-		if (item.type === 16 ){
-			control1HTML = `<div class="control-container"><input type="range" class="volume-slider" min="0" max="100" value="${item.volume}"
-                			oninput="updateSliderValue(this, 'volume') " onchange="updateHUB()"><span class="volume-value">${item.volume}%</span></div>`;
-		};
-
-		// Control 2 - Color Picker
-		if (item.type === 4 || item.type === 5) { control2HTML = `<input type="color" class="colorPicker ${item.colorMode === 'RGB' ? 'glow-EffectRGB' : ''}" id="colorInput${index}" value="${colorValue}" onchange="updateColor(this); updateHUB()">` }
-
-		//Insert a switch if it is a control type, i.e. < 30
-		if (item.type <= 30) { stateHTML = `<div class="toggle-switch ${item.switch === 'on' ? 'on' : ''}" data-state="${item.switch}" onclick="toggleSwitch(this); updateHUB()"></div>`;}
-
-		// For any kind of sensor insert the sensor text
-		if (item.type >= 31) { stateHTML = '<div class="state-text">' + item.switch + '</div>'; }
-
-		// Pinned Items
-		if( item.pin === "on") {
-				pinHTML = (`<i class="material-symbols-outlined">location_on</i>`);
-				row.className = "pinned-row"; // Apply the class to the row
-		}
-
-		//No controls other than the switch for some devices; switch, valve, lock and garage door,
-		if (item.type === 1 || item.type === 10 || item.type === 11 || item.type === 13 ) control1HTML = '';
-
-		const isChecked = savedCheckboxStates[item.ID] || false;
-		row.innerHTML = `
-			<td><input type="checkbox" class="option-checkbox" ${isChecked ? 'checked' : ''} onchange="toggleRowSelection(this)"></td>
-            <td>${iconText}</td>
-            <td><input type="text" class="editable-input" value="${item.name}" onchange="updateHUB()" readonly></td>
-			<td>${stateHTML}</td>
-			<td>${control1HTML}</td>
-            <td>${control2HTML}</td>
-            <td><div class="info1">${item.i1}</div></td>
-            <td><div class="info2">${item.i2}</div></td>
-			<td><div class="info3">${item.i3}</div></td>
-			<td>${pinHTML}</td>`;
-			tbody.appendChild(row);
-    });
-	markColumnHeader();
-	updateAllTiltIndicators();
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
+
+function showVariables(){
+	console.log("Session Storage Variables:");
+	for (let i = 0; i < sessionStorage.length; i++) {
+	    let key = sessionStorage.key(i);
+	    console.log(`${key}: ${sessionStorage.getItem(key)}`);
+	}
+}
+
+function loadTableFromJSON(data) {
+	const tbody = document.querySelector("#sortableTable tbody");
+	tbody.innerHTML = "";
+	const saved = JSON.parse(sessionStorage.getItem(storageKey("checkboxStates"))) || {};
+
+	data.forEach((d, i) => {
+		let show = true;
+		if (filterValues["filterSwitch"] === "onlyOn" && d.type >= 1 && d.type <= 5 && d.switch !== "on") show = false;
+		if (filterValues["filterLock"] === "onlyUnlocked" && d.type === 11 && d.switch !== "off") show = false;
+		if (filterValues["filterContact"] === "onlyOpen" && d.type === 31 && d.switch !== "open") show = false;
+		if (filterValues["filterLeak"] === "onlyWet" && d.type === 33 && d.switch !== "wet") show = false;
+		if (!show) return;
+
+		const row = document.createElement('tr');
+		row.draggable = #isDragDrop#;
+		Object.assign(row.dataset, {
+			ID: d.ID, name: d.name, type: d.type, speed: d.speed, level: d.level,
+			position: d.position, tilt: d.tilt, volume: d.volume, colorMode: d.colorMode || "None",
+			info1: d.i1, info2: d.i2, info3: d.i3, icon: d.icon, class: d.cl, pin: d.pin, row: d.row
+		});
+
+		const col = /^#[0-9A-F]{6}$/i.test(d.color) ? d.color : "#FFF";
+		const icon = `<i class='material-symbols-outlined ${d.cl}'>${d.icon}</i>`;
+		const pinHTML = d.pin === "on" ? `<i class="material-symbols-outlined">location_on</i>` : "";
+		if (d.pin === "on") row.className = "pinned-row";
+
+		const getSlider = (cls, val, min, max, label, disp, extra = "") => `
+			<input type="range" class="${cls}" min="${min}" max="${max}" value="${val}"
+				style="display:${disp}" oninput="updateSliderValue(this, '${label}')" onchange="updateHUB()" ${extra}>
+			<span class="${label}-value" style="display:${disp}">${val}${label === "CT" ? "°K" : "%"}</span>`;
+
+		let c1 = "", c2 = "";
+		if (d.type <= 5) {
+			c1 += `<div class="control-container">`;
+			if ([2,3,4,5].includes(d.type)) c1 += getSlider("level-slider", d.level, 0, 100, "level", showSlider === 'A' ? 'block' : 'none');
+			if ([3,5].includes(d.type)) c1 += getSlider(`CT-slider ${d.colorMode === 'CT' ? 'glow-EffectCT' : ''}`, d.CT, 2000, 6500, "CT", showSlider === 'B' ? 'block' : 'none');
+			c1 += `</div>`;
+		}
+		if (d.type === 12) c1 = `
+			<div class="button-group ${d.switch === 'off' ? 'disabled' : ''}">
+				${["low","medium","high"].map(s => `<div class="button ${d.speed === s ? 'selected' : ''} ${d.switch === 'off' ? 'disabled' : ''}" data-speed="${s}" onclick="speed(this); updateHUB(); toggleChecked(this)">${s[0].toUpperCase()}</div>`).join("")}
+			</div>`;
+		if ([14,15].includes(d.type)) c1 = `<div class="control-container"><input type="range" class="shades-slider" min="0" max="100" value="${d.position}" oninput="updateSliderValue(this, 'position')" onchange="updateHUB()"><span class="shades-value"><b>${d.position}%</b></span></div>`;
+		if (d.type === 15) c2 = `<div style="display:flex;align-items:center;"><div class="control-container"><input type="range" class="tilt-slider" min="0" max="90" value="${d.tilt}" oninput="updateSliderValue(this,'tilt')" onchange="updateHUB()"><span class="tilt-value">${d.tilt}°</span></div><div id="tilt-indicator" class="tilt-indicator" style="margin-left:20px;margin-right:10px;">|</div></div>`;
+		if (d.type === 16) c1 = `<div class="control-container"><input type="range" class="volume-slider" min="0" max="100" value="${d.volume}" oninput="updateSliderValue(this, 'volume')" onchange="updateHUB()"><span class="volume-value">${d.volume}%</span></div>`;
+		if ([4,5].includes(d.type)) c2 = `<input type="color" class="colorPicker ${d.colorMode === 'RGB' ? 'glow-EffectRGB' : ''}" id="colorInput${i}" value="${col}" onchange="updateColor(this); updateHUB()">`;
+
+		const state = d.type <= 30
+			? `<div class="toggle-switch ${d.switch === 'on' ? 'on' : ''}" data-state="${d.switch}" onclick="toggleSwitch(this); updateHUB()"></div>`
+			: `<div class="state-text">${d.switch}</div>`;
+
+		if (d.type === 51 || d.type === 52) c1 = d.level;
+		if ([1,10,11,13].includes(d.type)) c1 = "";
+
+		row.innerHTML = `
+			<td><input type="checkbox" class="option-checkbox" ${saved[d.ID] ? "checked" : ""} onchange="toggleRowSelection(this)"></td>
+			<td>${icon}</td><td>${d.name}</td><td>${state}</td><td>${c1}</td><td>${c2}</td>
+			<td><div class="info1">${d.i1}</div></td><td><div class="info2">${d.i2}</div></td><td><div class="info3">${d.i3}</div></td>
+			<td>${pinHTML}</td><td>${d.row}</td>`;
+		tbody.appendChild(row);
+	});
+
+	if (isDragDrop) {
+		tbody.querySelectorAll("tr").forEach(r => {
+			r.addEventListener("dragstart", e => e.target.classList.add("dragging"));
+			r.addEventListener("dragend", e => { e.target.classList.remove("dragging"); saveRowOrder(); });
+		});
+		tbody.addEventListener("dragover", e => {
+			e.preventDefault();
+			const d = document.querySelector(".dragging");
+			const a = [...tbody.querySelectorAll("tr:not(.dragging)")].reduce((c, el) => {
+				const o = e.clientY - el.getBoundingClientRect().top - el.offsetHeight / 2;
+				return o < 0 && o > c.offset ? { offset: o, el } : c;
+			}, { offset: -Infinity }).el;
+			tbody.insertBefore(d, a ?? null);
+		});
+	}
+
+	if (isCustomSort) { sortTable(10); setColumnHeaders(true); }
+	else setColumnHeaders(false);
+
+	updateAllTiltIndicators();
+	updateCustomRows();
+}
+
+function updateCustomRows() {
+    document.querySelectorAll("#sortableTable tr").forEach(row => {
+        if (row.dataset.type === "51") {
+            row.style.background = "linear-gradient(to bottom, #crbc#, #crbc2#)";
+            [...row.cells].forEach((cell, i) => {
+                if (!cell) return;
+                if ([1, 2, 3].includes(i)) cell.classList.add(".custom-row-seperator");
+                if (i === 0 ) cell.innerHTML = "";
+                cell.style.borderRight = "2px solid transparent";
+            });
+        }
+    });
+}
+
+//Save the sort order after they are manually sorted.
+function saveRowOrder() {
+    const rows = [...document.querySelectorAll("#sortableTable tbody tr")];
+
+    // Track how many times each ID has been seen
+    const seen = {};
+    const sortedJSON = rows.map((row, index) => {
+        const baseID = row.dataset.ID;
+        if (!seen[baseID]) seen[baseID] = 0;
+        seen[baseID]++;
+        // If it's a duplicate, append a suffix to ensure uniqueness
+        const uniqueID = seen[baseID] > 1 ? `${baseID}__${seen[baseID]}` : baseID;
+        return { row: index + 1, ID: uniqueID };
+    });
+
+    sessionStorage.setItem(storageKey("customSortOrder"), JSON.stringify(sortedJSON));
+    const output = { customSortOrder: sortedJSON };
+    const myData = JSON.stringify(output, null, 2);
+    console.log("myData is:", myData);
+    sendData(myData);
+}
+
 
 //***********************************************  Data Transfer ***********************************************************************
 //**************************************************************************************************************************************
@@ -2458,7 +2737,6 @@ function updateAllTiltIndicators() {
         // Find the tilt slider and tilt indicator in the row
         const tiltSlider = row.querySelector(".tilt-slider");
         const tiltIndicator = row.querySelector(".tilt-indicator");
-
         if (!tiltSlider  || !tiltIndicator) return;
 	    tiltIndicator.style.transform = `rotate(${-tiltSlider.value}deg)`; // Counterclockwise rotation
     });
@@ -2466,35 +2744,29 @@ function updateAllTiltIndicators() {
 
 function updateHUB() {
 	//Update the table border to show activity is pending if the lastCommand is something other than "none".
-	//console.log("Last command:", lastCommand);
 	document.querySelector("table").classList.add('glow-EffectPending');
-    const rows = document.querySelectorAll("#sortableTable tbody tr");
-    const output = Array.from(rows)
-        .map((row) => {
-            const type = Number(row.dataset.type);
+	const output = [...document.querySelectorAll("#sortableTable tbody tr")].map(row => {
+		const { type, ID } = row.dataset;
+		const t = Number(type);
+		if (t > 30) return null;	//Don't return anything if it is a sensor or custom device.
 
-            // Skip the row if type > 30 as we do not need to report on sensors.
-            if (type > 30) return null;
-            const outputData = { name: row.querySelector('td:nth-child(3) input').value, ID: row.dataset.ID, type };
+		const o = { ID, type };
+		const $ = s => row.querySelector(s);
+		const add = (cond, key, valFn) => cond && (o[key] = valFn());
 
-            // Conditionally add fields based on type and lastCommand
-            const addField = (condition, field, value) => condition && (outputData[field] = value);
-            addField(type >= 1 && lastCommand === "switch", "switch", row.querySelector('.toggle-switch').dataset.state);
-            addField((type >= 2 && type <= 5) && lastCommand === "level", "level", parseInt(row.querySelector('.level-slider')?.value || 0));
-            addField((type === 3 || type === 5) && lastCommand === "CT", "CT", parseInt(row.querySelector('.CT-slider')?.value || 0));
-            addField((type === 4 || type === 5) && lastCommand === "color", "color", (row.querySelector('input[type="color"]')?.value || '#000000').toUpperCase());
-            addField(type === 12 && lastCommand === "speed", "speed", row.querySelector('.button.selected') ? row.querySelector('.button.selected').getAttribute('data-speed') : "off");
-            addField((type === 14 || type === 15 ) && lastCommand === "position", "position", parseInt(row.querySelector('.shades-slider')?.value || 0));
-	        addField((type === 15) && lastCommand === "tilt", "tilt", parseInt(row.querySelector('.tilt-slider')?.value || 0));
-            addField((type === 16) && lastCommand === "volume", "volume", parseInt(row.querySelector('.volume-slider')?.value || 0));  
-            return outputData;
-        })
-        .filter(row => row !== null);  // Remove null rows from the output array
+		add(t >= 1 && lastCommand === "switch", "switch", () => $(".toggle-switch")?.dataset.state);
+		add(t >= 2 && t <= 5 && lastCommand === "level", "level", () => +$(".level-slider")?.value || 0);
+		add((t === 3 || t === 5) && lastCommand === "CT", "CT", () => +$(".CT-slider")?.value || 0);
+		add((t === 4 || t === 5) && lastCommand === "color", "color", () => ($('input[type="color"]')?.value || "#000000").toUpperCase());
+		add(t === 12 && lastCommand === "speed", "speed", () => $(".button.selected")?.dataset.speed || "off");
+		add((t === 14 || t === 15) && lastCommand === "position", "position", () => +$(".shades-slider")?.value || 0);
+		add(t === 15 && lastCommand === "tilt", "tilt", () => +$(".tilt-slider")?.value || 0);
+		add(t === 16 && lastCommand === "volume", "volume", () => +$(".volume-slider")?.value || 0);
+		return o;
+	}).filter(Boolean);
 
-    if (isLogging) console.log("Output is:", output);
-    
-    // Send data to the backend
-    sendData(JSON.stringify(output));
+	if (isLogging) console.log("Output is:", output);
+	sendData(JSON.stringify(output));
 }
 
 //Sends the Data to the Hub
@@ -2548,26 +2820,15 @@ function updateColor(colorInput) {
 }
 
 //Update the slider text label showing the selected value for level, position or CT
-function updateSliderValue(slider, command) {
-    const row = slider?.closest('tr');
-	const checkbox = row?.querySelector("input[type='checkbox']");
-
-    // Check if the slider is of type slider-tilt and update accordingly
-    let valueText = `${slider.value}%`; // Default value for percentage
-	if (slider.classList.contains('tilt-slider')) { valueText = `${slider.value}°`}; 
-    
-	// Change the slider value for this row
-    slider.nextElementSibling.innerText = valueText;
-	if (command === "CT") row.dataset.colorMode = "CT";
-	if (command === "tilt" ) updateAllTiltIndicators();
-	
-	//Sync the sliders to this value
-	if ( checkbox && checkbox.checked) {    	
-		//Now change the label for the other selected rows
-        syncRows(command, slider.value);
-    }
-    lastCommand = command;
+function updateSliderValue(slider, cmd) {
+  const row = slider?.closest('tr'), cb = row?.querySelector("input[type='checkbox']");
+  slider.nextElementSibling.innerText = slider.classList.contains('tilt-slider') ? `${slider.value}°` : `${slider.value}%`;
+  if (cmd === "CT") row.dataset.colorMode = "CT";
+  if (cmd === "tilt") updateAllTiltIndicators();
+  if (cb?.checked) syncRows(cmd, slider.value);
+  lastCommand = cmd;
 }
+
 
 // Toggle the first control column between Control A and Control B sliders and hide unused sliders
 function toggleControl() {
@@ -2711,8 +2972,6 @@ function startPolling(url, pollResult) {
             if (!response.ok) throw new Error(`Error: ${response.status}`);
             const data = await response.json();
             pollResult(data);
-
-            if (isLogging) console.log("Session ID:", sessionID);
         } catch (error) {
             console.error("Polling error:", error);
             clearInterval(poller);
@@ -2739,144 +2998,89 @@ function pollResult(data) {
 }
 
 function handleTransaction(action) {
+    const table = document.querySelector("table");
     switch (action) {
         case "begin":
-            transaction = Date.now(); // Start the transaction
-            if (isLogging) console.log("Transaction started:", transaction);
+            transaction = Date.now();
+            isLogging && console.log("Transaction started:", transaction);
             break;
         case "end":
-            transaction = null; // End the transaction
-            if (isLogging) console.log("Transaction finished");
+            transaction = null;
+            isLogging && console.log("Transaction finished");
             break;
-
         case "check":
-            if (!transaction) {
-                if (isLogging) console.log("No active transaction to check");
-                return;
-            }
-
+            if (!transaction) return;
             const elapsedTime = Date.now() - transaction;
-            if (isLogging) console.log("Elapsed time is:", elapsedTime);
-
+            isLogging && console.log("Elapsed time:", elapsedTime);
             if (elapsedTime > transactionTimeout) {
-                if (isLogging) console.log("Transaction is late");
-                const table = document.querySelector("table");
-				table.classList.remove('glow-EffectPending');
-                table.classList.add('glow-EffectFail');
-
-                setTimeout(() => {
-                    handleTransaction("end"); // End the transaction
-                    table.classList.remove('glow-EffectFail');
-                    initialize();
-                }, #pollUpdateDuration#);
+                isLogging && console.log("Transaction is late");
+                table.classList.replace('glow-EffectPending', 'glow-EffectFail');
+                setTimeout(() => { handleTransaction("end"); table.classList.remove('glow-EffectFail'); initialize(); }, #pollUpdateDuration#);
             } else {
-                if (isLogging) console.log("Transaction is running");
+                isLogging && console.log("Transaction is running");
             }
             break;
     }
 }
+
 
 //***********************************************  Sorting   ***************************************************************************
 //**************************************************************************************************************************************
 
-function sortTable(columnIndex) {
-    const tbody = document.querySelector("#sortableTable tbody");
-    const rows = Array.from(tbody.rows);
+//Table sort function after condensing with AI.
+function sortTable(i) {
+	const tbody = document.querySelector("#sortableTable tbody");
+	const rows = Array.from(tbody.rows);
+	const val = (cell, sel) => cell?.querySelector(sel)?.value?.toLowerCase() || cell?.textContent?.trim().toLowerCase() || "";
 
-    // Load sorting state or update it
-    if (columnIndex === -1) {
-        columnIndex = sortDirection.activeColumn; // Use saved active column
-    } else {
-        // Update the active column and toggle the sort direction
-        sortDirection.activeColumn = columnIndex;
-        sortDirection.direction = sortDirection.direction === 'asc' ? 'desc' : 'asc';
-        sessionStorage.setItem(storageKey("activeColumn"), columnIndex);
-    }
+	if (isCustomSort) {
+		rows.sort((a, b) => (parseFloat(val(a.cells[10], 'input')) || 0) - (parseFloat(val(b.cells[10], 'input')) || 0));
+		rows.forEach(row => { row.classList.remove("pinned-row"); tbody.appendChild(row); });
+		setColumnHeaders(false);
+		return;
+	}
 
-    const direction = sortDirection.direction;
+	if (i === -1) i = sortDirection.activeColumn;
+	else {
+		sortDirection.activeColumn = i;
+		sortDirection.direction = sortDirection.direction === 'asc' ? 'desc' : 'asc';
+		sessionStorage.setItem(storageKey("activeColumn"), i);
+	}
+	const dir = sortDirection.direction;
+	localStorage.setItem(storageKey("sortDirection"), JSON.stringify(sortDirection));
 
-    // Save updated state to localStorage
-    localStorage.setItem(storageKey("sortDirection"), JSON.stringify(sortDirection));
+	const pinned = rows.filter(r => r.dataset.pin === "on").sort((a, b) => val(a.cells[2], 'input').localeCompare(val(b.cells[2], 'input')));
+	const unpinned = rows.filter(r => r.dataset.pin !== "on").sort((a, b) => {
+		let a1 = val(a.cells[i], i === 3 ? '.toggle-switch' : 'input'), b1 = val(b.cells[i], i === 3 ? '.toggle-switch' : 'input');
+		if (i === 3) {
+			// Special sorting logic for the state column (toggle-switch)
+			a1 = a.cells[i]?.querySelector('.toggle-switch')?.dataset.state || a1;
+			b1 = b.cells[i]?.querySelector('.toggle-switch')?.dataset.state || b1;
+		}
+		if (i === 3 && a1 === b1) return val(a.cells[2], 'input').localeCompare(val(b.cells[2], 'input'));
+		return dir === 'asc' ? a1.localeCompare(b1) : b1.localeCompare(a1);
+	});
 
-    // Separate pinned and unpinned rows based on the `data-pin` attribute
-    const pinnedRows = rows.filter(row => row.dataset.pin === "on");
-    pinnedRows.sort((a, b) => {
-        const nameA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-                     a.cells[2]?.textContent?.trim().toLowerCase() || "";
-        const nameB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-                     b.cells[2]?.textContent?.trim().toLowerCase() || "";
-
-        return nameA.localeCompare(nameB);
-    });
-
-    const unpinnedRows = rows.filter(row => row.dataset.pin !== "on");
-
-    // Sort the unpinned rows based on the specified column index
-    unpinnedRows.sort((a, b) => {
-        let primaryA, primaryB, secondaryA, secondaryB;
-
-        if (columnIndex === 2) {
-            // Sorting by column 2 (Name)
-            primaryA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-                       a.cells[2]?.textContent?.trim().toLowerCase() || "";
-            primaryB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-                       b.cells[2]?.textContent?.trim().toLowerCase() || "";
-
-            return direction === 'asc'
-                ? primaryA.localeCompare(primaryB)
-                : primaryB.localeCompare(primaryA);
-        } else if (columnIndex === 3) {
-            // Sorting by column 3 (State) with column 2 (Name) as secondary
-            primaryA = a.cells[3]?.querySelector('.toggle-switch')?.dataset.state || 
-                       a.cells[3]?.querySelector('.toggle-switch')?.textContent?.trim().toLowerCase() || 
-                       a.cells[3]?.textContent?.trim().toLowerCase() || "";
-            primaryB = b.cells[3]?.querySelector('.toggle-switch')?.dataset.state || 
-                       b.cells[3]?.querySelector('.toggle-switch')?.textContent?.trim().toLowerCase() || 
-                       b.cells[3]?.textContent?.trim().toLowerCase() || "";
-
-            secondaryA = a.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-                         a.cells[2]?.textContent?.trim().toLowerCase() || "";
-            secondaryB = b.cells[2]?.querySelector('input')?.value?.toLowerCase() || 
-                         b.cells[2]?.textContent?.trim().toLowerCase() || "";
-
-            // Compare primary keys
-            if (primaryA > primaryB) return direction === 'asc' ? 1 : -1;
-            if (primaryA < primaryB) return direction === 'asc' ? -1 : 1;
-
-            // Compare secondary keys
-            return secondaryA.localeCompare(secondaryB);
-        } else {
-            // General case for other columns
-            primaryA = a.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
-            primaryB = b.cells[columnIndex]?.textContent?.trim().toLowerCase() || "";
-
-            return direction === 'asc'
-                ? primaryA.localeCompare(primaryB)
-                : primaryB.localeCompare(primaryA);
-        }
-    });
-
-    // Append pinned rows first (in fixed order), then sorted unpinned rows
-    tbody.append(...pinnedRows, ...unpinnedRows);
-
-    // Highlight the sorted column
-    markColumnHeader();
+	tbody.append(...pinned, ...unpinned);
+	setColumnHeaders(true);
 }
 
 
-// Underline the last active column header and apply direction indicators
-function markColumnHeader() {
+// Function to set or clear column header sorting classes
+function setColumnHeaders(applySorting = true) {
     const headers = document.querySelectorAll('#sortableTable thead th');
 
-    // Remove the gradient classes from all headers
+    // Remove sorting indicator classes from all headers
     headers.forEach(header => { header.classList.remove('ascSort', 'descSort'); });
 
-    // Add gradient class based on the sort direction
-    const activeHeader = headers[sortDirection.activeColumn];
-    if (sortDirection.direction === 'asc') { activeHeader.classList.add('ascSort');} 
-	else { activeHeader.classList.add('descSort');}
+    // If applySorting is true, mark the active column with the correct sort class
+    if (applySorting && sortDirection.activeColumn !== undefined) {
+        const activeHeader = headers[sortDirection.activeColumn];
+        if (activeHeader) {
+            activeHeader.classList.add(sortDirection.direction === 'asc' ? 'ascSort' : 'descSort');
+        }
+    }
 }
-
 
 //***********************************************  Initialization  and Miscellaneous  **************************************************
 //**************************************************************************************************************************************
