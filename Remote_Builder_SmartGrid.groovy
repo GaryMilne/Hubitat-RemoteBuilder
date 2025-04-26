@@ -64,8 +64,10 @@
 *  Version 4.0.0 - Add Modal window to acccess dynamic settings. Added selection boxes to display All Switches, Only ON and Only Off : Enable\Disable Polling : PollInterval. Others may follow.
 *  				   Changed the Section layouts into a single Horizontal menu to create more visible space for the "Design SmartGrid" section. Reorganized the SmartGrid formatting menus to be a little easier to use. Added color schemes.
 *  				   Enable Drag and Drop Support with Custom Sort. Add Custom Rows. Add variables.
+*  Version 4.0.1 - Implement beforeunload function to clean up memory on exit. Remove Selection Boxes for Custom Rows. Pause polling indicator during slider actions. Change shuttle animation to use less CPU. 
+	
 *
-*  Gary Milne - April 21st, 2025 @ 10:01 PM
+*  Gary Milne - April 25th, 2025 @ 10:50 PM
 *
 **/
 
@@ -120,8 +122,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.0.0 (4/21/25)</b>"
-@Field static final codeVersion = 400
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.0.1 (4/25/25)</b>"
+@Field static final codeVersion = 401
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -729,7 +731,7 @@ def initialize() {
 	//Start of Section where we check for the presence of null values, usually caused by the user selecting "No Selection" in a dialog box.
 	if (tilePreviewWidth == null) app.updateSetting("tilePreviewWidth", [value: "3", type: "enum"])	
 	if (tilePreviewHeight == null) app.updateSetting("tilePreviewHeight", [value: "2", type: "enum"])	
-	if (myRemote == null) app.updateSetting("myRemote", [value: "25", type: "enum"])
+	if (myRemote == null) app.updateSetting("myRemote", [value: "20", type: "enum"])
 	if (myRemoteName == null) app.updateSetting("myRemoteName", "New Remote")	
 	if (commandTimeout == null ) app.updateSetting("commandTimeout", [value: "10", type: "enum"])
 	if (displayEndpoint == null) app.updateSetting("displayEndpoint", [value: "Local", type: "enum"])
@@ -2100,8 +2102,6 @@ void publishRemote(){
 	else myStorageDevice.createTile2(settings.myRemote, tileLink1, tileLink2, tileLink3, tileLink4, settings.myRemoteName)
 			
 	if (isLogPublish) log.info ("publishRemote: tileLink1 is: $tileLink1")
-	
-	
 }
 
 //This should get executed whenever any of the subscribed devices receive an update to the monitored attribute. Delays will occur if the eventTimeout is > 0
@@ -2408,9 +2408,7 @@ def HTML =
 		
 	/* Refresh bar styling */
 	#shuttle { display:none; position:relative; height:#shuttleHeight#px; width:5%; background-color:#shuttleColor#; border-radius:3px; animation:none; top: -#shuttleHeight#px;}
-
-	@keyframes slide { 0% { left: 0%; width: 5%; } 50% { left: 95%; width: 5%; } 100% { left: 0%; width: 5%; } }
-	@keyframes slideBackward { 0% { left: 95%; width: 5%; } 100% { left: 0%; width: 5%; } }
+	@keyframes slide {0% { transform: translateX(0%); } 50%  { transform: translateX(1900%); } 100% { transform: translateX(0%); } }
 	@keyframes blink { 0% { opacity: 1; } 50% {opacity: 0;} 100% {opacity: 1;} }
 	.blinking { animation: blink 1s infinite; }
 
@@ -2487,16 +2485,18 @@ def HTML =
 </div>
 
 <script>
+// Global variables to track resources that need cleanup
+let pollingInterval;
+let pressTimer;					// Used to determine when to pop up the modal screen
+let currentFetchController;		//Used for the fetch operation
+//const transactions = new Map();
+
 // Ensure each iframe has a unique window.name to scope storage keys
-// The iFrame preview in the composer has a window.name of "AppID" followed by a "-P" so it looks like "4912-P".  An Applet loaded elsewhere will have no window.name so one must be assigned when the applet is first loaded.
-
-console.log("WN:", window.name);
-
+// The iFrame preview in the composer has a window.name of "AppID" followed by a "-P" (Preview) so it looks like "4912-P".  An Applet loaded elsewhere will have have either a "-A" or "-B" suffix depending on which link is being used.
 if (!window.name) { window.name = 'applet_' + Math.random().toString(36).substr(2, 5); }
 
 // Generate a scoped key using window.name instead of AppID
 const storageKey = (key) => `${window.name}_${key}`;
-console.log("storageKey:", storageKey);
 
 // Modal constants
 const modal = document.getElementById("myModal");
@@ -2505,9 +2505,9 @@ const modal = document.getElementById("myModal");
 let storedSortDirection = JSON.parse(localStorage.getItem(storageKey("sortDirection")));
 let sortDirection = storedSortDirection || { activeColumn: 2, direction: 'asc' };
 let showSlider = ( localStorage.getItem(storageKey("showSlider")) === "A" || localStorage.getItem(storageKey("showSlider")) === "B" ) ? localStorage.getItem(storageKey("showSlider")) : "A";
-
 let lastCommand = "none";
-let pressTimer;  // Used to determine when to pop up the modal screen
+let isSliding = false;
+let pollingActive = true;
 
 // Use localStorage (instead of sessionStorage) for all settings
 let sessionID = localStorage.getItem(storageKey("sessionID"));
@@ -2532,6 +2532,13 @@ let isCustomSort = #isCustomSort#;
 //Disable Polling if we are using Drag and Drop
 if ( isDragDrop ) isPolling = false;
 
+const shuttle = document.getElementById('shuttle');
+
+
+
+
+
+
 //These are all the filterValues used in the Modal window
 const filterValues = {};
 ["filterSwitch", "filterContact", "filterLeak", "filterLock"].forEach(id => {
@@ -2553,7 +2560,10 @@ document.getElementById("isPolling").addEventListener("change", function() { loc
 document.getElementById("pollInterval").addEventListener("change", function() { localStorage.setItem(storageKey("pollInterval"), this.value);});
 document.getElementById("isLogging").addEventListener("change", function() { localStorage.setItem(storageKey("isLogging"), this.value);});
 
+//Output some logging Information if it is enabled
 console.log ("isLogging", isLogging);
+if (isLogging) console.log("window.name:", window.name);
+if (isLogging) console.log("storageKey:", storageKey);
 if (isLogging) console.log ("isDragDrop", isDragDrop);
 if (isLogging) console.log ("isPolling", isPolling);
 if (isLogging === 'true'){ showVariables(); }
@@ -2571,17 +2581,32 @@ if ( isPolling ) {
 let transactionTimeout = #commandTimeout#;
 let transaction = null;
 
-// Limit long-press detection to the nameHeader only
-const nameHeader = document.getElementById("nameHeader");
-nameHeader.addEventListener("mousedown", startPress, { passive: true });
-nameHeader.addEventListener("touchstart", startPress, { passive: true });
-["mouseup", "touchend", "dragstart", "dragend"].forEach(e => nameHeader.addEventListener(e, cancelPress) );
+// Setup event listeners for the name header with proper cleanup
+const nameHeader=document.getElementById("nameHeader");
+function setupHeaderEventListeners() {
+  // Remove existing listeners first to prevent duplicates
+  removeHeaderEventListeners();
+  
+  // Add new listeners
+  nameHeader.addEventListener("mousedown", startPress, { passive:true });
+  nameHeader.addEventListener("touchstart", startPress, { passive:true });
+  ["mouseup", "touchend", "dragstart", "dragend"].forEach(e => nameHeader.addEventListener(e, cancelPress));
+}
+
+function removeHeaderEventListeners() {
+  nameHeader.removeEventListener("mousedown", startPress);
+  nameHeader.removeEventListener("touchstart", startPress);
+  ["mouseup", "touchend", "dragstart", "dragend"].forEach(e => nameHeader.removeEventListener(e, cancelPress));
+}
+
+// Initialize event listeners
+setupHeaderEventListeners();
 
 // Modal control functions
 function openModal() { modal.style.display = "block"; document.getElementById("isPolling").value = isPolling; document.getElementById("isLogging").value = isLogging; document.getElementById("pollInterval").value = pollInterval;}
 function closeModal() { modal.style.display = "none"; refreshPage(50);}
-function startPress(event) { pressTimer = setTimeout(openModal, 1999); }
-function cancelPress() { clearTimeout(pressTimer); }
+function startPress(event) { if (pressTimer) clearTimeout(pressTimer); pressTimer=setTimeout(openModal, 1999); }
+function cancelPress() { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } }
 document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
 
 
@@ -2605,6 +2630,7 @@ function showVariables(){
 }
 
 function loadTableFromJSON(data) {
+	const fragment = document.createDocumentFragment();
 	const tbody = document.querySelector("#sortableTable tbody");
 	tbody.innerHTML = "";
 	const saved = JSON.parse(sessionStorage.getItem(storageKey("checkboxStates"))) || {};
@@ -2663,8 +2689,11 @@ function loadTableFromJSON(data) {
 			<td>${icon}</td><td>${d.name}</td><td>${state}</td><td>${c1}</td><td>${c2}</td>
 			<td><div class="info1">${d.i1}</div></td><td><div class="info2">${d.i2}</div></td><td><div class="info3">${d.i3}</div></td>
 			<td>${pinHTML}</td><td>${d.row}</td>`;
-		tbody.appendChild(row);
+		fragment.appendChild(row);
 	});
+  
+	// Add all rows to the DOM at once
+  	tbody.appendChild(fragment);
 
 	if (isDragDrop) {
 		tbody.querySelectorAll("tr").forEach(r => {
@@ -2689,6 +2718,11 @@ function loadTableFromJSON(data) {
 	updateCustomRows();
 }
 
+
+//***************************************  Custom Rows and Manual Sort Order  **********************************************************
+//**************************************************************************************************************************************
+
+//Formats the appearance of the Custom Rows. 50: Custom Device  51: Seperator Row
 function updateCustomRows() {
     document.querySelectorAll("#sortableTable tr").forEach(row => {
         if (row.dataset.type === "51") {
@@ -2696,12 +2730,17 @@ function updateCustomRows() {
             [...row.cells].forEach((cell, i) => {
                 if (!cell) return;
                 if ([1, 2, 3].includes(i)) cell.classList.add(".custom-row-seperator");
-                if (i === 0 ) cell.innerHTML = "";
+                if (i === 0) cell.innerHTML = "";
                 cell.style.borderRight = "2px solid transparent";
             });
         }
+		if (row.dataset.type === "52") {
+            const cell = row.cells[0];
+            if (cell) cell.innerHTML = "";
+        }
     });
 }
+
 
 //Save the sort order after they are manually sorted.
 function saveRowOrder() {
@@ -2780,16 +2819,32 @@ function sendData(payload) {
 
 // Function to fetch JSON data from a URL and return it
 async function fetchData() {
-	if (isLogging) { console.log("fetchData(): Downloading data from Hub.") };
-	const url = '#URL#'; // Example URL
-	try {
-		const response = await fetch(`${url}&sessionID=${sessionID}`);	//Pass the session ID back to the Hub app to track state.
-		const jsonData = await response.json(); // Parse the response as JSON
-		return jsonData; // Return the JSON data
-	} catch (error) {
-		console.error("Error fetching data:", error);
-		return null; // Return null if there's an error
-	}
+  if (isLogging) { console.log("fetchData(): Downloading data from Hub.") };
+  const url = '#URL#'; 
+  
+  // Cancel any ongoing fetch
+  if (currentFetchController) {
+    currentFetchController.abort();
+  }
+  
+  // Create new controller
+  currentFetchController = new AbortController();
+  const signal = currentFetchController.signal;
+  
+  try {
+    const response = await fetch(`${url}&sessionID=${sessionID}`, { signal });
+    const jsonData = await response.json();
+    return jsonData;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      log("Fetch aborted");
+    } else {
+      console.error("Error fetching data:", error);
+    }
+    return null;
+  } finally {
+    currentFetchController = null;
+  }
 }
 
 //***********************************************  onUpdate event handling   ***********************************************************
@@ -2966,63 +3021,79 @@ function syncRows(command, value) {
 
 //Starts the polling process of the Hub using the global value of pollInterval which can vary between the minimum and maximum values depending on activity.
 function startPolling(url, pollResult) {
-    const poller = setInterval(async () => {
-        try {
-            const response = await fetch(`${url}&sessionID=${sessionID}`);
-            if (!response.ok) throw new Error(`Error: ${response.status}`);
-            const data = await response.json();
-            pollResult(data);
-        } catch (error) {
-            console.error("Polling error:", error);
-            clearInterval(poller);
+    async function pollLoop() {
+        if (!pollingActive) return; // allow for full stop if needed
+        if (!isSliding) {
+            try {
+                const response = await fetch(`${url}&sessionID=${sessionID}`);
+                if (!response.ok) throw new Error(`Error: ${response.status}`);
+                const data = await response.json();
+                pollResult(data);
+            } catch (error) {
+                console.error("Polling error:", error);
+                return; // stop loop on error
+            }
+        } else if (isLogging) {
+            console.log("Polling skipped due to slider interaction");
         }
-    }, pollInterval);
-    return poller;
+        setTimeout(pollLoop, pollInterval); // continue loop
+    }
+    pollLoop();
 }
 
 // This is the callback function. When the polling process receives a response, it comes here and we check if there is an update pending or not.
 function pollResult(data) {
+    const table = document.querySelector("table");
+
     if (data.update) {
         if (isLogging) console.log("Update is: True");
-        // We have an update, so mark the transaction as complete
-        handleTransaction("end");
+        handleTransaction("end", table);
         initialize();
-        const table = document.querySelector("table");
-		table.classList.remove('glow-EffectPending');
-        table.classList.add('glow-EffectSuccess');
-        setTimeout(() => table.classList.remove('glow-EffectSuccess'), #pollUpdateDuration#); 
+        if (!table.classList.contains('glow-EffectSuccess')) {
+            table.classList.remove('glow-EffectPending');
+            table.classList.add('glow-EffectSuccess');
+            setTimeout(() => {
+                table.classList.remove('glow-EffectSuccess');
+            }, #pollUpdateDuration#);
+        }
     } else {
         if (isLogging) console.log("Update is: False");
-        handleTransaction("check");
+        handleTransaction("check", table);
     }
 }
 
-function handleTransaction(action) {
-    const table = document.querySelector("table");
+//Tracks where we are in a transaction.
+function handleTransaction(action, table) {
     switch (action) {
         case "begin":
             transaction = Date.now();
             isLogging && console.log("Transaction started:", transaction);
             break;
+
         case "end":
             transaction = null;
             isLogging && console.log("Transaction finished");
             break;
+
         case "check":
             if (!transaction) return;
             const elapsedTime = Date.now() - transaction;
             isLogging && console.log("Elapsed time:", elapsedTime);
-            if (elapsedTime > transactionTimeout) {
+
+            if (elapsedTime > transactionTimeout && !table.classList.contains('glow-EffectFail')) {
                 isLogging && console.log("Transaction is late");
                 table.classList.replace('glow-EffectPending', 'glow-EffectFail');
-                setTimeout(() => { handleTransaction("end"); table.classList.remove('glow-EffectFail'); initialize(); }, #pollUpdateDuration#);
+                setTimeout(() => {
+                    handleTransaction("end", table);
+                    table.classList.remove('glow-EffectFail');
+                    initialize();
+                }, #pollUpdateDuration#);
             } else {
                 isLogging && console.log("Transaction is running");
             }
             break;
     }
 }
-
 
 //***********************************************  Sorting   ***************************************************************************
 //**************************************************************************************************************************************
@@ -3085,6 +3156,16 @@ function setColumnHeaders(applySorting = true) {
 //***********************************************  Initialization  and Miscellaneous  **************************************************
 //**************************************************************************************************************************************
 
+document.addEventListener("DOMContentLoaded", function() { 
+	setupHeaderEventListeners();
+	initialize(); 
+	
+	//Setup listeners used to pause the polling indicator when a user interacts with a slider.
+	document.addEventListener("pointerdown", e => { if (e.target.matches('input[type="range"]')) { isSliding = true; shuttle.style.animationPlayState = "paused"; } });
+    document.addEventListener("pointerup", e => { if (isSliding) { isSliding = false; shuttle.style.animationPlayState = "running"; } });
+    document.addEventListener("pointercancel", () => { isSliding = false; shuttle.style.animationPlayState = "running"; });
+});
+
 // Call the function and handle the returned data
 function initialize() {
 	if (isLogging) { console.log ("Initialize: fetching data") };
@@ -3099,9 +3180,22 @@ function initialize() {
 	});
 }
 
-//Performs a complete refresh of the page.
-function refreshPage(timeout) {
-	setTimeout(function() { location.reload(true);  }, timeout);  // 1000 milliseconds = 1 second
+//Performs a complete refresh of the page. // 1000 milliseconds = 1 second
+function refreshPage(timeout) { 
+    // Clean up event listeners
+    removeHeaderEventListeners();
+    setTimeout(function() { location.reload(true);  }, timeout);
+    
+	// Abort any ongoing fetch operations
+    if (currentFetchController) {
+    	currentFetchController.abort();
+    	currentFetchController = null;
+    }
+
+    if (pressTimer) {
+	    clearTimeout(pressTimer);
+	    pressTimer = null;
+    }
 }
 
 function rgb2hex(rgbString) {
@@ -3110,8 +3204,16 @@ function rgb2hex(rgbString) {
     ).join('');
 }
 
-document.addEventListener("DOMContentLoaded", function() {
-	initialize();
+
+// Add window beforeunload event listener for cleanup
+window.addEventListener('beforeunload', function() {
+	// Clean up resources
+	if (isLogging) { console.log("Running cleanup process.") };
+	removeHeaderEventListeners();
+	if (currentFetchController) currentFetchController.abort();
+	if (pressTimer) clearTimeout(pressTimer);
+	if (pollingInterval) clearInterval(pollingInterval);
+	//transactions.clear();
 });
 
 </script>

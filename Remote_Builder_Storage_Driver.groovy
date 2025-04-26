@@ -26,12 +26,12 @@
 *
 *  Remote Builder Storage Driver - ChangeLog
 *  
-*  Gary Milne - April 21st, 2025
+*  Gary Milne - April 25th, 2025
 *  
 *  Initial Release V 1.0
 *  Version 1.0.1 - Minor errata corrected.
 *  Version 1.0.2 - Added function createTile2() for use with SmartGrid 4.0
-*  
+*  Version 1.0.3 - Fixed bug in deleting Attributes 21 - 25.
 *
 **/
 
@@ -102,7 +102,7 @@ metadata {
 	attribute "Remote25-Cloud-A", "string"
     attribute "Remote25-Cloud-B", "string"
 	
-	//command "test"
+	command "test"
     command "initialize"
     command "createTile", [ [name:"The tile number.*" , type: "NUMBER" , description: "Valid entries are '1 - 25'", range: 1..25], [name:"The Local iFrame.*" , type: "STRING", description: "The local iFrame created by Remote Builder" ], \
 						   [name:"The Cloud iFrame.*" , type: "STRING", description: "The Cloud iFrame created by Remote Builder" ], [name:"Tile Description." , type: "STRING" , description: "i.e. 'Living Room Remote'"] ]
@@ -125,6 +125,7 @@ void updated() {
 
 void test(){
 	//sendEvent(name: "emptyAttribute", value: " ") 
+    //state.remove("")
 }
 
 //Creates a tile
@@ -144,26 +145,22 @@ void createTile(tileNumber, HTML1, HTML2, description) {
 //Creates a tile. Used to Create SmartGrid Tiles with A and B identities for local storage.
 //Incoming URL's should be in the form <iframe name=2487A src=http://192.168.0.200/apps/api/4266/tb?access_token=98273844-2396-4c08-8c1e-d8fd61472487 style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'></iframe>
 void createTile2(tileNumber, HTML1, HTML2, HTML3, HTML4, description) {
-    log("createTile", "Publishing tile: $tileNumber - $description", 1)
-    tileName1 = "Remote" + tileNumber.toString() + "-Local-A"
-	tileName2 = "Remote" + tileNumber.toString() + "-Cloud-A"
-    tileName3 = "Remote" + tileNumber.toString() + "-Local-B"
-    tileName4 = "Remote" + tileNumber.toString() + "-Cloud-B"
-    if (state.tileDescriptions == null) state.tileDescriptions = [:]
-	state.tileDescriptions."${tileName1}" = description
-	state.tileDescriptions."${tileName2}" = description
-    state.tileDescriptions."${tileName3}" = description
-    state.tileDescriptions."${tileName4}" = description
-	sendEvent(name: tileName1, value: toHTML(HTML1) )
-	sendEvent(name: tileName2, value: toHTML(HTML2) )
-    sendEvent(name: tileName3, value: toHTML(HTML3) )
-    sendEvent(name: tileName4, value: toHTML(HTML4) )
-	state."${tileName1}" = HTML1
-	state."${tileName2}" = HTML2
-    state."${tileName3}" = HTML3
-    state."${tileName4}" = HTML4
+    log("createTile2", "Publishing tile: $tileNumber - $description", 1)
+    def base = "Remote${tileNumber}"
+    def tileNames = [
+        "${base}-Local-A",
+        "${base}-Cloud-A",
+        "${base}-Local-B",
+        "${base}-Cloud-B"
+    ]
+    def htmlContents = [HTML1, HTML2, HTML3, HTML4]
+    state.tileDescriptions = state.tileDescriptions ?: [:]
+    tileNames.eachWithIndex { name, i ->
+        state.tileDescriptions[name] = description
+        sendEvent(name: name, value: toHTML(htmlContents[i]))
+        state[name] = htmlContents[i]
+    }
 }
-
 
 
 //Sets the description of a tile
@@ -175,25 +172,30 @@ void setTileDescription(tileNumber, description) {
 	state.tileDescriptions."${tileName2}" = description
 }
 
-//Deletes a tile
+// Deletes a tile
 void deleteTile(tileNumber) {
-    tileName1 = "Remote" + tileNumber.toString() + "-Local"
-	tileName2 = "Remote" + tileNumber.toString() + "-Cloud"
-    
-	log("deleteTile", "Deleting ${tileName1}", 0)
-	log("deleteTile", "Deleting ${tileName2}", 0)
-    device.deleteCurrentState(tileName1)
-	device.deleteCurrentState(tileName2)
-	
-    state.tileDescriptions.remove (tileName1)
-	state.tileDescriptions.remove (tileName2)
-    state.lastUpdate.remove (tileName1)
-	state.lastUpdate.remove (tileName2)
-    state.remove (tileName1)
-	state.remove (tileName2)
-    
-    state.remove ("descriptions")
+    List<String> tileNames = []
+    if (tileNumber < 20) {
+        tileNames << "Remote${tileNumber}-Local"
+        tileNames << "Remote${tileNumber}-Cloud"
+    } else {
+        tileNames += [
+            "Remote${tileNumber}-Local-A",
+            "Remote${tileNumber}-Cloud-A",
+            "Remote${tileNumber}-Local-B",
+            "Remote${tileNumber}-Cloud-B"
+        ]
+    }
+
+    tileNames.each { name ->
+        log("deleteTile", "Deleting ${name}", 0)
+        device.deleteCurrentState(name)
+        state.tileDescriptions.remove(name)
+        state.lastUpdate.remove(name)
+        state.remove(name)
+    }
 }
+
 
 //Returns a list of tiles as a list with compounded tile name, description and size.
 List getTileList(){
