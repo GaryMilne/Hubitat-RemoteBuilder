@@ -2054,7 +2054,7 @@ void publishSubscribe() {
 	}
 	
 	// Configure subscriptions to variables
-	for (int i = 1; i <= myVariableCount; i++) {
+	for (int i = 1; i <= myVariableCount.toInteger(); i++) {
 		if (settings["variableSource${i}"] == "Device Attribute") {
 			if ( settings["myDevice${i}"].hasAttribute(settings["myAttribute${i}"]) ) {
 				subscribe(settings["myDevice${i}"], settings["myAttribute${i}"], handler)	} 
