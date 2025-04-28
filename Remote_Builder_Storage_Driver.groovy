@@ -2,7 +2,7 @@
 *  Remote Builder Storage Driver
 *  Version: See ChangeLog
 *  Download: See importUrl in definition
-*  Description: Used in conjunction with Tile Builder app to store tileps to generate tabular reports on device data and publishes them to a dashboard.
+*  Description: Used in conjunction with the Remote Builder app to store remotes for publishing to the dashboard.
 *
 *  Copyright 2024 Gary J. Milne  
 *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
@@ -26,9 +26,13 @@
 *
 *  Remote Builder Storage Driver - ChangeLog
 *  
-*  Gary Milne - July 3st, 2024
+*  Gary Milne - April 27th, 2025
 *  
 *  Initial Release V 1.0
+*  Version 1.0.1 - Minor errata corrected.
+*  Version 1.0.2 - Added function createTile2() for use with SmartGrid 4.0
+*  Version 1.0.3 - Fixed bug in deleting Attributes 21 - 25.
+*  Version 1.0.4 - Added lastUpdate feature similar to Tile Builder now that SmartGrid gets modified more frequently.
 *
 **/
 
@@ -78,16 +82,26 @@ metadata {
 	attribute "Remote19-Cloud", "string"
 	attribute "Remote20-Local", "string"
 	attribute "Remote20-Cloud", "string"
-	attribute "Remote21-Local", "string"
-	attribute "Remote21-Cloud", "string"
-	attribute "Remote22-Local", "string"
-	attribute "Remote22-Cloud", "string"
-	attribute "Remote23-Local", "string"
-	attribute "Remote23-Cloud", "string"
-	attribute "Remote24-Local", "string"
-	attribute "Remote24-Cloud", "string"
-	attribute "Remote25-Local", "string"
-	attribute "Remote25-Cloud", "string"
+    attribute "Remote21-Local-A", "string"
+    attribute "Remote21-Local-B", "string"
+	attribute "Remote21-Cloud-A", "string"
+    attribute "Remote21-Cloud-B", "string"
+    attribute "Remote22-Local-A", "string"
+    attribute "Remote22-Local-B", "string"
+	attribute "Remote22-Cloud-A", "string"
+    attribute "Remote22-Cloud-B", "string"
+    attribute "Remote23-Local-A", "string"
+    attribute "Remote23-Local-B", "string"
+	attribute "Remote23-Cloud-A", "string"
+    attribute "Remote23-Cloud-B", "string"
+    attribute "Remote24-Local-A", "string"
+    attribute "Remote24-Local-B", "string"
+	attribute "Remote24-Cloud-A", "string"
+    attribute "Remote24-Cloud-B", "string"
+    attribute "Remote25-Local-A", "string"
+    attribute "Remote25-Local-B", "string"
+	attribute "Remote25-Cloud-A", "string"
+    attribute "Remote25-Cloud-B", "string"
 	
 	//command "test"
     command "initialize"
@@ -112,6 +126,7 @@ void updated() {
 
 void test(){
 	//sendEvent(name: "emptyAttribute", value: " ") 
+    //state.remove("")
 }
 
 //Creates a tile
@@ -126,7 +141,31 @@ void createTile(tileNumber, HTML1, HTML2, description) {
 	sendEvent(name: tileName2, value: toHTML(HTML2) )
 	state."${tileName1}" = HTML1
 	state."${tileName2}" = HTML2
+    updated("Remote" + tileNumber.toString())
 }
+
+//Creates a tile. Used to Create SmartGrid Tiles with A and B identities for local storage.
+//Incoming URL's should be in the form <iframe name=2487A src=http://192.168.0.200/apps/api/4266/tb?access_token=98273844-2396-4c08-8c1e-d8fd61472487 style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'></iframe>
+void createTile2(tileNumber, HTML1, HTML2, HTML3, HTML4, description) {
+    log("createTile2", "Publishing tile: $tileNumber - $description", 1)
+    def base = "Remote${tileNumber}"
+    
+    def tileNames = [
+        "${base}-Local-A",
+        "${base}-Cloud-A",
+        "${base}-Local-B",
+        "${base}-Cloud-B"
+    ]
+    def htmlContents = [HTML1, HTML2, HTML3, HTML4]
+    state.tileDescriptions = state.tileDescriptions ?: [:]
+    tileNames.eachWithIndex { name, i ->
+        state.tileDescriptions[name.toString()] = description
+        sendEvent(name: name.toString(), value: toHTML(htmlContents[i]))
+        state[name.toString()] = htmlContents[i]
+    }
+    updated("Remote" + tileNumber.toString())
+}
+
 
 //Sets the description of a tile
 void setTileDescription(tileNumber, description) {
@@ -137,24 +176,38 @@ void setTileDescription(tileNumber, description) {
 	state.tileDescriptions."${tileName2}" = description
 }
 
-//Deletes a tile
+// Deletes a tile
 void deleteTile(tileNumber) {
-    tileName1 = "Remote" + tileNumber.toString() + "-Local"
-	tileName2 = "Remote" + tileNumber.toString() + "-Cloud"
-    
-	log("deleteTile", "Deleting ${tileName1}", 0)
-	log("deleteTile", "Deleting ${tileName2}", 0)
-    device.deleteCurrentState(tileName1)
-	device.deleteCurrentState(tileName2)
-	
-    state.tileDescriptions.remove (tileName1)
-	state.tileDescriptions.remove (tileName2)
-    state.lastUpdate.remove (tileName1)
-	state.lastUpdate.remove (tileName2)
-    state.remove (tileName1)
-	state.remove (tileName2)
-    
-    state.remove ("descriptions")
+    List<String> tileNames = []
+    if (tileNumber < 20) {
+        tileNames << "Remote${tileNumber}-Local"
+        tileNames << "Remote${tileNumber}-Cloud"
+    } else {
+        tileNames += [
+            "Remote${tileNumber}-Local",
+            "Remote${tileNumber}-Cloud",
+            "Remote${tileNumber}-Local-A",
+            "Remote${tileNumber}-Cloud-A",
+            "Remote${tileNumber}-Local-B",
+            "Remote${tileNumber}-Cloud-B"
+        ]
+    }
+
+    tileNames.each { name ->
+        log("deleteTile", "Deleting ${name}", 0)
+        device.deleteCurrentState(name)
+        state.tileDescriptions.remove(name.toString())
+        state.lastUpdate.remove(name.toString())
+        state.remove(name.toString())
+    }
+}
+
+//Make note of the last update to each tile.
+void updated(tileName){    
+	log("updated", "Updated tile: ${tileName}", 1)
+	if (tileName.size() < 5 ) return
+	now = new Date()
+	state.lastUpdate."${tileName}" = now.toString()
 }
 
 //Returns a list of tiles as a list with compounded tile name, description and size.
@@ -263,3 +316,6 @@ private log(name, message, int loglevel){
 String bold(s) { return "<b>$s</b>" }
 String italic(s) { return "<i>$s</i>" }
 String underline(s) { return "<u>$s</u>" }
+
+
+
