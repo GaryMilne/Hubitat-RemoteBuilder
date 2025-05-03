@@ -66,8 +66,10 @@
 *  				   Enable Drag and Drop Support with Custom Sort. Add Custom Rows. Add variables.
 *  Version 4.0.1 - Implement beforeunload function to clean up memory on exit. Remove Selection Boxes for Custom Rows. Pause polling indicator during slider actions. Change shuttle animation to use less CPU. 
 *  Version 4.0.2 - Added some logging to the publishRemote function.
+*  Version 4.0.3 - Internal Only: Remove checkBoxes for Custom Rows and Sensors. Add A/B Configuration info under Endpoints Help. Add Control C column as option for Text is Custom Rows. 
+*  Version 4.0.4 - Remove submitOnChange for all text boxes in Custom Rows and add Apply Changes button for better navigation. Expanded variables to have multiple variables per Source.
 *
-*  Gary Milne - April 28th, 2025 @ 9:22 AM
+*  Gary Milne - May 3nd, 2025 @ 11:35 AM PM
 *
 **/
 
@@ -76,7 +78,8 @@ None
 */
 
 /* Known Issues 
-None
+There is a platform issue with Hubitat that creates an issue when multiple cloud links are stored to the same Storage Driver. This is described in the following post: https://community.hubitat.com/t/bug-report-attribute-preview-on-an-html-string-in-a-device-attribute-sometimes-incorrect/153017
+Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
 */
 
 /* Ideas for future releases
@@ -124,8 +127,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.0.2 (4/27/25)</b>"
-@Field static final codeVersion = 402
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.0.4 (5/3/25)</b>"
+@Field static final codeVersion = 404
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -239,11 +242,20 @@ def mainPage(){
 				//Display the Endpoints with links or ask for compilation
 				paragraph "<a href='${state.localEndpoint}' target=_blank><b>Local Endpoint</b></a>: ${state.localEndpoint} "
                 paragraph "<a href='${state.cloudEndpoint}' target=_blank><b>Cloud Endpoint</b></a>: ${state.cloudEndpoint} "
+                
 				paragraph line (1)
 				myText = "<b>Important: If these endpoints are not generated you may have to enable OAuth in the child application code for this application to work.</b><br>"
             	myText += "Both endpoints can be active at the same time and can be enabled or disable through this interface.<br>"
 				myText += "Endpoints are paused if this instance of the <b>Remote Builder</b> application is paused. Endpoints are deleted if this instance of <b>Remote Builder</b> is removed.<br>"
 				paragraph summary("Endpoint Help", myText)
+                paragraph line (1)
+
+                myText = "<b>You can use these strings to create embedded content within a web page. Just replace any [] with <>.</b><br>"
+				myText += "<ul><li>[iframe name=" + state.AppID + "-A src=" + state.localEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe]</li>";
+				myText += "<li>[iframe name=" + state.AppID + "-A src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe]</li>";
+				myText += "<li>[iframe name=" + state.AppID + "-B src=" + state.localEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe]</li>";
+				myText += "<li>[iframe name=" + state.AppID + "-B src=" + state.cloudEndpoint + " style='height: 100%; width:100%; border: none; scrolling:no; overflow: hidden;'][/iframe]</li></ul>";
+                paragraph summary("Embedded Links", myText)
 			}
 			
 			if (state.activeButtonA == 6){  //Start of Polling Section
@@ -283,38 +295,58 @@ def mainPage(){
 			
 			if (myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])
             if (state.activeButtonA == 7){ //Start of Variables
-                input(name: "myVariableCount", title: "<b>Variable Count?</b>", type: "enum", options: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], submitOnChange: true, defaultValue: 0, style: "width:12%" )
-                def variableCount = myVariableCount.toInteger() != null ? myVariableCount.toInteger() : 0
+                
+                // Variable count input
+                input name: "myVariableCount", title: "<b>Source Count?</b>", type: "enum", options: (0..10), submitOnChange: true, defaultValue: 0, style: "width:12%"
+
+                // Parse the selected variable count
+                def variableCount = myVariableCount?.toInteger() ?: 0
+
+                // Loop through each variable
                 for (int i = 1; i <= variableCount; i++) {
-					input "variableSource${i}", "enum", title: dodgerBlue("<b>Source #$i</b> (var$i)"), options: ["Device Attribute", "Hub Variable"], submitOnChange: true, width: 1, defaultValue: "Device Attribute", newLine: true, style: "width:12%" 
-					if (settings["variableSource${i}"] == "Device Attribute") {
-						input "myDevice${i}", "capability.*", title: "<b>Device</b>", multiple: false, required: false, submitOnChange: true, width: 2, newLine: false, style: "margin-left:20px"
-						input "myAttribute${i}", "enum", title: "&nbsp<b>Attribute</b>", options: getAttributeList(settings["myDevice${i}"]), multiple: false, submitOnChange: true, width: 2, required: true, newLine: false, style:"margin-left:20px;width:12%"
-					}
-					if (settings["variableSource${i}"] == "Hub Variable") {
-						input "myHubVariable${i}", "enum", title: "<b>Hub Variable</b>", submitOnChange: true, width: 2, options: getAllGlobalVars().findAll { it.value.type != null }.keySet().collect().sort { it.capitalize() }, style: "margin-left:20px;width:26.5%"
-					}
-				}	
+                    input "variableSource${i}", "enum", title: dodgerBlue("<b>Source #$i</b>"), options: ["Device Attribute", "Hub Variable", "Disabled"], submitOnChange: true, defaultValue: "Device Attribute", newLine: true, style: "width:12%"
+                    def sourceType = settings["variableSource${i}"]
+
+                    if (sourceType == "Device Attribute") {
+                        def devKey = "myDevice${i}"
+                        def dev = settings[devKey]
+
+                        input devKey, "capability.*", title: "<b>Device</b>", multiple: false, required: false, submitOnChange: true, newLine: false, style: "margin-left:20px;width:12%"
+
+                        if (dev) {
+                            def attrList = getAttributeList(dev)
+                            (1..5).each { j ->
+                                def attrIndex = i * 10 + j
+                                input "myAttribute${attrIndex}", "enum", title: "&nbsp<b>Attribute (%var${attrIndex}%)</b>", options: attrList, multiple: false, submitOnChange: true, required: false, newLine: false, style: "margin-left:20px;width:10%"
+                            }
+                        }
+                    }
+                    if (sourceType == "Hub Variable") { input "myHubVariable${i}", "enum", title: "<b>Hub Variable (%var$i%)</b>", submitOnChange: true, width: 2, options: getAllGlobalVars().findAll { it.value?.type }?.keySet()?.collect()?.sort { it.capitalize() }, style: "margin-left:20px;width:26.5%" }
+                }
+
 				paragraph line(1)
 				myText = "Here you can configure variables that can be placed within the SmartGrid. You can have up to 10 configured variables.<br>"
            		myText += "<b>Source:</b> This can be either a <b>Device Attribute</b> pair or a <b>Hub Variable</b>.<br>"
 				myText += "<b>Variables:</b> The variables are named %var1% - %var10% as shown in the above dialogs.<br>"
 				myText += "Once you have configured your variables you can place them within the SmartGrid using the Custom Rows tab using the form <b>%varX%</b>.<br>"
 				paragraph summary("Variables Help", myText)
+                paragraph "<b>Note:</b> A change in the value of a variable will cause the SmartGrid to refresh it's data. Choose wisely."
 				paragraph red("<b>Important: Custom rows are only displayed when Custom Sort is enabled.</b>")
             }
 			
 			if (state.activeButtonA == 8){ //Start of Custom Rows
 				input (name: "customRowCount", title: "<b>How Many Custom Rows?</b>", type: "enum", options: [0,1,2,3,4,5,6,7,8,9,10], submitOnChange:true, width:2, defaultValue: 0)				
 				for (int i = 1; i <= customRowCount.toInteger(); i++) {
-					input (name: "customRowType${i}", title: "<b>Row $i</b>", type: "enum", options: ["Device Row", "Seperator Row", "Disabled"], submitOnChange:true, newLine: true, width:1, defaultValue: "Seperator Row", style:"margin-right: 25px")
-					input "myNameText${i}", "string", title: "<b>Name Column Text</b>", submitOnChange:true, width:3, defaultValue: "[b]Your Text Here (%var1%)[/b]", newLine:false, style:"margin-right: 25px"
-					input "myStateText${i}", "string", title: "<b>State Column Text</b>", submitOnChange:true, width:2, defaultValue: "", newLine:false, style:"margin-right: 25px"
-					input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", submitOnChange:true, width:2, defaultValue: "", newLine:false, style:"margin-right: 25px"
-					input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", submitOnChange:true, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
-					input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", submitOnChange:true, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
-					input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", submitOnChange:true, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input (name: "customRowType${i}", title: "<b>Row $i</b>", type: "enum", options: ["Device Row", "Separator Row", "Disabled"], submitOnChange:true, newLine: true, width:1, defaultValue: "Separator Row", style:"margin-right: 25px")
+					input "myNameText${i}", "string", title: "<b>Name Column Text</b>", submitOnChange:false, width:3, defaultValue: "[b]Your Text Here (%var%)[/b]", newLine:false, style:"margin-right: 25px"
+					input "myStateText${i}", "string", title: "<b>State Column Text</b>", submitOnChange:false, width:2, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+                    input "myControlCText${i}", "string", title: "<b>Control C Column Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
 				}
+                input(name: "refresh", type: "button", title: "Apply Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
 				paragraph red("<b>Important: Custom rows are only displayed when Custom Sort is enabled.</b>")
 				
 				paragraph line(1)
@@ -761,6 +793,16 @@ def initialize() {
 		app.updateSetting("hideColumn11", true)
 		state.variablesVersion = codeVersion	
 	}
+    
+    //Here we fix a spelling Mistake. Change Seperator to Separator
+    (1..customRowCount.toInteger()).each { i ->
+    	def rowType = settings["customRowType$i"]?.toString()
+    	if (rowType == "Seperator Row") {
+        	log.info ("Updating setting")
+        	app.updateSetting("customRowType$i", [value: "Separator Row", type: "enum"])
+        	rowType = "Separator Row"
+        }
+    }
 }
 
 //Sets the basic table colors.  //Blue is the default.
@@ -947,32 +989,32 @@ def getJSON() {
 		(1..customRowCount.toInteger()).each { i ->
 			// Skip if the row type is Disabled
 			def rowType = settings["customRowType$i"]?.toString()
-			if (rowType == "Disabled") return
-
-			// Use LinkedHashMap to maintain the order of fields
+            if (rowType == "Disabled") return
+            
+            // Use LinkedHashMap to maintain the order of fields
 			def deviceData = new LinkedHashMap()
 			def deviceID = i
 			def myType
 			deviceData.put("ID", "$i") // The Device ID is the position in the array.
 
-			if (rowType == "Seperator Row") {
+			if (rowType == "Separator Row" ) {
 				myType = 51 // Custom Separator Row
-				deviceData.put("icon", getIcon(myType, "seperatorRow")?.icon)
-				deviceData.put("cl", getIcon(myType, "seperatorRow")?.class)
+				deviceData.put("icon", getIcon(myType, "separatorRow")?.icon)
+				deviceData.put("cl", getIcon(myType, "separatorRow")?.class)
 			} else if (rowType == "Device Row") {
 				myType = 52 // Custom Device Row
 				deviceData.put("icon", getIcon(myType, "deviceRow")?.icon)
 				deviceData.put("cl", getIcon(myType, "deviceRow")?.class)
 			}
-
+			//Put the data into the cells that are expected by the applet.
 			deviceData.put("type", myType)
 			deviceData.put("name", toHTML(replaceVarsInString(settings["myNameText$i"]?.toString())))
 			deviceData.put("switch", toHTML(replaceVarsInString(settings["myStateText$i"]?.toString())))
-			deviceData.put("level", toHTML(replaceVarsInString(settings["myControlABText$i"]?.toString())))
+			if (!hideColumn5) deviceData.put("level", toHTML(replaceVarsInString(settings["myControlABText$i"]?.toString())))
+            if (!hideColumn6) deviceData.put("CT", toHTML(replaceVarsInString(settings["myControlCText$i"]?.toString())))
 			if (!hideColumn7) deviceData.put("i1", toHTML(replaceVarsInString(settings["myInfoAText$i"]?.toString())))
 			if (!hideColumn8) deviceData.put("i2", toHTML(replaceVarsInString(settings["myInfoBText$i"]?.toString())))
 			if (!hideColumn9) deviceData.put("i3", toHTML(replaceVarsInString(settings["myInfoCText$i"]?.toString())))
-
 			deviceAttributesList << deviceData
 		}
 	}
@@ -1011,32 +1053,43 @@ def getJSON() {
 	}
 }
 
-//Replace %var1% - %var10% that can be placed in the device and seperator strings with the actual expanded values.
+// Replace %var11% - %var85% that can be placed in device/separator strings with actual values.
 def replaceVarsInString(str) {
-	(1..10).each { i ->
-        def placeholder = "%var${i}%"
+    if (!str) return ""
+    return str.replaceAll(/%var(\d+)%/) { fullMatch, varNum ->
+        def i = varNum.toInteger()
         def replacement = getVariableText(i)
-	    str = str?.replace(placeholder, replacement)
+        return replacement ?: fullMatch // fallback to original if null/empty
     }
-    return str
 }
 
-//Returns the variable value for a the variable with index i.
-String getVariableText(i) {
-	def myValue = ""
-	if (settings["variableSource$i"] == "Device Attribute" && settings["myDevice$i"] != null && settings["myAttribute$i"] != null) {
-		myValue = settings["myDevice$i"]?.currentValue(settings["myAttribute$i"])
-		if (myValue == null) myValue = invalidAttribute.toString()
-		//log.info ("getVariableText($i) - Attribute: " + settings["myAttribute$i"] + ":$myValue")
-	}
+//Helper Function to replace variables with their attribute values.
+String getVariableText(var) {
+    def dev, attrIndex
+    def varStr = var.toString()
 
-	if (settings["variableSource$i"] == "Hub Variable" && settings["myHubVariable$i"] != null) {
-		myMap = getGlobalVar(settings["myHubVariable$i"])
-		myValue = myMap.value
-		//log.info ("getVariableText($i) - Hub Var: " + settings["myHubVariable$i"] + ":$myValue")
-	}
-	return myValue
+    if (var < 11) {
+        dev = var
+        attrIndex = 0
+    } else {
+        attrIndex = varStr[-1] as Integer  // Last digit
+        dev = varStr[0..-2] as Integer     // All but last digit
+    }
+    
+    if (settings["variableSource${dev}"] == "Device Attribute" && settings["myDevice${dev}"] != null && settings["myAttribute${var}"] != null) {
+        myValue = settings["myDevice${dev}"]?.currentValue(settings["myAttribute${var}"])
+        if (myValue == null) myValue = invalidAttribute.toString()
+        if (isLogDebug) log.debug("getVariableText($var) - Attribute: ${settings["myAttribute${var}"]} = $myValue")
+    }
+    
+    if (settings["variableSource${dev}"] == "Hub Variable" && settings["myHubVariable${var}"] != null) {
+        def myMap = getGlobalVar(settings["myHubVariable${var}"])
+        myValue = myMap?.value?.toString() ?: ""
+        if (isLogDebug) log.debug("getVariableText($dev) - Hub Var: ${settings["myHubVariable${var}"]} = $myValue")
+    }
+    return myValue
 }
+
 
 //Checks the cached list to see if the received deviceID is part of that list.  This is used to determine whether something is pinned or not.
 def containsDeviceID(deviceList, deviceID) {
@@ -1072,7 +1125,7 @@ def getIcon(type, deviceState) {
 		33 : [wet: [icon: "water_drop", class: "warn"], dry: [icon: "format_color_reset", class: "off"] ],
 		34 : [battery: [icon: "battery_android_4", class: "off"] ],
 		//Custom Devices start at 51
-		51 : [seperatorRow: [icon: "atr", class: "off"] ],
+		51 : [separatorRow: [icon: "atr", class: "off"] ],
 		52 : [deviceRow: [icon: "info", class: "off"] ]
     ]
 
@@ -1870,6 +1923,8 @@ def toHub() {
             }
         }
     }
+    
+    log.info ("Changes are: $changes")
 
 	// Print changes for each device one at a time
 	changes.each { change ->
@@ -2058,9 +2113,9 @@ void publishSubscribe() {
 	// Configure subscriptions to variables
 	for (int i = 1; i <= myVariableCount.toInteger(); i++) {
 		if (settings["variableSource${i}"] == "Device Attribute") {
-			if ( settings["myDevice${i}"].hasAttribute(settings["myAttribute${i}"]) ) {
+			if ( settings["myDevice${i}"]?.hasAttribute(settings["myAttribute${i}"]) ) {
 				subscribe(settings["myDevice${i}"], settings["myAttribute${i}"], handler)	} 
-				if (isLogDebug) log.debug("Attribute Subscribed")
+				//if (isLogDebug) log.debug("Attribute Subscribed")
 		}	
 		
 		if (settings["variableSource${i}"] == "Hub Variable") {
@@ -2334,7 +2389,7 @@ def HTML =
     
 	.selected-row {	background-color: #rbs#;}
 	.pinned-row {background-color: #rbpc#;}
-	.custom-row-seperator {background-color: #crbc#; color:#crtc#; font-size: #crts#%;}
+	.custom-row-separator {background-color: #crbc#; color:#crtc#; font-size: #crts#%;}
 	//Drag and Drop Support
 	#isDragDropCSS#
 
@@ -2537,15 +2592,10 @@ let isLogging = localStorage.getItem(storageKey("isLogging")) === "true";
 
 let isDragDrop = #isDragDrop#;
 let isCustomSort = #isCustomSort#;
-//Disable Polling if we are using Drag and Drop
-if ( isDragDrop ) isPolling = false;
-
 const shuttle = document.getElementById('shuttle');
 
-
-
-
-
+//Disable Polling if we are using Drag and Drop
+if ( isDragDrop ) isPolling = false;
 
 //These are all the filterValues used in the Modal window
 const filterValues = {};
@@ -2689,7 +2739,8 @@ function loadTableFromJSON(data) {
 			? `<div class="toggle-switch ${d.switch === 'on' ? 'on' : ''}" data-state="${d.switch}" onclick="toggleSwitch(this); updateHUB()"></div>`
 			: `<div class="state-text">${d.switch}</div>`;
 
-		if (d.type === 51 || d.type === 52) c1 = d.level;
+		//For Separator and Device Rows put the text contents into the fields
+		if (d.type === 51 || d.type === 52) {c1 = d.level; c2 = d.CT};
 		if ([1,10,11,13].includes(d.type)) c1 = "";
 
 		row.innerHTML = `
@@ -2723,37 +2774,37 @@ function loadTableFromJSON(data) {
 	else setColumnHeaders(false);
 
 	updateAllTiltIndicators();
-	updateCustomRows();
+	//Tweak the contents of the Rows for last minute changes.
+	updateRows();
 }
 
 
 //***************************************  Custom Rows and Manual Sort Order  **********************************************************
 //**************************************************************************************************************************************
 
-//Formats the appearance of the Custom Rows. 50: Custom Device  51: Seperator Row
-function updateCustomRows() {
+//Formats the appearance of the Custom Rows. 50: Custom Device  51: Separator Row
+function updateRows() {
     document.querySelectorAll("#sortableTable tr").forEach(row => {
         if (row.dataset.type === "51") {
             row.style.background = "linear-gradient(to bottom, #crbc#, #crbc2#)";
             [...row.cells].forEach((cell, i) => {
                 if (!cell) return;
-                if ([1, 2, 3].includes(i)) cell.classList.add(".custom-row-seperator");
+                if ([1, 2, 3].includes(i)) cell.classList.add(".custom-row-separator");
                 if (i === 0) cell.innerHTML = "";
                 cell.style.borderRight = "2px solid transparent";
             });
         }
-		if (row.dataset.type === "52") {
+		//Remove the Selection box for anything of type >= 30, namely sensors or custom rows.
+		if (+row.dataset.type >= 30) {
             const cell = row.cells[0];
             if (cell) cell.innerHTML = "";
         }
     });
 }
 
-
 //Save the sort order after they are manually sorted.
 function saveRowOrder() {
     const rows = [...document.querySelectorAll("#sortableTable tbody tr")];
-
     // Track how many times each ID has been seen
     const seen = {};
     const sortedJSON = rows.map((row, index) => {
