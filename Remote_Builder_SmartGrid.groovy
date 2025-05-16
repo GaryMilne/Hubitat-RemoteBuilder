@@ -68,8 +68,9 @@
 *  Version 4.0.2 - Added some logging to the publishRemote function.
 *  Version 4.0.3 - Internal Only: Remove checkBoxes for Custom Rows and Sensors. Add A/B Configuration info under Endpoints Help. Add Control C column as option for Text is Custom Rows. 
 *  Version 4.0.4 - Remove submitOnChange for all text boxes in Custom Rows and add Apply Changes button for better navigation. Expanded variables to have multiple variables per Source.
+*  Version 4.1.0 - Created a separate tab for Device Renaming. Added Hub Properties as Variables. Added Capitalization option for Variable Data and adherence to global Decimal Places. Added formatting for [mark] tag and added optional [m1] tag on Experimental tab.
 *
-*  Gary Milne - May 3nd, 2025 @ 11:35 AM PM
+*  Gary Milne - May 16th, 2025 @ 3:34 PM
 *
 **/
 
@@ -80,9 +81,13 @@ None
 /* Known Issues 
 There is a platform issue with Hubitat that creates an issue when multiple cloud links are stored to the same Storage Driver. This is described in the following post: https://community.hubitat.com/t/bug-report-attribute-preview-on-an-html-string-in-a-device-attribute-sometimes-incorrect/153017
 Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
+The documentation for SmartGrid has been broken out and it needs a new link.
+Fix Hub Variables to have N variables per Hub variable source.
+Add built-in variables sunset, sunrise etc taken from Tile Builder Grid.
 */
 
 /* Ideas for future releases
+Add built-in variables. A subset of Tile Builder Grid.
 Add support for Thermostats
 Add Scene Selector Control
 Add Media Control
@@ -113,6 +118,7 @@ static def unitsMap() { return ['°F', ' °F', '°C', ' °C']}
 static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: HH:mm", 3: "To: h:mm a", 4: "To: HH:mm:ss", 5: "To: h:mm:ss a", 6: "To: E HH:mm", 7: "To: E h:mm a", 8: "To: EEEE HH:mm", 9: "To: EEEE h:mm a", \
 								10: "To: MM-dd HH:mm", 11: "To: MM-dd h:mm a", 12: "To: MMMM dd HH:mm", 13: "To: MMMM dd h:mm a", 14: "To: yyyy-MM-dd HH:mm", 15: "To: dd-MM-yyyy h:mm a", 16: "To: MM-dd-yyyy h:mm a", 17: "To: E @ h:mm a" ] }
 static def dateFormatsList() { return dateFormatsMap().values() }
+static def hubProperties() { return ["sunrise", "sunrise1", "sunrise2", "sunset", "sunset1", "sunset2", "hubName", "hsmStatus", "currentMode", "firmwareVersionString", "uptime", "timeZone", "daylightSavingsTime", "currentTime", "currentTime1", "currentTime2"].sort() }
 
 static def createDeviceTypeMap() {
     def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak" ]
@@ -127,8 +133,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.0.4 (5/3/25)</b>"
-@Field static final codeVersion = 404
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.1.0 (5/16/25)</b>"
+@Field static final codeVersion = 410
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -161,7 +167,7 @@ def mainPage(){
 		section(hideable: true, hidden: state.hidden.Configure, title: buttonLink('btnHideConfigure', getSectionTitle("Configure"), 20)) {
                 //Setup the Table Style
                 paragraph "<style>#buttons1 {font-family: Arial, Helvetica, sans-serif; width:100%; text-layout:fixed; text-align:'Center'} #buttons1 td, #buttons1 tr {width: 11%; background:#00a2ed;color:#FFFFFF;text-align:Center;opacity:0.75;padding: 8px} #buttons1 td:hover {padding: 8px; background: #27ae61;opacity:1}</style>"
-                table1 = "<table id='buttons1'><td>" + buttonLink ('Controls', 'Controls', 1) + "</td><td>" + buttonLink ('Sensors', 'Sensors', 2) + "</td><td>" + 
+                table1 = "<table id='buttons1'><td>" + buttonLink ('Controls', 'Controls', 1) + "</td><td>" + buttonLink ('Sensors', 'Sensors', 2) + "</td><td>" + buttonLink ('RenameDevices', 'Rename Devices', 3) + "</td><td>" + 
 					// buttonLink ('Batteries', 'Batteries', 3) + "</td><td>" + buttonLink ('Inactivity', 'Inactivity', 4) + "</td><td>" + 
 					buttonLink ('Endpoints', 'Endpoints', 5) + "</td><td>" + buttonLink ('Polling', 'Polling', 6) + "</td><td>" + buttonLink ('Variables', 'Variables', 7) + "</td><td>" +
 					buttonLink ('CustomRows', 'Custom Rows', 8) + "</td><td>" +	buttonLink ('Publish', 'Publish', 9) + "</td><td>" + buttonLink ('Logging', 'Logging', 10) + "</td></table>"
@@ -182,27 +188,12 @@ def mainPage(){
 				def option = filterOptions[filter]
 				if (option) { input "myDevices", option.capability, title: option.title, multiple: true, submitOnChange: true, newLine: true, width: 2, style: "margin-right:25px" } 
 				else { if (isLogDebug) log.debug "No filter option selected." }
-								
-				//Allow users to rename devices that fit certain patterns
-				input (name: "isShowDeviceNameModification", type: "enum", title: "<b>Show Device and Sensor Name Modification</b>", options: ["True", "False"], required: false, multiple: false, defaultValue: "False", submitOnChange: true, width: 2, newLine: true)    
-				paragraph line(1)
-				if (isShowDeviceNameModification == "True") {
-					input (name: "mySearchText1", title: "<b>Search Device Text #1</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
-					input (name: "myReplaceText1", title: "<b>Replace Device Text #1</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
-					input (name: "mySearchText2", title: "<b>Search Device Text #2</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
-					input (name: "myReplaceText2", title: "<b>Replace Device Text #2</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
-					input (name: "mySearchText3", title: "<b>Search Device Text #3</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
-					input (name: "myReplaceText3", title: "<b>Replace Device Text #3</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
-					input (name: "mySearchText4", title: "<b>Search Device Text #4</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
-					input (name: "myReplaceText4", title: "<b>Replace Device Text #4</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
-					input (name: "mySearchText5", title: "<b>Search Device Text #5</b>", type: "string", submitOnChange:true, width:2, defaultValue: "?", newLine:true)
-					input (name: "myReplaceText5", title: "<b>Replace Device Text #5</b>", type: "string", submitOnChange:true, width:2, defaultValue: "")
-					paragraph line(1)
-				}
-				myText =  "<b>Important: If you change the selected devices you must do a " + red("Publish and Subscribe") + " for SmartGrid to work correctly.</b><br>"
+                
+                paragraph line(1)
+                myText =  "<b>Important: If you change the selected devices you must do a " + red("Publish and Subscribe") + " for SmartGrid to work correctly.</b><br>"
 				myText += "<b>Note:</b> Pinned items remain at the top of the table sorted A-Z regardless of the sort order, with the exception of a custom sort where pinned items are ignored.<br>"
-				paragraph myText + "<b>Note:</b> Do not configure pinned sensors if you plan to use a Custom Sort order.<br>"
-				}
+				paragraph myText + "<b>Note:</b> Do not configure pinned devices if you plan to use a Custom Sort order.<br>"
+			}
 			
 			if (state.activeButtonA == 2){ //Start of Sensors Section
 				input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
@@ -221,15 +212,29 @@ def mainPage(){
 				paragraph line(1)
 				paragraph "<b>Note:</b> Do not configure pinned sensors if you plan to use a Custom Sort order."
 			}
-			
-			
-			/*
-			if (state.activeButtonA == 3){ //Start of Batteries Section
-				input "myBatteries", "capability.battery", title: "<b>Select Battery Devices</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
-				input(name: "onlyLowBatteries", type: "enum", title: bold("Unpinned: Only Report Low Batteries"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+            
+            if (state.activeButtonA == 3){ //Start of Rename Devices Section - Allow users to rename devices that fit certain patterns
+                if (myDeviceRenameCount == null) app.updateSetting("myDeviceRenameCount", [value: "10", type: "enum"])
+                
+                // Device Rename count input
+                input name: "myDeviceRenameCount", title: "<b>Device Rename Count?</b>", type: "enum", options: ['0', '2', '4', '6', '8', '10'], submitOnChange: true, defaultValue: 0, style: "width:12%"
+                
+                // Parse the selected device rename count
+                def renameCount = myDeviceRenameCount?.toInteger() ?: 0
+                (1..renameCount).step(2).each { i ->
+                    input(name: "mySearchText$i",       title: "<b>Search Device Text #$i</b>",       type: "string", submitOnChange: false, width: 2, defaultValue: "?", newLine:true)
+                    input(name: "myReplaceText$i",      title: "<b>Replace Device Text #$i</b>",      type: "string", submitOnChange: false, width: 2, defaultValue: "", style:"margin-right:100px")
+                    input(name: "mySearchText${i+1}",   title: "<b>Search Device Text #${i+1}</b>",   type: "string", submitOnChange: false, width: 2, defaultValue: "?")
+                    input(name: "myReplaceText${i+1}",  title: "<b>Replace Device Text #${i+1}</b>",  type: "string", submitOnChange: false, width: 2, defaultValue: "", newLineAfter: true)
+                }
+                input(name: "refresh", type: "button", title: "Apply Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLine:true)
+                paragraph line(1)
 			}
 			
-			if (state.activeButtonA == 4){ //Start of Inactivity Section
+			/*
+			if (state.activeButtonA == 4){ //Start of Battery - Inactivity Section
+				input "myBatteries", "capability.battery", title: "<b>Select Battery Devices</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
+				input(name: "onlyLowBatteries", type: "enum", title: bold("Unpinned: Only Report Low Batteries"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
 			}
 			*/
 							      
@@ -294,8 +299,7 @@ def mainPage(){
             }
 			
 			if (myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])
-            if (state.activeButtonA == 7){ //Start of Variables
-                
+            if (state.activeButtonA == 7){ //Start of Variables     
                 // Variable count input
                 input name: "myVariableCount", title: "<b>Source Count?</b>", type: "enum", options: (0..10), submitOnChange: true, defaultValue: 0, style: "width:12%"
 
@@ -304,15 +308,18 @@ def mainPage(){
 
                 // Loop through each variable
                 for (int i = 1; i <= variableCount; i++) {
-                    input "variableSource${i}", "enum", title: dodgerBlue("<b>Source #$i</b>"), options: ["Device Attribute", "Hub Variable", "Disabled"], submitOnChange: true, defaultValue: "Device Attribute", newLine: true, style: "width:12%"
-                    def sourceType = settings["variableSource${i}"]
+                    def sourceSetting = settings["variableSource${i}"]
+                    def sourceWidth = (sourceSetting == "Hub Variable" || sourceSetting == "Hub Property") ? "width:20.75%" : "width:10%"
+
+                    input "variableSource${i}", "enum", title: dodgerBlue("<b>Source #$i</b>"), options: ["Device Attribute", "Hub Variable", "Hub Property", "Disabled"], submitOnChange: true, defaultValue: "Device Attribute", newLine: true, style: sourceWidth
+                    def sourceType = sourceSetting
 
                     if (sourceType == "Device Attribute") {
                         def devKey = "myDevice${i}"
                         def dev = settings[devKey]
-
-                        input devKey, "capability.*", title: "<b>Device</b>", multiple: false, required: false, submitOnChange: true, newLine: false, style: "margin-left:20px;width:12%"
-
+                        //Select a Device to use for the variable sources.
+                        input devKey, "capability.*", title: "<b>Device</b>", multiple: false, required: false, submitOnChange: true, newLine: false, style: "margin-left:20px;width:10%"
+                        //Allow up to 5 attributes to be selectable
                         if (dev) {
                             def attrList = getAttributeList(dev)
                             (1..5).each { j ->
@@ -321,7 +328,24 @@ def mainPage(){
                             }
                         }
                     }
-                    if (sourceType == "Hub Variable") { input "myHubVariable${i}", "enum", title: "<b>Hub Variable (%var$i%)</b>", submitOnChange: true, width: 2, options: getAllGlobalVars().findAll { it.value?.type }?.keySet()?.collect()?.sort { it.capitalize() }, style: "margin-left:20px;width:26.5%" }
+
+                    if (sourceType == "Hub Variable") {
+                        def varList = getAllGlobalVars().findAll { it.value?.type }?.keySet()?.collect()?.sort { it.capitalize() }
+                        //Allow up to 5 attributes to be selectable
+                        (1..5).each { j ->
+                            def attrIndex = i * 10 + j
+                            input "myHubVariable${attrIndex}", "enum", title: "<b>Hub Variable (%var${attrIndex}%)</b>", submitOnChange: true, options: varList, newLine: false, style: "margin-left:20px;width:10%"
+                        }
+                    }
+
+                    if (sourceType == "Hub Property") {
+                        def varList = getAllGlobalVars().findAll { it.value?.type }?.keySet()?.collect()?.sort { it.capitalize() }
+                        //Allow up to 5 attributes to be selectable
+                        (1..5).each { j ->
+                            def attrIndex = i * 10 + j
+                            input "myHubProperty${attrIndex}", "enum", title: "<b>Hub Property (%var${attrIndex}%)</b>", submitOnChange: true, options: hubProperties(), newLine: false, style: "margin-left:20px;width:10%"
+                        }
+                    }
                 }
 
 				paragraph line(1)
@@ -462,7 +486,8 @@ def mainPage(){
 				input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right" ], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
 				input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
 				input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "°F", style:"margin-right:25px")
-				input ("tempDecimalPlaces", "enum", title: "<b>Temperature Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, defaultValue: "0 Decimal Places", submitOnChange: true, width: 2, required: false)
+				input ("tempDecimalPlaces", "enum", title: "<b>Temperature Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, defaultValue: "0 Decimal Places", submitOnChange: true, width: 2, required: false, style:"margin-right:25px",)
+                input ("capitalizeStrings", "enum", title: "<b>Capitalize Strings</b>", options: ["True", "False"], multiple: false, defaultValue: "False", submitOnChange: true, width: 2, required: false)
 				input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true )
 				input(name: "sortHeaderHintZA", type: "color", title: bold("Sort Header Hint Z-A"), required: false, defaultValue: "#FF0000", submitOnChange: true, width: 2, style:"margin-right:25px" )
 			}
@@ -562,13 +587,17 @@ def mainPage(){
 			}
 
 			if (state.activeButtonB == 26){ //Experimental
-				paragraph "<b>There are no experimental settings at this time!<b>"
+				paragraph "<b>You will find experimental settings here if there are any.<b>"
+                if (markTag == null) app.updateSetting("markClass", value: "background-color: yellow; color: black; padding: 0.05em 0.25em; border-radius: 0.3em; outline: 1px dotted #000000;", type:"text")
+                if (m1Tag == null) app.updateSetting("markClass", value: "background-color: #007acc;color: white;padding: 0.1em 0.4em;border-radius: 0.4em;outline: 1px dashed #005b99;font-weight: bold;", type:"text")
+                input (name: "markTag", type: "text", title: "Enter a String for the CSS formatting of the [mark] HTML tag.", required: false, defaultValue: "background-color: yellow; color: black; padding: 0.05em 0.25em; border-radius: 0.3em; outline: 1px dotted #000000;", width:12, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                input (name: "m1Tag", type: "text", title: "Enter a String for the CSS formatting of the [m1] HTML tag.", required: false, defaultValue: "background-color: #007acc;color: white;padding: 0.1em 0.4em;border-radius: 0.4em;outline: 1px dashed #005b99;font-weight: bold;", width:12, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
 			}
 
 			paragraph line(1)
 			paragraph "<b>Important: You must do a " + red("Publish and Subscribe") + " for SmartGrid to receive updates and work correctly in polling mode or to update automatically in the above window!</b><br>"
 		}
-
+        
 		//Start of Footer Section
         section {
             //Now add a footer.
@@ -584,6 +613,7 @@ def mainPage(){
         //End of Footer Section
     }
 }
+
 
 
 //*******************************************************************************************************************************************************************************************
@@ -788,6 +818,8 @@ def initialize() {
 	if (ita2 == null ) app.updateSetting("ita2", [value: "Center", type: "enum"])
 	if (ita3 == null ) app.updateSetting("ita3", [value: "Center", type: "enum"])
 	
+	if (myDeviceRenameCount == null ) app.updateSetting("myDeviceRenameCount", [value: "0", type: "enum"])
+	
 	//These are settings that we want to force once
 	if ( state.variablesVersion < codeVersion){
 		app.updateSetting("hideColumn11", true)
@@ -871,6 +903,181 @@ def updated(){
 
 //*******************************************************************************************************************************************************************************************
 //**************
+//**************  Start Device Renaming and Variable Substitution
+//**************
+//*******************************************************************************************************************************************************************************************
+
+// Replace %var11% - %var105% variables that may be found in device/separator strings or device names with actual values.
+def replaceVarsInString(str) {
+    if (!str) return ""
+    return str.replaceAll(/%var(\d+)%/) { fullMatch, varNum ->
+        def i = varNum.toInteger()
+        def replacement = getVariableText(i)
+        //log.info ("R E P L A C E M E N T is: $replacement")
+        return replacement ?: fullMatch // fallback to original if null/empty
+    }
+}
+
+//Helper Function to replace variables with their attribute values.
+String getVariableText(var) {
+    def dev, attrIndex
+    def varStr = var.toString()
+    if (var < 11) {
+        dev = var
+        attrIndex = 0
+    } else {
+        attrIndex = varStr[-1] as Integer  // Last digit
+        dev = varStr[0..-2] as Integer     // All but last digit
+    }
+    
+    if (settings["variableSource${dev}"] == "Device Attribute" && settings["myDevice${dev}"] != null && settings["myAttribute${var}"] != null) {
+        myValue = settings["myDevice${dev}"]?.currentValue(settings["myAttribute${var}"])
+        if (isLogDebug) log.debug("getVariableText(Device - $var) - Attribute: ${settings["myAttribute${var}"]} = $myValue")
+    }
+    
+    if (settings["variableSource${dev}"] == "Hub Variable" && settings["myHubVariable${var}"] != null) {
+        def myMap = getGlobalVar(settings["myHubVariable${var}"])
+        myValue = myMap?.value?.toString() ?: invalidAttribute.toString()
+        if (isLogDebug) log.debug("getVariableText(Hub Variable - $var) - Hub Var: ${settings["myHubVariable${var}"]} = $myValue")
+    }
+    
+    if (settings["variableSource${dev}"] == "Hub Property" && settings["myHubProperty${var}"] != null) {
+        def myVar = settings["myHubProperty${var}"]
+        myValue = getHubProperty(settings["myHubProperty${var}"])
+        if (isLogDebug) log.debug("getVariableText(Hub Property - $var) - Hub Property: ${settings["myHubProperty${var}"]} = $myValue")
+    }
+    
+    if (myValue == null) return invalidAttribute.toString()
+    def str = myValue.toString().trim()
+    
+    // Try converting to a number
+    try {
+        
+        def num = str as float
+        if (tempDecimalPlaces.toString() == "0 Decimal Places") {
+            myVal = num.round(0).toInteger().toString()
+            return myVal
+        }
+        if (tempDecimalPlaces.toString() == "1 Decimal Place") { 
+            myVal = num.round(1).toString()
+            return myVal
+        }
+    } catch (e) {
+        // Not a number so assume alphabetic
+        //log.info ("Error Found: $e")
+        if (capitalizeStrings.toString() == "True") return str.capitalize()
+        else return str
+    }
+}
+
+//Perform any Device Renaming requested using the Device Name Modification Fields. Fill out an %varXX% variables.
+def getShortName(myDevice){
+	//log.info("Receiving Name: $myDevice")
+	def shortName = myDevice
+    
+    //Replaces any undesireable characters in the devicename - Case Sensitive
+    //Goes through each of the Device Rename Fields 1 - 10 and performs the required search and replace functions.
+    for (int i = 1; i <= myDeviceRenameCount.toInteger(); i++) {
+        def search = this."mySearchText$i"
+        def replace = this."myReplaceText$i"
+        if (replace == null || replace == "?") { this."myReplaceText$i" = ""; replace = "" }
+        if (search != null && search != "?") { shortName = shortName.replace(search, replace) }
+    }
+    //Replaces any %varX% variables found.
+    shortName = toHTML(replaceVarsInString(shortName))
+	//log.info("returning shortName: $shortName")
+    return shortName
+}
+
+//Retrieves Hub Properties such as sunrise, sunset, hsmStatus etc.
+def getHubProperty(hubPropertyName) {
+    if (isLogTrace) log.info("<b>getHubProperty() Received $hubPropertyName</b>")
+    myDateTimeIndex = 0
+    def outputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
+    def sunrise = getTodaysSunrise()
+    def sunset = getTodaysSunset()
+    def currentTime = new Date()
+    def myDate = outputFormat.format(currentTime)
+    
+    switch (hubPropertyName) {
+        case "sunrise":
+            return sunrise.format('HH:mm a')
+            break
+        case "sunrise1":
+            return sunrise.format('HH:MM')
+            break
+        case "sunrise2":
+            return sunrise.format('h:mm a')
+            break
+        case "sunset":
+            return sunset.format('HH:mm a')
+            break
+        case "sunset1":
+            return sunset.format('HH:MM')
+            break
+        case "sunset2":
+            return sunset.format('h:mm a')
+            break
+        case "hubName":
+            return location.hub
+            break
+        case "currentMode":
+            return location.properties.currentMode.toString()
+            break
+        case "hsmStatus":
+            return location.hsmStatus
+            break
+        case "firmwareVersionString":
+            return location.hub.firmwareVersionString.toString()
+            break
+        case "uptime":
+            long myUptime = location.hub.uptime
+            uptime = convertSecondsToDHMS(myUptime, false)
+            return uptime
+            break
+        case "timeZone":
+            def timeZone = location.timeZone
+            def myTimeZoneAbbreviation = timeZone.getDisplayName(false, TimeZone.SHORT)
+            return myTimeZoneAbbreviation
+            break
+        case "daylightSavingsTime":
+            def timeZone = location.timeZone
+            boolean DST = timeZone.inDaylightTime(new Date())
+            return DST.toString()
+            break
+        case "currentTime":
+			def dateFormat = new SimpleDateFormat("HH:mm a")
+            return dateFormat.format(currentTime)        
+			break
+        case "currentTime1":
+            def dateFormat = new SimpleDateFormat("HH:MM")
+            return dateFormat.format(currentTime)        
+            break
+        case "currentTime2":
+        	def dateFormat = new SimpleDateFormat("h:mm a")
+            return dateFormat.format(currentTime)        
+            break
+        case "default":
+            log.error("getHubProperty: getHubProperty was not found. Returning 'EmptyHubProperty' with dataType 'String'")
+            return "EmptyHubProperty"
+            break
+    }
+    return "EmptyHubProperty"
+}
+
+//*******************************************************************************************************************************************************************************************
+//**************
+//**************  End Device Renaming and Variable Substitution
+//**************
+//*******************************************************************************************************************************************************************************************
+
+
+
+
+
+
+//*******************************************************************************************************************************************************************************************
+//**************
 //**************  Device Data Collection and Preparation Functions
 //**************
 //*******************************************************************************************************************************************************************************************
@@ -887,6 +1094,7 @@ def getPinnedItems(collection) {
 // Gets the state of the various lights that are being tracked and puts them into a JSON format for inclusion with the script 
 def getJSON() {
     if (isLogTrace) log.trace("<b>Entering: GetJSON</b>")
+    def timeStart = now()
     
     // List to hold device attribute data
     def deviceAttributesList = []
@@ -1051,45 +1259,9 @@ def getJSON() {
 		state.JSON = JsonOutput.prettyPrint(JsonOutput.toJson(mergedList))
 		if (isLogDebug) log.debug  ("Merged List: " + JsonOutput.prettyPrint(JsonOutput.toJson(mergedList)) )
 	}
+    def timeElapsed = now() - timeStart
+    if (isLogTrace) log.trace ("Leaving: getJSON " + timeElapsed/1000 + " seconds.")
 }
-
-// Replace %var11% - %var85% that can be placed in device/separator strings with actual values.
-def replaceVarsInString(str) {
-    if (!str) return ""
-    return str.replaceAll(/%var(\d+)%/) { fullMatch, varNum ->
-        def i = varNum.toInteger()
-        def replacement = getVariableText(i)
-        return replacement ?: fullMatch // fallback to original if null/empty
-    }
-}
-
-//Helper Function to replace variables with their attribute values.
-String getVariableText(var) {
-    def dev, attrIndex
-    def varStr = var.toString()
-
-    if (var < 11) {
-        dev = var
-        attrIndex = 0
-    } else {
-        attrIndex = varStr[-1] as Integer  // Last digit
-        dev = varStr[0..-2] as Integer     // All but last digit
-    }
-    
-    if (settings["variableSource${dev}"] == "Device Attribute" && settings["myDevice${dev}"] != null && settings["myAttribute${var}"] != null) {
-        myValue = settings["myDevice${dev}"]?.currentValue(settings["myAttribute${var}"])
-        if (myValue == null) myValue = invalidAttribute.toString()
-        if (isLogDebug) log.debug("getVariableText($var) - Attribute: ${settings["myAttribute${var}"]} = $myValue")
-    }
-    
-    if (settings["variableSource${dev}"] == "Hub Variable" && settings["myHubVariable${var}"] != null) {
-        def myMap = getGlobalVar(settings["myHubVariable${var}"])
-        myValue = myMap?.value?.toString() ?: ""
-        if (isLogDebug) log.debug("getVariableText($dev) - Hub Var: ${settings["myHubVariable${var}"]} = $myValue")
-    }
-    return myValue
-}
-
 
 //Checks the cached list to see if the received deviceID is part of that list.  This is used to determine whether something is pinned or not.
 def containsDeviceID(deviceList, deviceID) {
@@ -1583,7 +1755,7 @@ def compile(){
 		if (tt == "?") { content = content.replace('#titleDisplay#', 'none' ) }
 		else {
 			content = content.replace('#titleDisplay#', 'block' )	// Display Title or not
-			content = content.replace('#tt#', toHTML(tt) )	// Title Text
+			content = content.replace('#tt#', toHTML(replaceVarsInString(tt)) )	// Title Text
 			content = content.replace('#ts#', ts )	// Title Size
 			content = content.replace('#tp#', tp )	// Title Padding
 			content = content.replace('#ta#', ta )	// Title Alignment
@@ -1652,10 +1824,14 @@ def compile(){
 		 		
 		//Put the proper statement in for the Materials Font. It's done this way because the cleaning of comments catches the // in https://
 		content = content.replace('#MaterialsFont#', "<link href='https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined' rel='stylesheet'>")
-		
+
 		myWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 )
 		content = content.replace('#maxWidth#', myWidth.toString() )
-
+    
+    	//Experimental
+		content = content.replace('#markTag#', markTag.toString())
+    	content = content.replace('#m1Tag#', m1Tag.toString())
+    
 		if ( localEndpointState == "Enabled" ) localContent = content 
 		if ( localEndpointState == "Disabled" ) localContent = "Local Endpoint Disabled" 
 		if ( cloudEndpointState == "Enabled" ) cloudContent = content 
@@ -1779,27 +1955,7 @@ def cacheDeviceInfo(){
     state.deviceList = myDeviceList
 }
 
-//Perform any Device Renaming requested using the Device Name Modification Fields
-def getShortName(myDevice){
-	//log.info("Receiving Name: $myDevice")
-	def shortName = myDevice
-		
-	//Handle any null values.
-	if (myReplaceText1 == null || myReplaceText1 == "?" ) myReplaceText1 = ""
-	if (myReplaceText2 == null || myReplaceText2 == "?" ) myReplaceText2 = ""
-	if (myReplaceText3 == null || myReplaceText3 == "?" ) myReplaceText3 = ""
-	if (myReplaceText4 == null || myReplaceText4 == "?" ) myReplaceText4 = ""
-	if (myReplaceText5 == null || myReplaceText5 == "?" ) myReplaceText5 = ""
-        
-	//Replaces any undesireable characters in the devicename - Case Sensitive
-	if (mySearchText1 != null  && mySearchText1 != "?") shortName = shortName.replace(mySearchText1, myReplaceText1)
-	if (mySearchText2 != null  && mySearchText2 != "?") shortName = shortName.replace(mySearchText2, myReplaceText2)
-	if (mySearchText3 != null  && mySearchText3 != "?") shortName = shortName.replace(mySearchText3, myReplaceText3)
-	if (mySearchText4 != null  && mySearchText4 != "?") shortName = shortName.replace(mySearchText4, myReplaceText4)
-	if (mySearchText5 != null  && mySearchText5 != "?") shortName = shortName.replace(mySearchText5, myReplaceText5)
-	//log.info("returning shortName: $shortName")
-	return shortName
-}
+
 
 //*******************************************************************************************************************************************************************************************
 //**************
@@ -1993,7 +2149,7 @@ def poll() {
 def appButtonHandler(btn) {
 	if (isLogTrace) log.trace("<b>Entering: appButtonHandler: Clicked on button: $btn</b>")
 	def buttonNumber
-	def buttonMap = ['Controls':1, 'Sensors':2, 'Batteries':3, 'Inactivity':4, 'Endpoints':5, 'Polling':6, 'Variables':7, 'CustomRows':8, 'Publish':9, 'Logging':10, 'General': 21, 'Appearance': 22, 'Title': 23, 'Columns':  24, 'Padding': 25, 'Experimental': 26]
+	def buttonMap = ['Controls':1, 'Sensors':2, 'RenameDevices':3, 'Inactivity':4, 'Endpoints':5, 'Polling':6, 'Variables':7, 'CustomRows':8, 'Publish':9, 'Logging':10, 'General': 21, 'Appearance': 22, 'Title': 23, 'Columns':  24, 'Padding': 25, 'Experimental': 26]
 	
 	try {
 		buttonNumber = buttonMap[btn]
@@ -2349,6 +2505,8 @@ def HTML =
 
 	html { display: flex; flex-direction: column; align-items: #ha#; height: 100%; margin: 0px; margin-top:#tmt#px; font-family: 'Arial', 'Helvetica', sans-serif; box-sizing: border-box; border:0px solid red;}
 	body { display: flex; flex-direction: column; align-items: center; flex-grow: 1; overflow: hidden; height: 100%; cursor: auto; box-sizing: border-box; margin:0px;}
+	mark { #markTag# }
+	m1 { #m1Tag# }
 	.container {max-width: #maxWidth#px; align-items: center; width:100%; height: 100%; margin: 0px; overflow:auto; box-sizing: border-box; padding: #tpad#px;}
 	
 	/* Mobile Screens  */
