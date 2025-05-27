@@ -69,8 +69,9 @@
 *  Version 4.0.3 - Internal Only: Remove checkBoxes for Custom Rows and Sensors. Add A/B Configuration info under Endpoints Help. Add Control C column as option for Text is Custom Rows. 
 *  Version 4.0.4 - Remove submitOnChange for all text boxes in Custom Rows and add Apply Changes button for better navigation. Expanded variables to have multiple variables per Source.
 *  Version 4.1.0 - Created a separate tab for Device Renaming. Added Hub Properties as Variables. Added Capitalization option for Variable Data and adherence to global Decimal Places. Added formatting for [mark] tag and added optional [m1] tag on Experimental tab.
+*  Version 4.2.0 - Adds logic to stop the animation and polling when the Applet is not visible. This is tested on Windows Chrome, Android Chrome and iOS Chrome.
 *
-*  Gary Milne - May 16th, 2025 @ 3:34 PM
+*  Gary Milne - May 27th, 2025 @ 12:55 PM
 *
 **/
 
@@ -81,13 +82,9 @@ None
 /* Known Issues 
 There is a platform issue with Hubitat that creates an issue when multiple cloud links are stored to the same Storage Driver. This is described in the following post: https://community.hubitat.com/t/bug-report-attribute-preview-on-an-html-string-in-a-device-attribute-sometimes-incorrect/153017
 Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
-The documentation for SmartGrid has been broken out and it needs a new link.
-Fix Hub Variables to have N variables per Hub variable source.
-Add built-in variables sunset, sunrise etc taken from Tile Builder Grid.
 */
 
 /* Ideas for future releases
-Add built-in variables. A subset of Tile Builder Grid.
 Add support for Thermostats
 Add Scene Selector Control
 Add Media Control
@@ -95,6 +92,8 @@ Add Batteries Automatic Group
 Add Inactive Automatic Group
 Add Sensors - Presence, Smoke, Humidity, CO
 PIN Protect
+Hide Sections - Track section for each row and Hide those section members on a mouseClick.  Add a Group variable during the Custom Sort phase.
+Reorganize the initialize() function for easier maintenance.
 */
 
 import groovy.json.JsonSlurper
@@ -133,8 +132,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.1.0 (5/16/25)</b>"
-@Field static final codeVersion = 410
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.2.0 (5/27/25)</b>"
+@Field static final codeVersion = 420
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -221,14 +220,16 @@ def mainPage(){
                 
                 // Parse the selected device rename count
                 def renameCount = myDeviceRenameCount?.toInteger() ?: 0
-                (1..renameCount).step(2).each { i ->
-                    input(name: "mySearchText$i",       title: "<b>Search Device Text #$i</b>",       type: "string", submitOnChange: false, width: 2, defaultValue: "?", newLine:true)
-                    input(name: "myReplaceText$i",      title: "<b>Replace Device Text #$i</b>",      type: "string", submitOnChange: false, width: 2, defaultValue: "", style:"margin-right:100px")
-                    input(name: "mySearchText${i+1}",   title: "<b>Search Device Text #${i+1}</b>",   type: "string", submitOnChange: false, width: 2, defaultValue: "?")
-                    input(name: "myReplaceText${i+1}",  title: "<b>Replace Device Text #${i+1}</b>",  type: "string", submitOnChange: false, width: 2, defaultValue: "", newLineAfter: true)
+                if (renameCount > 0) {
+                    (1..renameCount).step(2).each { i ->
+                        input(name: "mySearchText$i",       title: "<b>Search Device Text #$i</b>",       type: "string", submitOnChange: false, width: 2, defaultValue: "?", newLine:true)
+                        input(name: "myReplaceText$i",      title: "<b>Replace Device Text #$i</b>",      type: "string", submitOnChange: false, width: 2, defaultValue: "", style:"margin-right:100px")
+                        input(name: "mySearchText${i+1}",   title: "<b>Search Device Text #${i+1}</b>",   type: "string", submitOnChange: false, width: 2, defaultValue: "?")
+                        input(name: "myReplaceText${i+1}",  title: "<b>Replace Device Text #${i+1}</b>",  type: "string", submitOnChange: false, width: 2, defaultValue: "", newLineAfter: true)
+                    }
+                    input(name: "refresh", type: "button", title: "Apply Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLine:true)
+                    paragraph line(1)
                 }
-                input(name: "refresh", type: "button", title: "Apply Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, newLine:true)
-                paragraph line(1)
 			}
 			
 			/*
@@ -615,7 +616,6 @@ def mainPage(){
 }
 
 
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  Standard System Elements
@@ -780,6 +780,10 @@ def initialize() {
 	if (isCustomSort == null) app.updateSetting("isCustomSort", false)
 	if (state.customSortOrder == null) state.customSortOrder = JsonOutput.toJson([ [ID: "1", row: 1] ])
 	if (isDragDrop == null) app.updateSetting("isDragDrop", false)
+    
+    if (defaultDateTimeFormat == null ) app.updateSetting("defaultDateTimeFormat", [value: "0", type: "enum"])
+    if (defaultDurationFormat == null ) app.updateSetting("defaultDurationFormat", [value: "0", type: "enum"])  
+    if (controlSize == null ) app.updateSetting("controlSize", [value: "15", type: "enum"])  
 	
 	if (localEndpointState == null ) app.updateSetting("localEndpointState", [value: "Enabled", type: "enum"])
 	if (cloudEndpointState == null ) app.updateSetting("cloudEndpointState", [value: "Disabled", type: "enum"])
@@ -806,7 +810,10 @@ def initialize() {
 	if (shuttleHeight == null ) app.updateSetting("shuttleHeight", [value: "3", type: "enum"])
 	
 	if (tvp == null ) app.updateSetting("tvp", [value: "3", type: "enum"])
+    if (tvpm == null ) app.updateSetting("tvpm", [value: "0", type: "enum"])
+    if (tmt == null ) app.updateSetting("tmt", [value: "0", type: "enum"])
 	if (thp == null ) app.updateSetting("thp", [value: "5", type: "enum"])
+    if (tpad == null ) app.updateSetting("tpad", [value: "5", type: "enum"])
 	if (hts == null ) app.updateSetting("hts", [value: "100", type: "enum"])
 	if (hbo == null ) app.updateSetting("hbo", [value: "1", type: "enum"])
 	if (rts == null ) app.updateSetting("rts", [value: "90", type: "enum"])
@@ -817,12 +824,15 @@ def initialize() {
 	if (ita1 == null ) app.updateSetting("ita1", [value: "Center", type: "enum"])
 	if (ita2 == null ) app.updateSetting("ita2", [value: "Center", type: "enum"])
 	if (ita3 == null ) app.updateSetting("ita3", [value: "Center", type: "enum"])
-	
+    
+    if (temperatureDecimalPlaces == null ) app.updateSetting("temperatureDecimalPlaces", [value: "0 Decimal Places", type: "enum"])
+    if (capitalizeStrings == null ) app.updateSetting("capitalStrings", [value: "False", type: "enum"])
 	if (myDeviceRenameCount == null ) app.updateSetting("myDeviceRenameCount", [value: "0", type: "enum"])
+    if (tempUnits == null) app.updateSetting("tempUnits", [value: "°F", type: "enum"])
 	
 	//These are settings that we want to force once
 	if ( state.variablesVersion < codeVersion){
-		app.updateSetting("hideColumn11", true)
+		//app.updateSetting("hideColumn11", true)
 		state.variablesVersion = codeVersion	
 	}
     
@@ -1684,7 +1694,7 @@ def getDuration(long lastActiveEvent, long lastInactiveEvent) {
 //Compress the fixed components text output and generate the version that will be used by the browser.
 def compile(){
 	//Assign the device types
-	//try{
+	try{
 		if (isLogTrace) log.trace("<b>Entering: Compile</b>")
 		if (isLogDebug) log.debug("Running Compile")
 			
@@ -1711,10 +1721,11 @@ def compile(){
 		content = content.replace('#tpad#', tpad )
 		content = content.replace('#thp#', thp )
 		content = content.replace('#tmt#', tmt )	//This is actually a margin
-		//Internal Vertical Padding
+		
+        //Internal Vertical Padding
 		mytvp = (tvp.toInteger() + tvpm.toFloat()).toString()
 		content = content.replace('#tvp#', mytvp )
-		
+        
 		//Borders & Padding
 		content = content.replace('#bc#', bc )
 		content = content.replace('#bwo#', bwo )
@@ -1850,12 +1861,9 @@ def compile(){
 
 		def now = new Date()
 		state.compiledDataTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
-	//}
-	if (isLogTrace) log.trace("<b>Leaving: Compile</b>")
-		
-	//catch (Exception exception) {
-//    	log.error("Function compile() - Exception is: $exception")
-//	}
+		if (isLogTrace) log.trace("<b>Leaving: Compile</b>")
+	}
+    catch (Exception exception) { log.error("Function compile() - Exception is: $exception") }
 }
 
 //Remove any wasted space from the compiled version to shorten load times.
@@ -2113,7 +2121,7 @@ def fromHub(){
 	return result
 }
 
-//Receives a poll request from a session and 
+//Receives a poll request from a session
 def poll() {
     def sessionID = params.sessionID
 	def result
@@ -2710,6 +2718,7 @@ def HTML =
 let pollingInterval;
 let pressTimer;					// Used to determine when to pop up the modal screen
 let currentFetchController;		//Used for the fetch operation
+let pollingTimeoutID = null;	//Handle for the Polling Timeout
 //const transactions = new Map();
 
 // Ensure each iframe has a unique window.name to scope storage keys
@@ -2729,6 +2738,7 @@ let showSlider = ( localStorage.getItem(storageKey("showSlider")) === "A" || loc
 let lastCommand = "none";
 let isSliding = false;
 let pollingActive = true;
+let isWindowActive = true;
 
 // Use localStorage (instead of sessionStorage) for all settings
 let sessionID = localStorage.getItem(storageKey("sessionID"));
@@ -2754,6 +2764,8 @@ const shuttle = document.getElementById('shuttle');
 
 //Disable Polling if we are using Drag and Drop
 if ( isDragDrop ) isPolling = false;
+
+
 
 //These are all the filterValues used in the Modal window
 const filterValues = {};
@@ -3027,6 +3039,7 @@ function updateHUB() {
 
 //Sends the Data to the Hub
 function sendData(payload) {
+	console.log ("Sending Data");
 	handleTransaction("begin");
     const url = '#URL#';
     fetch(`${url}&sessionID=${sessionID}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload }).catch(error => {
@@ -3054,7 +3067,7 @@ async function fetchData() {
     return jsonData;
   } catch (error) {
     if (error.name === 'AbortError') {
-      log("Fetch aborted");
+      console.log("Fetch aborted");
     } else {
       console.error("Error fetching data:", error);
     }
@@ -3236,32 +3249,70 @@ function syncRows(command, value) {
 //***********************************************  Polling and Transactions  ***********************************************************
 //**************************************************************************************************************************************
 
-//Starts the polling process of the Hub using the global value of pollInterval which can vary between the minimum and maximum values depending on activity.
+//Starts the Polling cycle
 function startPolling(url, pollResult) {
-    async function pollLoop() {
-        if (!pollingActive) return; // allow for full stop if needed
-        if (!isSliding) {
-            try {
-                const response = await fetch(`${url}&sessionID=${sessionID}`);
-                if (!response.ok) throw new Error(`Error: ${response.status}`);
-                const data = await response.json();
-                pollResult(data);
-            } catch (error) {
-                console.error("Polling error:", error);
-                return; // stop loop on error
-            }
-        } else if (isLogging) {
-            console.log("Polling skipped due to slider interaction");
-        }
-        setTimeout(pollLoop, pollInterval); // continue loop
+  // If polling is already active, do not start again
+  if (pollingTimeoutID) {
+    if (isLogging) console.log("Polling already active, not starting again.");
+    return;
+  }
+
+  async function pollLoop() {
+    if (!isPolling) return; // External flag that disables polling globally
+
+    if (!isSliding) {
+      try {
+        if (isLogging) console.log("Polling...");
+        const response = await fetch(`${url}&sessionID=${sessionID}`);
+        if (!response.ok) throw new Error(`Error: ${response.status}`);
+        const data = await response.json();
+        pollResult(data);
+      } catch (error) {
+        console.error("Polling error:", error);
+        stopPolling(); // Always stop if an error occurs
+        return;
+      }
+    } else if (isLogging) {
+      console.log("Polling skipped due to slider interaction");
     }
-    pollLoop();
+
+    // Schedule the next poll
+    pollingTimeoutID = setTimeout(pollLoop, pollInterval);
+  }
+
+  // Start polling loop
+  pollingTimeoutID = setTimeout(pollLoop, 0); // start immediately
+}
+
+//Stops the Polling
+function stopPolling() {
+  if (pollingTimeoutID) {
+    clearTimeout(pollingTimeoutID);
+    pollingTimeoutID = null;
+    if (isLogging) console.log("Polling stopped");
+  }
+}
+
+//This is called when the JS App window loses or regains focus. In turn it stops or starts the polling cycle.
+function checkAttention() {
+  const active = !document.hidden;
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false });
+  if (isLogging) console.log(`[${now}] Attention status:`, active ? "Applet Active" : "Applet Paused");
+
+  if (active) {
+    shuttle.style.animationPlayState = "running";
+    startPolling('#URL1#', pollResult);
+    if (isLogging) console.log(`[${now}] Polling started (if not already running).`);
+  } else {
+    shuttle.style.animationPlayState = "paused";
+    stopPolling();
+    if (isLogging) console.log(`[${now}] Polling stopped`);
+  }
 }
 
 // This is the callback function. When the polling process receives a response, it comes here and we check if there is an update pending or not.
 function pollResult(data) {
     const table = document.querySelector("table");
-
     if (data.update) {
         if (isLogging) console.log("Update is: True");
         handleTransaction("end", table);
@@ -3373,14 +3424,18 @@ function setColumnHeaders(applySorting = true) {
 //***********************************************  Initialization  and Miscellaneous  **************************************************
 //**************************************************************************************************************************************
 
+//Add event listeners for control once the content is loaded
 document.addEventListener("DOMContentLoaded", function() { 
 	setupHeaderEventListeners();
 	initialize(); 
-	
 	//Setup listeners used to pause the polling indicator when a user interacts with a slider.
 	document.addEventListener("pointerdown", e => { if (e.target.matches('input[type="range"]')) { isSliding = true; shuttle.style.animationPlayState = "paused"; } });
     document.addEventListener("pointerup", e => { if (isSliding) { isSliding = false; shuttle.style.animationPlayState = "running"; } });
     document.addEventListener("pointercancel", () => { isSliding = false; shuttle.style.animationPlayState = "running"; });
+	//The following listeners identify when the Window is inactive so polling can be paused.
+    document.addEventListener("visibilitychange", checkAttention);
+    window.addEventListener("focus", checkAttention);
+    window.addEventListener("blur", checkAttention);
 });
 
 // Call the function and handle the returned data
@@ -3401,26 +3456,24 @@ function initialize() {
 function refreshPage(timeout) { 
     // Clean up event listeners
     removeHeaderEventListeners();
-    setTimeout(function() { location.reload(true);  }, timeout);
-    
+    setTimeout(function() { location.reload(true);  }, timeout);    
 	// Abort any ongoing fetch operations
     if (currentFetchController) {
     	currentFetchController.abort();
     	currentFetchController = null;
     }
-
     if (pressTimer) {
 	    clearTimeout(pressTimer);
 	    pressTimer = null;
     }
 }
 
+//Converts RGB string to a Hex value
 function rgb2hex(rgbString) {
     return '#' + rgbString.slice(4, -1).split(',').map(num => 
         ('0' + parseInt(num.trim()).toString(16)).slice(-2)
     ).join('');
 }
-
 
 // Add window beforeunload event listener for cleanup
 window.addEventListener('beforeunload', function() {
