@@ -70,8 +70,10 @@
 *  Version 4.0.4 - Remove submitOnChange for all text boxes in Custom Rows and add Apply Changes button for better navigation. Expanded variables to have multiple variables per Source.
 *  Version 4.1.0 - Created a separate tab for Device Renaming. Added Hub Properties as Variables. Added Capitalization option for Variable Data and adherence to global Decimal Places. Added formatting for [mark] tag and added optional [m1] tag on Experimental tab.
 *  Version 4.2.0 - Adds logic to stop the animation and polling when the Applet is not visible. This is tested on Windows Chrome, Android Chrome and iOS Chrome.
-*
-*  Gary Milne - May 27th, 2025 @ 12:55 PM
+*  Version 4.2.1 - Spelling of the %varXX% variables indicates the number of decimal places required. %varXX% = 0dp, %VarXX% = 1dp, %vArXX% = 2dp, %vaRXX% = 3dp. - No public release.
+*  Version 4.3.0 - Add collapsible groups 
+* 
+*  Gary Milne - June 14th, 2025 @ 12:00 PM 
 *
 **/
 
@@ -94,6 +96,8 @@ Add Sensors - Presence, Smoke, Humidity, CO
 PIN Protect
 Hide Sections - Track section for each row and Hide those section members on a mouseClick.  Add a Group variable during the Custom Sort phase.
 Reorganize the initialize() function for easier maintenance.
+Add ability to change the keywords to allow alternate languages.
+
 */
 
 import groovy.json.JsonSlurper
@@ -120,7 +124,7 @@ static def dateFormatsList() { return dateFormatsMap().values() }
 static def hubProperties() { return ["sunrise", "sunrise1", "sunrise2", "sunset", "sunset1", "sunset2", "hubName", "hsmStatus", "currentMode", "firmwareVersionString", "uptime", "timeZone", "daylightSavingsTime", "currentTime", "currentTime1", "currentTime2"].sort() }
 
 static def createDeviceTypeMap() {
-    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak" ]
+    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak", 51:"Separator Row", 52:"Device Row" ]
     // Create the inverse map for name-to-number lookups
     def nameToNumberMap = typeMap.collectEntries { key, value -> [value, key] }
     return [typeMap: typeMap, nameToNumberMap: nameToNumberMap]
@@ -132,8 +136,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.2.0 (5/27/25)</b>"
-@Field static final codeVersion = 420
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.3.0 (6/14/25)</b>"
+@Field static final codeVersion = 430
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -385,9 +389,9 @@ def mainPage(){
 								
 				input(name: "isCustomSort", type: "enum", title: bold("Enable Custom Sort"), options: ['true', 'false'], required: false, defaultValue: "false", submitOnChange: true, width:1 , style:"margin-right: 50px; ")
 				if (isCustomSort == "true"){
-					if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
-					else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
-					input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+					if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
+					else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
+					input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
 					myText = "<b>Notes:</b><br>"
 					myText += "1) If you use a Custom Sort order all pinned controls and sensors are treated just like any other entry.<br>"
 					myText += "2) If you add devices or sensors to your SmartGrid you must update your Custom Sort Order to include the new lines.<br>"
@@ -575,7 +579,8 @@ def mainPage(){
 					input(name: "info3Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "roomName", options: devicePropertiesList(), submitOnChange: true, width: 2)
 				}	
 				input(name: "hideColumn10", type: "bool", title: bold("Hide Column 10 - Pin"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
-				input(name: "hideColumn11", type: "bool", title: bold("Hide Column 11 - Custom Sort Order (Diagnostic)"), required: false, defaultValue: true, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
+				input(name: "hideColumn11", type: "bool", title: bold("Hide Column 11 - Custom Sort (Diagnostic)"), required: false, defaultValue: true, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
+                input(name: "hideColumn12", type: "bool", title: bold("Hide Column 12 - Group (Diagnostic)"), required: false, defaultValue: true, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
 			}
 
 			if (state.activeButtonB == 25){ //Padding
@@ -700,6 +705,7 @@ def initialize() {
 		app.updateSetting("hideColumn9", true)
 		app.updateSetting("hideColumn10", true)
 		app.updateSetting("hideColumn11", true)
+        app.updateSetting("hideColumn12", true)
 
 		//Info Column Properties
 		app.updateSetting("info1Source", "lastActive")
@@ -830,9 +836,11 @@ def initialize() {
 	if (myDeviceRenameCount == null ) app.updateSetting("myDeviceRenameCount", [value: "0", type: "enum"])
     if (tempUnits == null) app.updateSetting("tempUnits", [value: "°F", type: "enum"])
 	
-	//These are settings that we want to force once
+    if (hideColumn11 == null) app.updateSetting("hideColumn11", true)
+    if (hideColumn12 == null) app.updateSetting("hideColumn12", true)
+	
+    //These are settings that we want to force once
 	if ( state.variablesVersion < codeVersion){
-		//app.updateSetting("hideColumn11", true)
 		state.variablesVersion = codeVersion	
 	}
     
@@ -920,18 +928,27 @@ def updated(){
 // Replace %var11% - %var105% variables that may be found in device/separator strings or device names with actual values.
 def replaceVarsInString(str) {
     if (!str) return ""
-    return str.replaceAll(/%var(\d+)%/) { fullMatch, varNum ->
+    def dpMap = ["var": 0, "Var": 1, "vAr": 2, "vaR": 3]
+    def pattern = /%([vV][aA][rR])(\d+)%/
+
+    return str.replaceAll(pattern) { fullMatch, varLabel, varNum ->
+        def dp = dpMap[varLabel]
+        if (dp == null) return fullMatch // Unrecognized casing
         def i = varNum.toInteger()
-        def replacement = getVariableText(i)
-        //log.info ("R E P L A C E M E N T is: $replacement")
+        def replacement = getVariableText(i, dp)
+
+        //log.info("REPLACEMENT for %${varLabel}${varNum}% is: $replacement with DP=$dp")
         return replacement ?: fullMatch // fallback to original if null/empty
     }
 }
 
-//Helper Function to replace variables with their attribute values.
-String getVariableText(var) {
+// Helper Function to replace variables with their attribute values.
+String getVariableText(var, dp) {
+    //log.info("getVariableText(): $var with dp: $dp")
+
     def dev, attrIndex
     def varStr = var.toString()
+
     if (var < 11) {
         dev = var
         attrIndex = 0
@@ -939,44 +956,44 @@ String getVariableText(var) {
         attrIndex = varStr[-1] as Integer  // Last digit
         dev = varStr[0..-2] as Integer     // All but last digit
     }
-    
-    if (settings["variableSource${dev}"] == "Device Attribute" && settings["myDevice${dev}"] != null && settings["myAttribute${var}"] != null) {
+
+    def myValue = null
+
+    // Check device attribute
+    if (settings["variableSource${dev}"] == "Device Attribute" &&
+        settings["myDevice${dev}"] != null &&
+        settings["myAttribute${var}"] != null) {
         myValue = settings["myDevice${dev}"]?.currentValue(settings["myAttribute${var}"])
         if (isLogDebug) log.debug("getVariableText(Device - $var) - Attribute: ${settings["myAttribute${var}"]} = $myValue")
     }
-    
-    if (settings["variableSource${dev}"] == "Hub Variable" && settings["myHubVariable${var}"] != null) {
+
+    // Check Hub Variable
+    if (settings["variableSource${dev}"] == "Hub Variable" &&
+        settings["myHubVariable${var}"] != null) {
         def myMap = getGlobalVar(settings["myHubVariable${var}"])
         myValue = myMap?.value?.toString() ?: invalidAttribute.toString()
         if (isLogDebug) log.debug("getVariableText(Hub Variable - $var) - Hub Var: ${settings["myHubVariable${var}"]} = $myValue")
     }
-    
-    if (settings["variableSource${dev}"] == "Hub Property" && settings["myHubProperty${var}"] != null) {
-        def myVar = settings["myHubProperty${var}"]
+
+    // Check Hub Property
+    if (settings["variableSource${dev}"] == "Hub Property" &&
+        settings["myHubProperty${var}"] != null) {
         myValue = getHubProperty(settings["myHubProperty${var}"])
         if (isLogDebug) log.debug("getVariableText(Hub Property - $var) - Hub Property: ${settings["myHubProperty${var}"]} = $myValue")
     }
-    
+
     if (myValue == null) return invalidAttribute.toString()
     def str = myValue.toString().trim()
-    
-    // Try converting to a number
+
     try {
-        
-        def num = str as float
-        if (tempDecimalPlaces.toString() == "0 Decimal Places") {
-            myVal = num.round(0).toInteger().toString()
-            return myVal
-        }
-        if (tempDecimalPlaces.toString() == "1 Decimal Place") { 
-            myVal = num.round(1).toString()
-            return myVal
-        }
+        def num = new BigDecimal(str)
+        def rounded = num.setScale(dp, BigDecimal.ROUND_HALF_UP)
+        //log.info("Returning: $rounded")
+        return rounded.toPlainString()
     } catch (e) {
-        // Not a number so assume alphabetic
-        //log.info ("Error Found: $e")
-        if (capitalizeStrings.toString() == "True") return str.capitalize()
-        else return str
+        //log.info("Error Found: $e")
+        //log.info("Returning: $str")
+        return capitalizeStrings.toString() == "True" ? str.capitalize() : str
     }
 }
 
@@ -1216,11 +1233,11 @@ def getJSON() {
 			deviceData.put("ID", "$i") // The Device ID is the position in the array.
 
 			if (rowType == "Separator Row" ) {
-				myType = 51 // Custom Separator Row
+				myType = 51 //Separator Row
 				deviceData.put("icon", getIcon(myType, "separatorRow")?.icon)
 				deviceData.put("cl", getIcon(myType, "separatorRow")?.class)
 			} else if (rowType == "Device Row") {
-				myType = 52 // Custom Device Row
+				myType = 52 //Device Row
 				deviceData.put("icon", getIcon(myType, "deviceRow")?.icon)
 				deviceData.put("cl", getIcon(myType, "deviceRow")?.class)
 			}
@@ -1307,7 +1324,7 @@ def getIcon(type, deviceState) {
 		33 : [wet: [icon: "water_drop", class: "warn"], dry: [icon: "format_color_reset", class: "off"] ],
 		34 : [battery: [icon: "battery_android_4", class: "off"] ],
 		//Custom Devices start at 51
-		51 : [separatorRow: [icon: "atr", class: "off"] ],
+        51 : [separatorRow: [icon: "atr", class: "group"] ],
 		52 : [deviceRow: [icon: "info", class: "off"] ]
     ]
 
@@ -1802,6 +1819,7 @@ def compile(){
 		content = content.replace('#hideColumn9#', hideColumn9 ? 'none' : 'table-cell')
 		content = content.replace('#hideColumn10#', hideColumn10 ? 'none' : 'table-cell')
 		content = content.replace('#hideColumn11#', hideColumn11 ? 'none' : 'table-cell')
+        content = content.replace('#hideColumn12#', hideColumn12 ? 'none' : 'table-cell')
 		content = content.replace('#BrowserTitle#', myRemoteName)
 	
 		content = content.replace('#pollInterval#', (pollInterval.toInteger() * 1000).toString() )
@@ -2358,7 +2376,7 @@ def handler(evt) {
 //Deletes all event subscriptions.
 void deleteSubscription() {
     if (isLogTrace) log.trace("<b>Entering: deleteSubscription</b>")
-    if (isLogPublish) log.info("deleteSubscription: Deleted all subscriptions. To verify click on the App ⚙️ Symbol and look for the Event Subscriptions section.")
+    if (isLogPublish) log.info("deleteSubscription: Deleted all subscriptions. To verify click on the App⚙️ Symbol and look for the Event Subscriptions section.")
     unsubscribe()
 }
 
@@ -2398,9 +2416,7 @@ static String body(myBody) { return "<span style='color:#17202A;text-align:left;
 
 //Produce a horizontal line of the specified width
 static String line(myHeight) { return "<div style='background:#005A9C; height: " + myHeight.toString() + "px; margin-top:0em; margin-bottom:0em ; border: 0;'></div>" }
-
 static String dodgerBlue(s) { return '<font color = "DodgerBlue">' + s + '</font>' }
-
 static String red(s) { return '<font color = "Red">' + s + '</font>' }
 static String green(s) { return '<font color = "Green">' + s + '</font>' }
 
@@ -2572,6 +2588,7 @@ def HTML =
 	th:nth-child(9), td:nth-child(9) { display:#hideColumn9#; }
 	th:nth-child(10), td:nth-child(10) { width:calc(var(--control) * 2); display:#hideColumn10#; }
 	th:nth-child(11), td:nth-child(11) { display:#hideColumn11#; }
+	th:nth-child(12), td:nth-child(12) { display:#hideColumn12#; }
 	
 	/* START OF CONTROLS CLASSES */			
 	/* Column 1 Checkboxes */
@@ -2581,6 +2598,7 @@ def HTML =
 	.material-symbols-outlined {padding:3px; border-radius: 50%; font-size:calc(var(--control) * 1.5 )}
 	.material-symbols-outlined.on { background-color:rgba(255,255,0, 0.3); color: #333333;}
 	.material-symbols-outlined.off {color: #000000; opacity:0.5;}
+	.material-symbols-outlined.group {color: #000000; opacity:0.8;}
 	.open { background-color:rgba(255,213,128, 0.7); color:#333333;}
 	.warn { background-color:rgba(255,0,0, 0.7); color:#333333;}
 	.good { background-color:rgba(0,255,0, 0.7); color:#333333;}
@@ -2658,6 +2676,9 @@ def HTML =
 	.modal-content {background-color:white; margin:20px auto; padding:20px; border-radius:8px; width:300px; text-align:left;}
 	.modal-content select, .modal-content input { margin-bottom: 10px; font-size: 16px; }
     .close {cursor:pointer; float:right; font-size: 24px}
+	.group-icon-active { transform: rotate(0deg); transition: transform 0.3s ease;}
+	.group-icon-inactive { transform: rotate(90deg); background-color: #F0F0F0; border-radius: 50%; padding: 2px; transition: transform 0.5s ease, background-color 0.5s ease; }
+}
 
 </style>
 </head>
@@ -2684,6 +2705,7 @@ def HTML =
 				<th id="i3" class="sortLinks" onclick="sortTable(8, this);" title="Info3 - Alpha Sort"><span id="info3Header">#Info3#</span></th>
 				<th id="pin" title="Pinned Items"><span id="pinHeader">Pin</span></th>
 				<th id="sort">Custom Sort</th>
+				<th id="group">Group</th>
 			</tr>
 		</thead>
 		<tbody><!-- Table rows will be dynamically loaded from JSON --></tbody>
@@ -2719,6 +2741,10 @@ let pollingInterval;
 let pressTimer;					// Used to determine when to pop up the modal screen
 let currentFetchController;		//Used for the fetch operation
 let pollingTimeoutID = null;	//Handle for the Polling Timeout
+const separatorRow = 51;
+const deviceRow = 52;
+const valve = 10;
+
 //const transactions = new Map();
 
 // Ensure each iframe has a unique window.name to scope storage keys
@@ -2747,6 +2773,9 @@ if (!sessionID) {
 	localStorage.setItem(storageKey("sessionID"), sessionID);
 	}
 
+if (!localStorage.getItem(storageKey("Collapsed_Groups"))) { localStorage.setItem(storageKey("Collapsed_Groups"), JSON.stringify([])); }
+const COLLAPSED_GROUPS_KEY = storageKey("Collapsed_Groups");
+
 let pollInterval = localStorage.getItem(storageKey("pollInterval")) || "#pollInterval#";
 localStorage.setItem(storageKey("pollInterval"), pollInterval);
 
@@ -2764,8 +2793,6 @@ const shuttle = document.getElementById('shuttle');
 
 //Disable Polling if we are using Drag and Drop
 if ( isDragDrop ) isPolling = false;
-
-
 
 //These are all the filterValues used in the Modal window
 const filterValues = {};
@@ -2860,9 +2887,10 @@ function showVariables(){
 function loadTableFromJSON(data) {
 	const fragment = document.createDocumentFragment();
 	const tbody = document.querySelector("#sortableTable tbody");
+	let icon = "";
 	tbody.innerHTML = "";
 	const saved = JSON.parse(sessionStorage.getItem(storageKey("checkboxStates"))) || {};
-
+	
 	data.forEach((d, i) => {
 		let show = true;
 		if (filterValues["filterSwitch"] === "onlyOn" && d.type >= 1 && d.type <= 5 && d.switch !== "on") show = false;
@@ -2876,11 +2904,15 @@ function loadTableFromJSON(data) {
 		Object.assign(row.dataset, {
 			ID: d.ID, name: d.name, type: d.type, speed: d.speed, level: d.level,
 			position: d.position, tilt: d.tilt, volume: d.volume, colorMode: d.colorMode || "None",
-			info1: d.i1, info2: d.i2, info3: d.i3, icon: d.icon, class: d.cl, pin: d.pin, row: d.row
+			info1: d.i1, info2: d.i2, info3: d.i3, icon: d.icon, class: d.cl, pin: d.pin, row: d.row, group: d.group
 		});
-
+		
 		const col = /^#[0-9A-F]{6}$/i.test(d.color) ? d.color : "#FFF";
-		const icon = `<i class='material-symbols-outlined ${d.cl}'>${d.icon}</i>`;
+
+		//Show or Hide Groups when using Custom Sort.
+		if (d.type === separatorRow) icon = `<i class='material-symbols-outlined ${d.cl}' onclick="toggleGroupVisibility(this)">${d.icon}</i>`;
+		else icon = `<i class='material-symbols-outlined ${d.cl}'>${d.icon}</i>`;
+		
 		const pinHTML = d.pin === "on" ? `<i class="material-symbols-outlined">location_on</i>` : "";
 		if (d.pin === "on") row.className = "pinned-row";
 
@@ -2909,15 +2941,15 @@ function loadTableFromJSON(data) {
 			? `<div class="toggle-switch ${d.switch === 'on' ? 'on' : ''}" data-state="${d.switch}" onclick="toggleSwitch(this); updateHUB()"></div>`
 			: `<div class="state-text">${d.switch}</div>`;
 
-		//For Separator and Device Rows put the text contents into the fields
-		if (d.type === 51 || d.type === 52) {c1 = d.level; c2 = d.CT};
+		//For Separator and Custom Rows put the text contents into the fields
+		if (d.type === separatorRow || d.type === deviceRow) {c1 = d.level; c2 = d.CT};
 		if ([1,10,11,13].includes(d.type)) c1 = "";
 
 		row.innerHTML = `
 			<td><input type="checkbox" class="option-checkbox" ${saved[d.ID] ? "checked" : ""} onchange="toggleRowSelection(this)"></td>
 			<td>${icon}</td><td>${d.name}</td><td>${state}</td><td>${c1}</td><td>${c2}</td>
 			<td><div class="info1">${d.i1}</div></td><td><div class="info2">${d.i2}</div></td><td><div class="info3">${d.i3}</div></td>
-			<td>${pinHTML}</td><td>${d.row}</td>`;
+			<td>${pinHTML}</td><td>${d.row}</td><td>${d.group}</td>`;
 		fragment.appendChild(row);
 	});
   
@@ -2943,19 +2975,26 @@ function loadTableFromJSON(data) {
 	if (isCustomSort) { sortTable(10); setColumnHeaders(true); }
 	else setColumnHeaders(false);
 
+	//Sets the group number for each row
+	if (isCustomSort) assignGroupNumbers();
+
+	// Restore collapsed groups from localStorage
+	restoreCollapsedGroups();
+	
 	updateAllTiltIndicators();
 	//Tweak the contents of the Rows for last minute changes.
 	updateRows();
+
 }
 
 
-//***************************************  Custom Rows and Manual Sort Order  **********************************************************
+//******************************  Custom Rows, Manual Sort Order and Collapsible Groups ************************************************
 //**************************************************************************************************************************************
 
-//Formats the appearance of the Custom Rows. 50: Custom Device  51: Separator Row
+//Formats the appearance of the Custom Rows. 51: Separator Row, 52: Device Row  
 function updateRows() {
     document.querySelectorAll("#sortableTable tr").forEach(row => {
-        if (row.dataset.type === "51") {
+        if (Number(row.dataset.type) === separatorRow) {
             row.style.background = "linear-gradient(to bottom, #crbc#, #crbc2#)";
             [...row.cells].forEach((cell, i) => {
                 if (!cell) return;
@@ -2989,8 +3028,86 @@ function saveRowOrder() {
     sessionStorage.setItem(storageKey("customSortOrder"), JSON.stringify(sortedJSON));
     const output = { customSortOrder: sortedJSON };
     const myData = JSON.stringify(output, null, 2);
-    console.log("myData is:", myData);
     sendData(myData);
+}
+
+//Assigns a Group number to each row so we can Hide all members of the group with the same Group number.
+function assignGroupNumbers() {
+	const rows = document.querySelectorAll("#sortableTable tbody tr");
+	let group = 0;
+	rows.forEach(row => {
+		const type = parseInt(row.dataset.type);
+		if (type === separatorRow) group++;
+		row.dataset.group = group;
+		const groupCell = row.querySelector("td:last-child");
+		if (groupCell) groupCell.textContent = group;
+	});
+}
+
+
+//***********************************************  Collapsible Groups  *****************************************************************
+//**************************************************************************************************************************************
+
+//Add a collapsed group to the local settings
+function addCollapsedGroup(groupNum) {
+  const list = JSON.parse(localStorage.getItem(COLLAPSED_GROUPS_KEY) || "[]");
+  if (!list.includes(groupNum)) {
+    list.push(groupNum);
+    localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(list));
+  }
+}
+
+//Remove a collapsed group to the local settings
+function removeCollapsedGroup(groupNum) {
+	let list = JSON.parse(localStorage.getItem(COLLAPSED_GROUPS_KEY) || "[]");
+	list = list.filter(n => n !== groupNum);
+	localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(list));
+}
+
+function setGroupCollapsedState(groupNum, collapsed) {
+    const rowsInGroup = [...document.querySelectorAll(`#sortableTable tr[data-group="${groupNum}"]`)];
+    if (rowsInGroup.length === 0) return;
+
+    // Find the separator row (the one with type === separatorRow)
+    const iconRow = rowsInGroup.find(r => Number(r.dataset.type) === separatorRow);
+    if (!iconRow) return;
+
+    const icon = iconRow.querySelector("i.material-symbols-outlined");
+    if (!icon) return;
+	
+	// Hide all rows except iconRow when collapsed; else show all
+    rowsInGroup.forEach(row => { row.style.display = (collapsed && row !== iconRow) ? "none" : ""; });
+
+    // Icon class toggle: active means expanded (not collapsed)
+    icon.classList.toggle("group-icon-active", !collapsed);
+    icon.classList.toggle("group-icon-inactive", collapsed);
+}
+
+//Collapses or Expands the Groups.
+function toggleGroupVisibility(iconElement) {
+    const row = iconElement.closest("tr");
+    if (!row) return;
+
+    const group = row.dataset.group;
+    if (!group) return;
+
+    const rowsInGroup = [...document.querySelectorAll(`#sortableTable tr[data-group="${group}"]`)];
+    const otherRows = rowsInGroup.filter(r => r !== row);
+
+    // Determine if currently collapsed by checking if all other rows are hidden
+    const currentlyCollapsed = otherRows.every(r => r.style.display === "none");
+    const newCollapsedState = !currentlyCollapsed;
+
+    setGroupCollapsedState(Number(group), newCollapsedState);
+
+    if (newCollapsedState) { addCollapsedGroup(Number(group));} 
+    else { removeCollapsedGroup(Number(group)); } 
+}
+
+//Restores the settings for Collapsed Groups after a refresh
+function restoreCollapsedGroups() {
+    const collapsedGroups = JSON.parse(localStorage.getItem(COLLAPSED_GROUPS_KEY) || "[]");
+    collapsedGroups.forEach(groupNum => setGroupCollapsedState(groupNum, true));
 }
 
 
