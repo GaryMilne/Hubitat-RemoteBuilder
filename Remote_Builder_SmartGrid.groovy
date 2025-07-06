@@ -71,9 +71,13 @@
 *  Version 4.1.0 - Created a separate tab for Device Renaming. Added Hub Properties as Variables. Added Capitalization option for Variable Data and adherence to global Decimal Places. Added formatting for [mark] tag and added optional [m1] tag on Experimental tab.
 *  Version 4.2.0 - Adds logic to stop the animation and polling when the Applet is not visible. This is tested on Windows Chrome, Android Chrome and iOS Chrome.
 *  Version 4.2.1 - Spelling of the %varXX% variables indicates the number of decimal places required. %varXX% = 0dp, %VarXX% = 1dp, %vArXX% = 2dp, %vaRXX% = 3dp. - No public release.
-*  Version 4.3.0 - Add collapsible groups 
+*  Version 4.3.0 - Added collapsible groups.
+*  Version 4.4.0 - Added replaceable values for the State column to support other languages.  For example 'open' could be mapped to 'abierto' or open could be enhanced with HTML tags'[b]Abierto'. 
+*	    		   Moved Experimental settings to new Advanceed Tab.  Added tags M2 and M3 for easy modification. Added logic for Motion and Presence sensors.
+*					Added logic for Smoke and CO detection.  Added Tags for M4 and M5.  Added logic to replace any variables using recognized state words with the equivalent value from the stateMap.
+*  				   Fixed bug with duplicate entries in the state.updatedSessionList.
 * 
-*  Gary Milne - June 14th, 2025 @ 12:00 PM 
+*  Gary Milne - July 6th, 2025 @ 1:18 PM
 *
 **/
 
@@ -87,17 +91,14 @@ Sometimes a Shade Slider will show the value Null briefly when the slider is cha
 */
 
 /* Ideas for future releases
+Remove all code relative to Pinned Rows
+Add iFrame as a custom Row Type - Would add support for batteries and inactive devices via Tile Builder.
+Add support for conditional formatting for Temperatures
 Add support for Thermostats
-Add Scene Selector Control
 Add Media Control
-Add Batteries Automatic Group
-Add Inactive Automatic Group
-Add Sensors - Presence, Smoke, Humidity, CO
-PIN Protect
-Hide Sections - Track section for each row and Hide those section members on a mouseClick.  Add a Group variable during the Custom Sort phase.
+Add Sensors - Humidity
 Reorganize the initialize() function for easier maintenance.
-Add ability to change the keywords to allow alternate languages.
-
+PIN Protect if possible.
 */
 
 import groovy.json.JsonSlurper
@@ -123,8 +124,10 @@ static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: 
 static def dateFormatsList() { return dateFormatsMap().values() }
 static def hubProperties() { return ["sunrise", "sunrise1", "sunrise2", "sunset", "sunset1", "sunset2", "hubName", "hsmStatus", "currentMode", "firmwareVersionString", "uptime", "timeZone", "daylightSavingsTime", "currentTime", "currentTime1", "currentTime2"].sort() }
 
+static def defaultStateMap() { return '''{"open": "open", "closed": "closed", "active": "active", "inactive": "inactive", "wet": "wet", "dry": "dry", "present": "present", "not present": "not present", "detected": "detected", "clear": "clear", "tested": "tested"}''' }
+
 static def createDeviceTypeMap() {
-    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak", 51:"Separator Row", 52:"Device Row" ]
+    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak", 34:"Motion", 51:"Separator Row", 52:"Device Row" ]
     // Create the inverse map for name-to-number lookups
     def nameToNumberMap = typeMap.collectEntries { key, value -> [value, key] }
     return [typeMap: typeMap, nameToNumberMap: nameToNumberMap]
@@ -136,8 +139,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.3.0 (6/14/25)</b>"
-@Field static final codeVersion = 430
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.4.0 (7/16/25)</b>"
+@Field static final codeVersion = 440
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -202,18 +205,40 @@ def mainPage(){
 				input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
 				input "myPinnedContacts", "enum", title: "<b>Pin These Contact Sensors</b>", options: getPinnedItems(myContacts).sort(), multiple: true, submitOnChange: true, width: 2, required: false
 				input(name: "onlyOpenContacts", type: "enum", title: bold("Unpinned: Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-				
+				paragraph line(1)
+                
 				input "myTemps", "capability.temperatureMeasurement", title: "<b>Select Temp Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
 				input ("myPinnedTemps", "enum", title: "<b>Pin These Temp Sensors</b>", options: getPinnedItems(myTemps).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false)
 				input(name: "onlyReportOutsideRange", type: "enum", title: bold("Unpinned: Only Report Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
 				input (name: "minTemp", title: "<b>Lower Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "50", newLine:false)
 				input (name: "maxTemp", title: "<b>Upper Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "90", newLine:false)
-				
+				paragraph line(1)
+                
 				input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
 				input "myPinnedLeaks", "enum", title: "<b>Pin These Water Sensors</b>", options: getPinnedItems(myLeaks).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
 				input(name: "onlyWetSensors", type: "enum", title: bold("Unpinned: Only Report Wet Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
 				paragraph line(1)
-				paragraph "<b>Note:</b> Do not configure pinned sensors if you plan to use a Custom Sort order."
+                
+                input "myMotion", "capability.motionSensor", title: "<b>Select Motion Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
+				input "myPinnedMotion", "enum", title: "<b>Pin These Motion Sensors</b>", options: getPinnedItems(myMotion).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
+				input(name: "onlyActiveMotionSensors", type: "enum", title: bold("Unpinned: Only Report Active Motion Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				paragraph line(1)
+                
+                input "myPresence", "capability.presenceSensor", title: "<b>Select Presence Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
+				input "myPinnedPresence", "enum", title: "<b>Pin These Presence Sensors</b>", options: getPinnedItems(myPresence).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
+				input(name: "onlyPresentPresenceSensors", type: "enum", title: bold("Unpinned: Only Report <mark>Present</mark> Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				paragraph line(1)
+                
+                input "mySmoke", "capability.smokeDetector", title: "<b>Select Smoke Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
+				input "myPinnedSmoke", "enum", title: "<b>Pin These Smoke Detectors</b>", options: getPinnedItems(mySmoke).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
+				input(name: "onlyDetectedSmoke", type: "enum", title: bold("Unpinned: Only Report <mark>Detected</mark> Smoke Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				paragraph line(1)
+                
+                input "myCarbonMonoxide", "capability.carbonMonoxideDetector", title: "<b>Select Carbon Monoxide Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
+				input "myPinnedCarbonMonoxide", "enum", title: "<b>Pin These Carbon Monoxide Detectors</b>", options: getPinnedItems(myCarbonMonoxide).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
+				input(name: "onlyDetectedCarbonMonoxide", type: "enum", title: bold("Unpinned: Only Report <mark>Detected</mark> CO Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				paragraph line(1)
+				paragraph red("<b>Note:</b> Do not configure pinned sensors if you plan to use a Custom Sort order.")
 			}
             
             if (state.activeButtonA == 3){ //Start of Rename Devices Section - Allow users to rename devices that fit certain patterns
@@ -413,7 +438,7 @@ def mainPage(){
 				input(name: "tilesAlreadyInUse", type: "enum", title: bold("For Reference Only: Remotes in Use"), options: parent.getTileList(), required: false, defaultValue: "Remotes List", submitOnChange: true, width: 3)
 				input(name: "eventTimeout", type: "enum", title: bold("Event Timeout (millis)"), required: false, multiple: false, defaultValue: "Never", options: ["0", "250", "500", "1000", "1500", "2000", "5000", "10000", "Never"], submitOnChange: true, width: 2)
 				
-				if (myRemoteName != null && myRemote != null && ( myDevices != null || mySensors != null)) {
+				if (myRemoteName != null && myRemote != null && state.deviceList != null) {
 					input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
 					input(name: "unsubscribe", type: "button", title: "Delete Subscription", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
 				} else input(name: "cannotPublish", type: "button", title: "Publish and Subscribe", backgroundColor: "#D3D3D3", textColor: "black", submitOnChange: false, width: 2)			
@@ -453,7 +478,7 @@ def mainPage(){
 			input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
 			input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
 			input(name: "tilePreviewBackground", type: "color", title: bold("Preview Background Color"), required: false, defaultValue: "#000000", width: 2, submitOnChange: true, style: "margin-right:25px")
-			if (myRemoteName != null && myRemote != null && ( myDevices != null || mySensors != null)) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:20px;margin-right:25px")
+			if (myRemoteName != null && myRemote != null && state.deviceList != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:20px;margin-right:25px")
 			else input(name: "cannotPublish", type: "button", title: "Publish and Subscribe", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: false, width: 2, style:"margin-top:20px;margin-right:25px")
 
 			myMaxWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 ) + 3 * 2	//Makes the width and height 6px larger account for the border around the iframe so the resulting iframe is exactly the same size as the dashboard tile.
@@ -481,7 +506,7 @@ def mainPage(){
 			//Setup the Table Style
 			paragraph "<style>#buttons2 {font-family: Arial, Helvetica, sans-serif; width:100%; text-layout:fixed; text-align:'Center'} #buttons2 td, #buttons2 tr {width: 10%; background:#00a2ed;color:#FFFFFF;text-align:Center;opacity:0.75;padding: 4px} #buttons2 td:hover {padding: 4px; background: #27ae61;opacity:1}</style>"
 			table2 = "<table id='buttons2'><td>"  + buttonLink ('General', 'General', 21) + "</td><td>" + buttonLink ('Appearance', 'Appearance', 22) + "</td><td>" + buttonLink ('Title', 'Title', 23) + "</td><td>" + 
-					buttonLink ('Columns', 'Columns', 24) + "</td><td>" + buttonLink ('Padding', 'Padding', 25) + "</td><td>" + buttonLink ('Experimental', 'Experimental', 26) + "</td></table>"
+					buttonLink ('Columns', 'Columns', 24) + "</td><td>" + buttonLink ('Padding', 'Padding', 25) + "</td><td>" + buttonLink ('Advanced', 'Advanced', 26) + "</td><td>" + buttonLink ('Experimental', 'Experimental', 27) + "</td></table>"
 			paragraph table2
 
 			if (state.activeButtonB == 21){ //General
@@ -592,12 +617,34 @@ def mainPage(){
 				input (name: "tvpm", type: "enum", title: bold("Row Vertical Padding - Minor"), options: elementSizeMinor(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
 			}
 
-			if (state.activeButtonB == 26){ //Experimental
-				paragraph "<b>You will find experimental settings here if there are any.<b>"
-                if (markTag == null) app.updateSetting("markClass", value: "background-color: yellow; color: black; padding: 0.05em 0.25em; border-radius: 0.3em; outline: 1px dotted #000000;", type:"text")
-                if (m1Tag == null) app.updateSetting("markClass", value: "background-color: #007acc;color: white;padding: 0.1em 0.4em;border-radius: 0.4em;outline: 1px dashed #005b99;font-weight: bold;", type:"text")
-                input (name: "markTag", type: "text", title: "Enter a String for the CSS formatting of the [mark] HTML tag.", required: false, defaultValue: "background-color: yellow; color: black; padding: 0.05em 0.25em; border-radius: 0.3em; outline: 1px dotted #000000;", width:12, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
-                input (name: "m1Tag", type: "text", title: "Enter a String for the CSS formatting of the [m1] HTML tag.", required: false, defaultValue: "background-color: #007acc;color: white;padding: 0.1em 0.4em;border-radius: 0.4em;outline: 1px dashed #005b99;font-weight: bold;", width:12, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+			if (state.activeButtonB == 26){ //Advanced
+                if (markTag == null ) app.updateSetting("markTag", value: "background-color:yellow; color:black; padding:0.05em 0.25em; border-radius:0.3em; outline:1px dotted #000000; font-weight:bold;", type:"text")
+                if (m1Tag == null) app.updateSetting("m1Tag", value: "background-color:dodgerBlue; color:white; padding:0.1em 0.4em;border-radius: 0.4em;outline: 1px dashed black; font-weight:bold;", type:"text")
+                if (m2Tag == null) app.updateSetting("m2Tag", value: "background-color:lime; color:black; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type:"text")
+                if (m3Tag == null) app.updateSetting("m3Tag", value: "background-color:indianRed; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type:"text")
+                if (m4Tag == null) app.updateSetting("m4Tag", value: "background-color:orange; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type:"text")
+                if (m5Tag == null) app.updateSetting("m5Tag", value: "background-color:gray; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type:"text")
+                
+                def part1 ="<b>Here you can configure some CSS style tags that you can reference in your SmartGrid to draw attention to a value.</b> Use something like: <b><mark> [m1]%var32%[/m1] </mark></b><br>"
+                def part2 = "You often do not need to add the closing tags but if you have any formatting issues you can add them. To restore the default value for a tag just delete the contents of the field.<br>"
+                paragraph part1 + part2
+                            
+                input (name: "markTag", type: "text", title: bold("Enter or Edit a String for the CSS formatting of the <mark> [mark] </mark> HTML tag."), required: false, newLine:false, defaultValue: "background-color:yellow; color:black; padding:0.05em 0.25em; border-radius:0.3em; outline:1px dotted #000000; font-weight:bold;", width:6, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                input (name: "m1Tag", type: "text", title: bold("Enter or Edit a String for the CSS formatting of the <mark> [m1] </mark> HTML tag."), required: false, newLine: false, defaultValue: "background-color:dodgerBlue; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black;font-weight:bold;", width:6, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                input (name: "m2Tag", type: "text", title: bold("Enter or Edit a String for the CSS formatting of the <mark> [m2] </mark> HTML tag."), required: false, newLine: false, defaultValue: "background-color:lime; color:black; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black;font-weight:bold;", width:6, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                input (name: "m3Tag", type: "text", title: bold("Enter or Edit a String for the CSS formatting of the <mark> [m3] </mark> HTML tag."), required: false, newLine: false, defaultValue: "background-color:indianRed; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", width:6, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                input (name: "m4Tag", type: "text", title: bold("Enter or Edit a String for the CSS formatting of the <mark> [m4] </mark> HTML tag."), required: false, newLine: false, defaultValue: "background-color:orange; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", width:6, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                input (name: "m5Tag", type: "text", title: bold("Enter or Edit a String for the CSS formatting of the <mark> [m5] </mark> HTML tag."), required: false, newLine: false, defaultValue: "background-color:gray; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", width:6, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                               
+                paragraph line(2)
+                part1 = "<b>Here you can modify the default values for <b>State</b> keywords that do not display in icon form. </b><br>"
+                part2 = "Examples of these are <mark> open, closed, active, inactive, wet, dry, present, not present </mark> etc. For example 'open' could be changed to 'Abierto'"
+                paragraph part1 + part2
+                input (name: "deviceStateMap", type: "text", title: "<b>Modify the values in the map below to change the values displayed in the State column. Clear string to restore the default values.</b>", required: false, defaultValue: '''{"open": "open", "closed": "closed", "active": "active", "inactive": "inactive", "wet": "wet", "dry": "dry", "present": "present", "not present": "not present", "detected": "detected", "clear": "clear", "tested": "tested"}''', width:12, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+			}
+            
+            if (state.activeButtonB == 27){ //Experimental
+                paragraph "<b>You will find experimental settings here if there are any.<b>"
 			}
 
 			paragraph line(1)
@@ -838,7 +885,9 @@ def initialize() {
 	
     if (hideColumn11 == null) app.updateSetting("hideColumn11", true)
     if (hideColumn12 == null) app.updateSetting("hideColumn12", true)
-	
+    
+    if ( deviceStateMap == null) { app.updateSetting("deviceStateMap", [value: defaultStateMap(), type: "text"]) }
+    
     //These are settings that we want to force once
 	if ( state.variablesVersion < codeVersion){
 		state.variablesVersion = codeVersion	
@@ -945,9 +994,9 @@ def replaceVarsInString(str) {
 // Helper Function to replace variables with their attribute values.
 String getVariableText(var, dp) {
     //log.info("getVariableText(): $var with dp: $dp")
-
     def dev, attrIndex
     def varStr = var.toString()
+    def myValue = null
 
     if (var < 11) {
         dev = var
@@ -957,16 +1006,18 @@ String getVariableText(var, dp) {
         dev = varStr[0..-2] as Integer     // All but last digit
     }
 
-    def myValue = null
-
     // Check device attribute
     if (settings["variableSource${dev}"] == "Device Attribute" &&
         settings["myDevice${dev}"] != null &&
         settings["myAttribute${var}"] != null) {
         myValue = settings["myDevice${dev}"]?.currentValue(settings["myAttribute${var}"])
+        
+        def myStateMap = new JsonSlurper().parseText(deviceStateMap)
+        def key = myValue.toString()
+        if (myStateMap?.containsKey(key)) { myValue = myStateMap[key] }   
         if (isLogDebug) log.debug("getVariableText(Device - $var) - Attribute: ${settings["myAttribute${var}"]} = $myValue")
     }
-
+    
     // Check Hub Variable
     if (settings["variableSource${dev}"] == "Hub Variable" &&
         settings["myHubVariable${var}"] != null) {
@@ -1182,8 +1233,11 @@ def getJSON() {
 		32: [list: myTemps, attr: "temperature", iconAttrVal: { "temp" }, processVal: { val -> float t = val as float; if (tempDecimalPlaces == "0 Decimal Places") return t.round(0).toInteger().toString() + 
 				tempUnits; if (tempDecimalPlaces == "1 Decimal Place") return t.round(1).toString() + tempUnits; return t.toString() + tempUnits }, condition: { val -> if (onlyReportOutsideRange == "False") 
 				return true; float t = val as float; return (t < minTemp.toInteger() || t > maxTemp.toInteger()) }, pinnedList: myPinnedTemps],
-		33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> onlyWetSensors == "False" || (onlyWetSensors == "True" && val == "wet") }, pinnedList: myPinnedLeaks]
-		//, 34: [list: myBatteries, attr: "battery", iconAttrVal: { "battery" }]
+		33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> onlyWetSensors == "False" || (onlyWetSensors == "True" && val == "wet") }, pinnedList: myPinnedLeaks],
+        34: [list: myMotion, attr: "motion", iconAttrVal: { it -> it }, condition: { val -> onlyActiveMotionSensors == "False" || (onlyActiveMotionSensors == "True" && val == "active") }, pinnedList: myPinnedMotion],
+        35: [list: myPresence, attr: "presence", iconAttrVal: { it -> it }, condition: { val -> onlyPresentPresenceSensors == "False" || (onlyPresentPresenceSensors == "True" && val == "present") }, pinnedList: myPinnedPresence],
+        36: [list: mySmoke, attr: "smoke", iconAttrVal: { it -> it }, condition: { val -> onlyDetectedSmoke == "False" || (onlyDetectedSmoke == "True" && val == "detected") }, pinnedList: myPinnedSmoke],
+        37: [list: myCarbonMonoxide, attr: "carbonMonoxide", iconAttrVal: { it -> it }, condition: { val -> onlyDetectedCarbonMonoxide == "False" || (onlyDetectedCarbonMonoxide == "True" && val == "detected") }, pinnedList: myPinnedCarbonMonoxide]
 	]
 	//Loops through the sensor types
 	sensorConfigs.each { type, cfg ->
@@ -1228,9 +1282,9 @@ def getJSON() {
             
             // Use LinkedHashMap to maintain the order of fields
 			def deviceData = new LinkedHashMap()
-			def deviceID = i
+			def deviceID = ( 0 - i ) 
 			def myType
-			deviceData.put("ID", "$i") // The Device ID is the position in the array.
+			deviceData.put("ID", "$deviceID") // We use a negative deviceID for Custom Rows because they can conflict with very low numbered devices.
 
 			if (rowType == "Separator Row" ) {
 				myType = 51 //Separator Row
@@ -1256,12 +1310,6 @@ def getJSON() {
 	
 	// Convert the list of device attributes to JSON format
     def compactJSON = JsonOutput.toJson(deviceAttributesList)
-	    
-	if (isLogDebug) {
-		// Pretty print the JSON output
-    	prettyJSON = JsonOutput.prettyPrint(compactJSON)
-		log.debug("getJSON Output 1B: $prettyJSON")
-	}
 			
 	//Save the compact JSON. This is the version that is collected by the client.
 	state.JSON = compactJSON
@@ -1308,7 +1356,7 @@ def getIcon(type, deviceState) {
         4  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
         5  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
         10 : [on: [icon: "water_pump", class: "on"], off: [icon: "valve", class: "off"]],
-        11 : [on: [icon: "lock", class: "good"], off: [icon: "lock_open", class: "warn"]],
+        11 : [on: [icon: "lock", class: "good"], off: [icon: "lock_open", class: "bad"]],
         12 : [on: [icon: "mode_fan", class: "spinning"], off: [icon: "mode_fan_off", class: "off"], low: [icon: "mode_fan", class: "spin-low"], medium: [icon: "mode_fan", class: "spin-medium"], high: [icon: "mode_fan", class: "spin-high"]],
         13 : [closed: [icon: "garage_door", class: "good"], open: [icon: "garage", class: "warn"], opening: [icon: "arrow_upward", class: "blinking"], closing: [icon: "arrow_downward", class: "blinking"]],
         14 : [open: [icon: "window_closed", class: "on"], closed: [icon: "roller_shades_closed", class: "off"], opening: [icon: "arrow_upward", class: "blinking"], closing: [icon: "arrow_downward", class: "blinking"], 'partially open': [icon: "roller_shades", class: "partial"]],
@@ -1321,8 +1369,12 @@ def getIcon(type, deviceState) {
         // Sensors start at 31
         31 : [open: [icon: "expand_content", class: "warn"], closed: [icon: "collapse_content", class: "off"]],
 		32 : [temp: [icon: "device_thermostat", class: "off"]],
-		33 : [wet: [icon: "water_drop", class: "warn"], dry: [icon: "format_color_reset", class: "off"] ],
-		34 : [battery: [icon: "battery_android_4", class: "off"] ],
+		33 : [wet: [icon: "water_drop", class: "bad"], dry: [icon: "format_color_reset", class: "off"] ],
+        34 : [active: [icon: "detection_and_zone", class: "blinking_orange"], inactive: [icon: "zone_person_idle", class: "off"] ],
+        35 : [present: [icon: "home", class: "good"], 'not present': [icon: "directions_car", class: "warn"] ],
+        36 : [clear: [icon: "detector_smoke", class: "off"], detected: [icon: "detector_smoke", class: "bad"], tested: [icon: "detector_status", class: "good"] ],
+        37 : [clear: [icon: "detector_co", class: "off"], detected: [icon: "detector_co", class: "bad"], tested: [icon: "detector_status", class: "good"] ],
+		39 : [battery: [icon: "battery_android_4", class: "off"] ],
 		//Custom Devices start at 51
         51 : [separatorRow: [icon: "atr", class: "group"] ],
 		52 : [deviceRow: [icon: "info", class: "off"] ]
@@ -1858,9 +1910,14 @@ def compile(){
 		content = content.replace('#maxWidth#', myWidth.toString() )
     
     	//Experimental
-		content = content.replace('#markTag#', markTag.toString())
-    	content = content.replace('#m1Tag#', m1Tag.toString())
-    
+		content = content.replace('#markTag#', markTag.toString() )
+    	content = content.replace('#m1Tag#', m1Tag.toString() )
+        content = content.replace('#m2Tag#', m2Tag.toString() )
+        content = content.replace('#m3Tag#', m3Tag.toString() )
+        content = content.replace('#m4Tag#', m4Tag.toString() )
+        content = content.replace('#m5Tag#', m5Tag.toString() )
+        content = content.replace('#deviceStateMap#', toHTML(deviceStateMap.toString()) )
+        
 		if ( localEndpointState == "Enabled" ) localContent = content 
 		if ( localEndpointState == "Disabled" ) localContent = "Local Endpoint Disabled" 
 		if ( cloudEndpointState == "Enabled" ) cloudContent = content 
@@ -1962,8 +2019,7 @@ def cacheDeviceInfo(){
     }
 		
 	//Now go through each of the sensor lists and get the Name, deviceID and type and put it into the deviceInfo
-	//def mySensorMap = [ myContacts: 31, myTemps: 32, myLeaks: 33, myBatteries: 34]
-	def mySensorMap = [ myContacts: 31, myTemps: 32, myLeaks: 33 ]
+	def mySensorMap = [ myContacts: 31, myTemps: 32, myLeaks: 33, myMotion: 34, myPresence: 35, mySmoke: 36, myCarbonMonoxide: 37 ]
 
 	mySensorMap.each { sensorKey, type ->
     	def deviceList = this."$sensorKey" // Dynamically get the list by its name
@@ -2054,15 +2110,13 @@ def toHub() {
 	
 	// Test to see whether we are receiving a customSortOrder. If so, we save it in state.customSortOrder as a JSON string.
 	if (group2 instanceof Map && group2.customSortOrder instanceof List) {
-		if (isLOgDebug) log.debug("customSortOrder exists: ${group2.customSortOrder}")
-
+		if (isLogDebug) log.debug(dodgerBlue("Received Updated Sort Order"))
+        if (isLogDebug) log.debug(dodgerBlue("Existing Sort Order is: $state.customSortOrder"))
 		def myCustomSortOrder = group2.customSortOrder
 
 		// Convert the updated object back to a JSON string for storage into the state variable.
 		state.customSortOrder = JsonOutput.toJson(myCustomSortOrder)
-
-		if (isLogDebug) log.debug(dodgerBlue("state.customSortOrder is: $state.customSortOrder"))
-
+		if (isLogDebug) log.debug(dodgerBlue("New Sort Order is: $state.customSortOrder"))
 		return // Nothing further to do.
 	}
 	
@@ -2132,7 +2186,9 @@ def fromHub(){
 	
 	//Update the session list to show that this session has downloaded the latest info.
 	if (isLogDebug) log.debug("fromHub: Adding sessionID to updatedSessionList")
-	if (sessionID != null) state.updatedSessionList << sessionID
+	if (sessionID != null && !state.updatedSessionList.contains(sessionID)) {
+		state.updatedSessionList << sessionID
+	}
 	
 	if (isLogDeviceInfo) log.info("<b>Downloading device data via fromHub():</b> $state.JSON")
 	result = render contentType: "application/json", data: state.JSON, status: 200
@@ -2175,7 +2231,7 @@ def poll() {
 def appButtonHandler(btn) {
 	if (isLogTrace) log.trace("<b>Entering: appButtonHandler: Clicked on button: $btn</b>")
 	def buttonNumber
-	def buttonMap = ['Controls':1, 'Sensors':2, 'RenameDevices':3, 'Inactivity':4, 'Endpoints':5, 'Polling':6, 'Variables':7, 'CustomRows':8, 'Publish':9, 'Logging':10, 'General': 21, 'Appearance': 22, 'Title': 23, 'Columns':  24, 'Padding': 25, 'Experimental': 26]
+	def buttonMap = ['Controls':1, 'Sensors':2, 'RenameDevices':3, 'Inactivity':4, 'Endpoints':5, 'Polling':6, 'Variables':7, 'CustomRows':8, 'Publish':9, 'Logging':10, 'General': 21, 'Appearance': 22, 'Title': 23, 'Columns':  24, 'Padding': 25, 'Advanced': 26, 'Experimental': 27]
 	
 	try {
 		buttonNumber = buttonMap[btn]
@@ -2261,7 +2317,7 @@ void publishSubscribe() {
     unsubscribe()
     
 	// List of attributes you want to subscribe to
-	def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature","valve","lock","speed","door","windowShade","position", "tilt", "mute","volume","contact","water"]
+	def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature","valve","lock","speed","door","windowShade","position", "tilt", "mute","volume","contact","water","motion","presence","smoke","carbonMonoxide"]
 	deleteSubscription()
 	
 	// Configure subscriptions to devices
@@ -2287,6 +2343,34 @@ void publishSubscribe() {
 	
 	// Configure subscriptions to leaks
 	myLeaks?.each { device ->
+		attributesToSubscribe.each { attribute ->
+			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
+		}
+	}
+    
+    // Configure subscriptions to motion
+	myMotion?.each { device ->
+		attributesToSubscribe.each { attribute ->
+			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
+		}
+	}
+    
+    // Configure subscriptions to Presence
+	myPresence?.each { device ->
+		attributesToSubscribe.each { attribute ->
+			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
+		}
+	}
+    
+    // Configure subscriptions to Smoke
+	mySmoke?.each { device ->
+		attributesToSubscribe.each { attribute ->
+			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
+		}
+	}
+    
+    // Configure subscriptions to Smoke
+	myCarbonMonoxide?.each { device ->
 		attributesToSubscribe.each { attribute ->
 			if (device.hasAttribute(attribute)) { subscribe(device, attribute, handler)	} 
 		}
@@ -2376,7 +2460,7 @@ def handler(evt) {
 //Deletes all event subscriptions.
 void deleteSubscription() {
     if (isLogTrace) log.trace("<b>Entering: deleteSubscription</b>")
-    if (isLogPublish) log.info("deleteSubscription: Deleted all subscriptions. To verify click on the App⚙️ Symbol and look for the Event Subscriptions section.")
+    if (isLogPublish) log.info("deleteSubscription: Deleted all subscriptions. To verify click on the App ⚙️ Symbol and look for the Event Subscriptions section.")
     unsubscribe()
 }
 
@@ -2531,6 +2615,10 @@ def HTML =
 	body { display: flex; flex-direction: column; align-items: center; flex-grow: 1; overflow: hidden; height: 100%; cursor: auto; box-sizing: border-box; margin:0px;}
 	mark { #markTag# }
 	m1 { #m1Tag# }
+	m2 { #m2Tag# }
+	m3 { #m3Tag# }
+	m4 { #m4Tag# }
+	m5 { #m5Tag# }
 	.container {max-width: #maxWidth#px; align-items: center; width:100%; height: 100%; margin: 0px; overflow:auto; box-sizing: border-box; padding: #tpad#px;}
 	
 	/* Mobile Screens  */
@@ -2600,9 +2688,10 @@ def HTML =
 	.material-symbols-outlined.off {color: #000000; opacity:0.5;}
 	.material-symbols-outlined.group {color: #000000; opacity:0.8;}
 	.open { background-color:rgba(255,213,128, 0.7); color:#333333;}
-	.warn { background-color:rgba(255,0,0, 0.7); color:#333333;}
 	.good { background-color:rgba(0,255,0, 0.7); color:#333333;}
-		
+	.warn { background-color:rgba(255,140,0, 0.7); color:#333333;}
+	.bad { background-color:rgba(255,0,0, 0.7); color:#333333;}
+			
 	/* Column 4 On/Off Switch */
 	.toggle-switch { position: relative; display: inline-block; vertical-align: middle; margin-top: calc(var(--control) / 3); margin-bottom: calc(var(--control) / 5 ); width: calc(var(--control) * 2); height: var(--control); background-color: #CCC; cursor: pointer; border-radius: calc(var(--control) / 2); transition: background-color 0.3s ease; box-shadow: 0 0 calc(var(--control) / 1.5) 0px rgba(255, 99, 71, 1); }
 	.toggle-switch::before { content: ''; position: absolute; width: calc(var(--control) * 0.87); height: calc(var(--control) * 0.87); border-radius: 50%; background-color: white; top: calc(var(--control) * 0.066); left: calc(var(--control) * 0.066); transition: transform 0.3s ease; }
@@ -2658,6 +2747,7 @@ def HTML =
 	@keyframes slide {0% { transform: translateX(0%); } 50%  { transform: translateX(1900%); } 100% { transform: translateX(0%); } }
 	@keyframes blink { 0% { opacity: 1; } 50% {opacity: 0;} 100% {opacity: 1;} }
 	.blinking { animation: blink 1s infinite; }
+	.blinking_orange { animation: blink 1s infinite; background-color: rgba(255, 140, 0, 0.7); }
 
 	.button-group { display: flex; justify-content: space-between; align-items: center; margin: 0 auto; text-align: center;}
 	.button { flex:1;  max-height: var(--control); padding: 4px 8px; margin: 0 2px; border-radius: var(--control); background-color: #555555; text-align: center; transition: background-color 0.3s, border-color 0.3s, outline 0.3s; 
@@ -2672,8 +2762,8 @@ def HTML =
 	.spin-medium {animation: spin 1.5s linear infinite;}
 	.spin-high {animation: spin 0.75s linear infinite;}
 
-    .modal {display:none; position:fixed; z-index:1000; left:0; top:0; width:100%;height:100%; background-color:rgba(0,0,0,0.5);}
-	.modal-content {background-color:white; margin:20px auto; padding:20px; border-radius:8px; width:300px; text-align:left;}
+    .modal {display:none; position:fixed; z-index:1000; left:0; top:0; width:100%;height:100%; background-color:rgba(0,0,0,0.5);overflow: auto;}
+	.modal-content {background-color:white; margin:20px auto; padding:20px; border-radius:8px; width:300px; text-align:left;overflow-y: auto;}
 	.modal-content select, .modal-content input { margin-bottom: 10px; font-size: 16px; }
     .close {cursor:pointer; float:right; font-size: 24px}
 	.group-icon-active { transform: rotate(0deg); transition: transform 0.3s ease;}
@@ -2725,6 +2815,8 @@ def HTML =
         <select id="filterLeak"><option value="allLeak" selected>All Sensors</option><option value="onlyWet">Only Wet</option></select><br>
 		<label for="filterLock"><strong>Display Locks:</strong></label>
         <select id="filterLock"><option value="allLock" selected>All Locks</option><option value="onlyUnlocked">Only Unlocked</option></select><br>
+		<label for="filterMotion"><strong>Display Motion:</strong></label>
+        <select id="filterMotion"><option value="allMotion" selected>All Motion</option><option value="onlyActive">Only Active</option></select><br>
         <label for="isPolling"><strong>Polling Enabled:</strong></label>
 		<select id="isPolling"><option value="true">true</option><option value="false">false</option></select><br>
 		<label for="pollInterval"><strong>Poll Interval(ms):</strong></label>
@@ -2744,8 +2836,7 @@ let pollingTimeoutID = null;	//Handle for the Polling Timeout
 const separatorRow = 51;
 const deviceRow = 52;
 const valve = 10;
-
-//const transactions = new Map();
+const stateMap = #deviceStateMap#;
 
 // Ensure each iframe has a unique window.name to scope storage keys
 // The iFrame preview in the composer has a window.name of "AppID" followed by a "-P" (Preview) so it looks like "4912-P".  An Applet loaded elsewhere will have have either a "-A" or "-B" suffix depending on which link is being used.
@@ -2796,11 +2887,11 @@ if ( isDragDrop ) isPolling = false;
 
 //These are all the filterValues used in the Modal window
 const filterValues = {};
-["filterSwitch", "filterContact", "filterLeak", "filterLock"].forEach(id => {
+["filterSwitch", "filterContact", "filterLeak", "filterLock", "filterMotion"].forEach(id => {
   const key = storageKey(id);
   let value = localStorage.getItem(key);
   if (!value) {
-    const defaultVal=id === "filterSwitch" ? "allSwitch" : id === "filterContact" ? "allContact" : id === "filterLeak" ? "allLeak" : id === "filterLock" ? "allLock" : "";
+    const defaultVal=id === "filterSwitch" ? "allSwitch" : id === "filterContact" ? "allContact" : id === "filterLeak" ? "allLeak" : id === "filterLock" ? "allLock" : id ==="filterMotion" ? "allMotion" : "";
     localStorage.setItem(key, defaultVal);
     value = defaultVal;
   }
@@ -2985,11 +3076,26 @@ function loadTableFromJSON(data) {
 	//Tweak the contents of the Rows for last minute changes.
 	updateRows();
 
+	updateState();
+
 }
 
 
 //******************************  Custom Rows, Manual Sort Order and Collapsible Groups ************************************************
 //**************************************************************************************************************************************
+
+//Updates the value of the State field to display a different text, language or formatting.
+function updateState() {
+    document.querySelectorAll("#sortableTable tr").forEach(row => {
+        const stateCell = row.cells[3]; // Adjust this index if necessary
+        if (!stateCell) return;
+
+        const rawState = stateCell.textContent.trim().toLowerCase();
+        if (stateMap?.hasOwnProperty(rawState)) {
+            stateCell.innerHTML = stateMap[rawState];  // ← This allows HTML formatting
+        }
+    });
+}
 
 //Formats the appearance of the Custom Rows. 51: Separator Row, 52: Device Row  
 function updateRows() {
