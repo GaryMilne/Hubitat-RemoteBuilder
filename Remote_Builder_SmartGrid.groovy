@@ -74,10 +74,14 @@
 *  Version 4.3.0 - Added collapsible groups.
 *  Version 4.4.0 - Added replaceable values for the State column to support other languages.  For example 'open' could be mapped to 'abierto' or open could be enhanced with HTML tags'[b]Abierto'. 
 *	    		   Moved Experimental settings to new Advanceed Tab.  Added tags M2 and M3 for easy modification. Added logic for Motion and Presence sensors.
-*					Added logic for Smoke and CO detection.  Added Tags for M4 and M5.  Added logic to replace any variables using recognized state words with the equivalent value from the stateMap.
+*				   Added logic for Smoke and CO detection.  Added Tags for M4 and M5.  Added logic to replace any variables using recognized state words with the equivalent value from the stateMap.
 *  				   Fixed bug with duplicate entries in the state.updatedSessionList.
-* 
-*  Gary Milne - July 6th, 2025 @ 1:18 PM
+*  Version 4.5.0 - Remove all code relative to Pinned Rows.
+*  Version 4.5.1 - Adds the UID (deviceNumber and deviceType) to create a Unique ID to allow the same device to appear on multiple rows. This is in preparation for a code update later that will expect the presence of a UID for sort order.
+*  Version 4.5.2 - Adds iFrame container rows as an option.
+*  Version 4.5.3 - First Public Release after hubitat bug fix - Removed from list of known issues.
+*
+*  Gary Milne - November 2nd, 2025 @ 7:31 PM
 *
 **/
 
@@ -86,19 +90,18 @@ None
 */
 
 /* Known Issues 
-There is a platform issue with Hubitat that creates an issue when multiple cloud links are stored to the same Storage Driver. This is described in the following post: https://community.hubitat.com/t/bug-report-attribute-preview-on-an-html-string-in-a-device-attribute-sometimes-incorrect/153017
 Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
 */
 
 /* Ideas for future releases
-Remove all code relative to Pinned Rows
-Add iFrame as a custom Row Type - Would add support for batteries and inactive devices via Tile Builder.
+Add support for Thermostats - OR - Create a standalone digital Thermostat control that can be embedded with a URL.
 Add support for conditional formatting for Temperatures
-Add support for Thermostats
 Add Media Control
 Add Sensors - Humidity
 Reorganize the initialize() function for easier maintenance.
 PIN Protect if possible.
+Remove blank fields from the data payload.
+Offload the Script Template to the Parent APP, FileSystem or Web Call.
 */
 
 import groovy.json.JsonSlurper
@@ -127,7 +130,7 @@ static def hubProperties() { return ["sunrise", "sunrise1", "sunrise2", "sunset"
 static def defaultStateMap() { return '''{"open": "open", "closed": "closed", "active": "active", "inactive": "inactive", "wet": "wet", "dry": "dry", "present": "present", "not present": "not present", "detected": "detected", "clear": "clear", "tested": "tested"}''' }
 
 static def createDeviceTypeMap() {
-    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak", 34:"Motion", 51:"Separator Row", 52:"Device Row" ]
+    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak", 34:"Motion", 35:"Presence", 36:"Smoke", 37:"Carbon Monoxide", 51:"Separator Row", 52:"Device Row", 53:"iFrame Row" ]
     // Create the inverse map for name-to-number lookups
     def nameToNumberMap = typeMap.collectEntries { key, value -> [value, key] }
     return [typeMap: typeMap, nameToNumberMap: nameToNumberMap]
@@ -139,8 +142,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["lastActive", "lastInactive", "lastActiveDuration", "lastInactiveDuration", "roomName", "colorName", "colorMode", "power", "healthStatus", "energy", "ID", "network", "deviceTypeName", "lastSeen", "lastSeenElapsed", "battery", "temperature", "colorTemperature"].sort() }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.4.0 (7/16/25)</b>"
-@Field static final codeVersion = 440
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 4.5.1 (8/16/25)</b>"
+@Field static final codeVersion = 451
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -182,7 +185,6 @@ def mainPage(){
 			if (state.activeButtonA == 1){ //Start of Controls Section
 				// Input for selecting filter criteria
 				input(name: "filter", type: "enum", title: bold("Filter Controls (optional)"), options: ["All Selectable Controls", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "All Selectable Controls", submitOnChange: true, width: 2, style:"margin-right: 20px")
-				input "myPinnedControls", "enum", title: "<b>Pin These Controls</b>", options: getPinnedItems(myDevices).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false, style:"margin-right: 20px"
 							
 				def filterOptions = [
     				"All Selectable Controls": [capability: "capability.powerMeter, capability.switch, capability.valve, capability.lock, capability.garageDoorControl, capability.doorControl, capability.fanControl, capability.audioVolume, capability.windowShade, capability.windowBlind", title: "<b>Select Controls</b>"],
@@ -197,48 +199,22 @@ def mainPage(){
                 
                 paragraph line(1)
                 myText =  "<b>Important: If you change the selected devices you must do a " + red("Publish and Subscribe") + " for SmartGrid to work correctly.</b><br>"
-				myText += "<b>Note:</b> Pinned items remain at the top of the table sorted A-Z regardless of the sort order, with the exception of a custom sort where pinned items are ignored.<br>"
-				paragraph myText + "<b>Note:</b> Do not configure pinned devices if you plan to use a Custom Sort order.<br>"
 			}
 			
 			if (state.activeButtonA == 2){ //Start of Sensors Section
-				input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
-				input "myPinnedContacts", "enum", title: "<b>Pin These Contact Sensors</b>", options: getPinnedItems(myContacts).sort(), multiple: true, submitOnChange: true, width: 2, required: false
-				input(name: "onlyOpenContacts", type: "enum", title: bold("Unpinned: Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
+				input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+				input "myMotion", "capability.motionSensor", title: "<b>Select Motion Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+				input "myPresence", "capability.presenceSensor", title: "<b>Select Presence Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                paragraph line(1)
+                input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                input "mySmoke", "capability.smokeDetector", title: "<b>Select Smoke Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+				input "myCarbonMonoxide", "capability.carbonMonoxideDetector", title: "<b>Select Carbon Monoxide Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                paragraph line(1)
+				input "myTemps", "capability.temperatureMeasurement", title: "<b>Select Temp Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+				input(name: "onlyReportOutsideRange", type: "enum", title: bold("Only Report Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+				input (name: "minTemp", title: "<b>Lower Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "50", newLine:false, style:"margin-right: 50px")
+				input (name: "maxTemp", title: "<b>Upper Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "90", newLine:false, style:"margin-right: 50px")
 				paragraph line(1)
-                
-				input "myTemps", "capability.temperatureMeasurement", title: "<b>Select Temp Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
-				input ("myPinnedTemps", "enum", title: "<b>Pin These Temp Sensors</b>", options: getPinnedItems(myTemps).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false)
-				input(name: "onlyReportOutsideRange", type: "enum", title: bold("Unpinned: Only Report Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-				input (name: "minTemp", title: "<b>Lower Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "50", newLine:false)
-				input (name: "maxTemp", title: "<b>Upper Threshold</b>", type: "string", submitOnChange:true, width:2, defaultValue: "90", newLine:false)
-				paragraph line(1)
-                
-				input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
-				input "myPinnedLeaks", "enum", title: "<b>Pin These Water Sensors</b>", options: getPinnedItems(myLeaks).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
-				input(name: "onlyWetSensors", type: "enum", title: bold("Unpinned: Only Report Wet Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-				paragraph line(1)
-                
-                input "myMotion", "capability.motionSensor", title: "<b>Select Motion Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
-				input "myPinnedMotion", "enum", title: "<b>Pin These Motion Sensors</b>", options: getPinnedItems(myMotion).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
-				input(name: "onlyActiveMotionSensors", type: "enum", title: bold("Unpinned: Only Report Active Motion Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-				paragraph line(1)
-                
-                input "myPresence", "capability.presenceSensor", title: "<b>Select Presence Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
-				input "myPinnedPresence", "enum", title: "<b>Pin These Presence Sensors</b>", options: getPinnedItems(myPresence).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
-				input(name: "onlyPresentPresenceSensors", type: "enum", title: bold("Unpinned: Only Report <mark>Present</mark> Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-				paragraph line(1)
-                
-                input "mySmoke", "capability.smokeDetector", title: "<b>Select Smoke Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
-				input "myPinnedSmoke", "enum", title: "<b>Pin These Smoke Detectors</b>", options: getPinnedItems(mySmoke).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
-				input(name: "onlyDetectedSmoke", type: "enum", title: bold("Unpinned: Only Report <mark>Detected</mark> Smoke Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-				paragraph line(1)
-                
-                input "myCarbonMonoxide", "capability.carbonMonoxideDetector", title: "<b>Select Carbon Monoxide Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px"
-				input "myPinnedCarbonMonoxide", "enum", title: "<b>Pin These Carbon Monoxide Detectors</b>", options: getPinnedItems(myCarbonMonoxide).sort(), multiple: true, submitOnChange: true, width: 2, required: false, newLine: false
-				input(name: "onlyDetectedCarbonMonoxide", type: "enum", title: bold("Unpinned: Only Report <mark>Detected</mark> CO Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-				paragraph line(1)
-				paragraph red("<b>Note:</b> Do not configure pinned sensors if you plan to use a Custom Sort order.")
 			}
             
             if (state.activeButtonA == 3){ //Start of Rename Devices Section - Allow users to rename devices that fit certain patterns
@@ -260,13 +236,6 @@ def mainPage(){
                     paragraph line(1)
                 }
 			}
-			
-			/*
-			if (state.activeButtonA == 4){ //Start of Battery - Inactivity Section
-				input "myBatteries", "capability.battery", title: "<b>Select Battery Devices</b>", multiple: true, submitOnChange: true, width: 2, style:"margin-right: 20px"
-				input(name: "onlyLowBatteries", type: "enum", title: bold("Unpinned: Only Report Low Batteries"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:25px")
-			}
-			*/
 							      
 			if (state.activeButtonA == 5){ //Start of Endpoints Section
             	input(name: "localEndpointState", type: "enum", title: bold("Local Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
@@ -389,16 +358,24 @@ def mainPage(){
             }
 			
 			if (state.activeButtonA == 8){ //Start of Custom Rows
-				input (name: "customRowCount", title: "<b>How Many Custom Rows?</b>", type: "enum", options: [0,1,2,3,4,5,6,7,8,9,10], submitOnChange:true, width:2, defaultValue: 0)				
+				input (name: "customRowCount", title: "<b>How Many Custom Rows?</b>", type: "enum", options: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20], submitOnChange:true, width:2, defaultValue: 0)				
 				for (int i = 1; i <= customRowCount.toInteger(); i++) {
-					input (name: "customRowType${i}", title: "<b>Row $i</b>", type: "enum", options: ["Device Row", "Separator Row", "Disabled"], submitOnChange:true, newLine: true, width:1, defaultValue: "Separator Row", style:"margin-right: 25px")
-					input "myNameText${i}", "string", title: "<b>Name Column Text</b>", submitOnChange:false, width:3, defaultValue: "[b]Your Text Here (%var%)[/b]", newLine:false, style:"margin-right: 25px"
-					input "myStateText${i}", "string", title: "<b>State Column Text</b>", submitOnChange:false, width:2, defaultValue: "", newLine:false, style:"margin-right: 25px"
-					input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
-                    input "myControlCText${i}", "string", title: "<b>Control C Column Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
-					input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
-					input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
-					input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+					input (name: "customRowType${i}", title: "<b>Row $i</b>", type: "enum", options: ["Device Row", "Separator Row", "iFrame Row", "Disabled"], submitOnChange:true, newLine: true, width:1, defaultValue: "Separator Row", style:"margin-right: 25px")
+					
+                    if ( settings["customRowType${i}"] != "iFrame Row") {
+                    	input "myNameText${i}", "string", title: "<b>Name Column Text</b>", submitOnChange:false, width:2, defaultValue: "[b]Your Text Here (%var%)[/b]", newLine:false, style:"margin-right: 25px"    
+                        input "myStateText${i}", "string", title: "<b>State Column Text</b>", submitOnChange:false, width:3, defaultValue: "", newLine:false, style:"margin-right: 25px"
+						input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+                    	input "myControlCText${i}", "string", title: "<b>Control C Column Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+						input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+						input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+						input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", submitOnChange:false, width:1, defaultValue: "", newLine:false, style:"margin-right: 25px"
+                    }
+                    else {
+                        input "myStateText${i}", "string", title: "<b>iFrame URL in form http://www.example.com</b>", submitOnChange:false, width:5, defaultValue: "[b]Your Text Here (%var%)[/b]", newLine:false, style:"margin-right: 45px"    
+                    	input "myIFrameHeight${i}", "string", title: "<b>iFrame Height (px)</b>", submitOnChange:false, width:1, defaultValue: "200", newLine:false, style:"margin-right: 25px"    
+                    }
+                    
 				}
                 input(name: "refresh", type: "button", title: "Apply Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
 				paragraph red("<b>Important: Custom rows are only displayed when Custom Sort is enabled.</b>")
@@ -418,9 +395,8 @@ def mainPage(){
 					else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
 					input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
 					myText = "<b>Notes:</b><br>"
-					myText += "1) If you use a Custom Sort order all pinned controls and sensors are treated just like any other entry.<br>"
-					myText += "2) If you add devices or sensors to your SmartGrid you must update your Custom Sort Order to include the new lines.<br>"
-					myText += "3) " + red("<b>DO NOT EXECUTE ANY COMMANDS OR REFRESH YOUR SCREEN UNTIL YOU HAVE SAVED YOUR CUSTOM SORT OR YOUR PROGRESS WILL BE LOST.</b>")
+					myText += "1) If you add devices or sensors to your SmartGrid you must update your Custom Sort Order to include the new lines.<br>"
+					myText += "2) " + red("<b>DO NOT EXECUTE ANY COMMANDS OR REFRESH YOUR SCREEN UNTIL YOU HAVE SAVED YOUR CUSTOM SORT OR YOUR PROGRESS WILL BE LOST.</b>")
 					paragraph myText
 				}
 								
@@ -539,9 +515,6 @@ def mainPage(){
 				paragraph line(2)	
 				input(name: "highlightSelectedRows", type: "enum", title: bold("Highlight Selected Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px; margin-left:20px")
 				if (highlightSelectedRows == "True" ) input(name: "rbs", type: "color", title: bold2("Selected Row Background Color", rbs), required: false, defaultValue: "#fdf09b", submitOnChange: true, width:2)
-
-				input(name: "highlightPinnedRows", type: "enum", title: bold("Highlight Pinned Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: false)
-				if (highlightPinnedRows == "True") input(name: "rbpc", type: "color", title: bold2("Pinned Row Background Color", rbpc), required: false, defaultValue: "#FFBFA8", submitOnChange: true, width: 2)
 				paragraph line(2)
 
 				input (name: "bc", type: "color", title: bold2("Border Color", bc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2, style:"margin-right:25px; margin-left: 20px;" )
@@ -565,11 +538,10 @@ def mainPage(){
 
 			if (state.activeButtonB == 24){  //Columns
 				input(name: "hideColumn1", type: "bool", title: bold("Hide Column 1 - Selection Boxes?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px; margin-left:10px", newLine:true)
-				input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;", newLine:false)
-				input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:20px;", newLine:false)
-
-				input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;margin-right:30px; margin-left:10px", newLine:false)
-
+				input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;", newLine:false)			
+                input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:20px;", newLine:false)
+				input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;", newLine:true)
+                
 				input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
 				if (hideColumn5 == false) {
 					input(name: "column5Header", type: "string", title: bold("Column 5 Header"), required: false, defaultValue: "Control A/B", width: 2, submitOnChange: true)
@@ -603,11 +575,10 @@ def mainPage(){
 					input(name: "ita3", type: "enum", title: bold("Alignment"), options: textAlignment(), required: false, defaultValue: "Center", width: 2, submitOnChange: true)
 					input(name: "info3Source", type: "enum", title: bold("Data Source"), required: false, multiple: false, defaultValue: "roomName", options: devicePropertiesList(), submitOnChange: true, width: 2)
 				}	
-				input(name: "hideColumn10", type: "bool", title: bold("Hide Column 10 - Pin"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
 				input(name: "hideColumn11", type: "bool", title: bold("Hide Column 11 - Custom Sort (Diagnostic)"), required: false, defaultValue: true, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
                 input(name: "hideColumn12", type: "bool", title: bold("Hide Column 12 - Group (Diagnostic)"), required: false, defaultValue: true, width:2, submitOnChange: true, style:"margin-top:40px", newLine:true)
 			}
-
+            
 			if (state.activeButtonB == 25){ //Padding
 				input (name: "tpad", type: "enum", title: bold('Table Edge Padding'), options: elementSize(), required: false, defaultValue: '1', width: 2, submitOnChange: true, style:"margin-right:25px" )
 				input (name: "tmt", type: "enum", title: bold("Top Margin"), options: elementSize(), required: false, defaultValue: "0", submitOnChange: true, width: 2, style:"margin-right:25px" )
@@ -640,7 +611,7 @@ def mainPage(){
                 part1 = "<b>Here you can modify the default values for <b>State</b> keywords that do not display in icon form. </b><br>"
                 part2 = "Examples of these are <mark> open, closed, active, inactive, wet, dry, present, not present </mark> etc. For example 'open' could be changed to 'Abierto'"
                 paragraph part1 + part2
-                input (name: "deviceStateMap", type: "text", title: "<b>Modify the values in the map below to change the values displayed in the State column. Clear string to restore the default values.</b>", required: false, defaultValue: '''{"open": "open", "closed": "closed", "active": "active", "inactive": "inactive", "wet": "wet", "dry": "dry", "present": "present", "not present": "not present", "detected": "detected", "clear": "clear", "tested": "tested"}''', width:12, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                input (name: "deviceStateMap", type: "text", title: "<b>Modify the values in the map below to change the values displayed in the State column. Clear string to restore the default values. Use tags in the form [m1]Active[/m1]</b>", required: false, defaultValue: '''{"open": "open", "closed": "closed", "active": "active", "inactive": "inactive", "wet": "wet", "dry": "dry", "present": "present", "not present": "not present", "detected": "detected", "clear": "clear", "tested": "tested"}''', width:12, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
 			}
             
             if (state.activeButtonB == 27){ //Experimental
@@ -737,7 +708,6 @@ def initialize() {
 		app.updateSetting("column7Header", "Last Active")
 		app.updateSetting("column8Header", "Duration")
 		app.updateSetting("column9Header", "Room")
-		app.updateSetting("column10Header", "Pin")
 		app.updateSetting("column11Header", "Custom Sort")
 		
 		//Hidden Columns
@@ -788,9 +758,6 @@ def initialize() {
 
 		app.updateSetting("highlightSelectedRows", "True")
 		app.updateSetting("rbs", [value: "#FFE18F", type: "color"])
-
-		app.updateSetting("highlightPinnedRows", "True")
-		app.updateSetting("rbpc", [value: "#FFBFA8", type: "color"])
 
 		//Borders
 		app.updateSetting("bc", [value: "#000000", type: "color"])
@@ -948,10 +915,9 @@ def applyTheme() {
 
     // Highlight Colors
     app.updateSetting("rbs",  [value: "#DCE775", type: "color"]) // selected row
-    app.updateSetting("rbpc", [value: "#FFCC80", type: "color"]) // pinned row
-	
+    
 	// Common Properties (general + highlight + borders)
-    [tvp: "3", thp: "5", hts: "100", hbo: "1", rts: "90", rbo: "1", its1: "80", its2: "80", its3: "80", ita1: "Center", ita2: "Center", ita3: "Center", bwo: "4", bwi: "2", tpad: "3", highlightSelectedRows: "True", highlightPinnedRows  : "True" ].each { k, v -> app.updateSetting(k, [value: v.toString(), type: "enum"]) }
+    [tvp: "3", thp: "5", hts: "100", hbo: "1", rts: "90", rbo: "1", its1: "80", its2: "80", its3: "80", ita1: "Center", ita2: "Center", ita3: "Center", bwo: "4", bwi: "2", tpad: "3", highlightSelectedRows: "True" ].each { k, v -> app.updateSetting(k, [value: v.toString(), type: "enum"]) }
    
     // Borders
     app.updateSetting("bc", [value: "#000000", type: "color"]) // black border
@@ -1160,15 +1126,6 @@ def getHubProperty(hubPropertyName) {
 //**************
 //*******************************************************************************************************************************************************************************************
 
-// Receives a list of items and allows them to be selected for pinning
-def getPinnedItems(collection) {
-    def itemList = []
-    collection.each { item ->
-        itemList << item.displayName + " (" + item.getId() + ")"
-    }
-    return itemList
-}
-
 // Gets the state of the various lights that are being tracked and puts them into a JSON format for inclusion with the script 
 def getJSON() {
     if (isLogTrace) log.trace("<b>Entering: GetJSON</b>")
@@ -1193,11 +1150,9 @@ def getJSON() {
 		def mySwitch = device.currentValue("switch")
 		deviceData.put("switch", mySwitch)
 		
-		if ( containsDeviceID(myPinnedControls, deviceID) ) { deviceData.put("pin", "on") }
-		
         //Get the device Type from cache so we don't have to calculate it every time. Makes the code on this end simpler.
 		deviceType = state.deviceList.find { it.ID == deviceID }?.type
-		deviceData.put("type", deviceType)
+		deviceData.put("type", deviceType)  
         		
 		def deviceTypeHandlers = [
 			1 : { d, dd -> def s = d.currentValue("switch"); dd.icon = getIcon(1, s)?.icon; dd.cl = getIcon(1, s)?.class },
@@ -1229,15 +1184,15 @@ def getJSON() {
     }
 	
 	def sensorConfigs = [
-		31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> onlyOpenContacts == "False" || (onlyOpenContacts == "True" && val == "open") }, pinnedList: myPinnedContacts],
+		31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> onlyOpenContacts == "False" || (onlyOpenContacts == "True" && val == "open") }],
 		32: [list: myTemps, attr: "temperature", iconAttrVal: { "temp" }, processVal: { val -> float t = val as float; if (tempDecimalPlaces == "0 Decimal Places") return t.round(0).toInteger().toString() + 
 				tempUnits; if (tempDecimalPlaces == "1 Decimal Place") return t.round(1).toString() + tempUnits; return t.toString() + tempUnits }, condition: { val -> if (onlyReportOutsideRange == "False") 
-				return true; float t = val as float; return (t < minTemp.toInteger() || t > maxTemp.toInteger()) }, pinnedList: myPinnedTemps],
-		33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> onlyWetSensors == "False" || (onlyWetSensors == "True" && val == "wet") }, pinnedList: myPinnedLeaks],
-        34: [list: myMotion, attr: "motion", iconAttrVal: { it -> it }, condition: { val -> onlyActiveMotionSensors == "False" || (onlyActiveMotionSensors == "True" && val == "active") }, pinnedList: myPinnedMotion],
-        35: [list: myPresence, attr: "presence", iconAttrVal: { it -> it }, condition: { val -> onlyPresentPresenceSensors == "False" || (onlyPresentPresenceSensors == "True" && val == "present") }, pinnedList: myPinnedPresence],
-        36: [list: mySmoke, attr: "smoke", iconAttrVal: { it -> it }, condition: { val -> onlyDetectedSmoke == "False" || (onlyDetectedSmoke == "True" && val == "detected") }, pinnedList: myPinnedSmoke],
-        37: [list: myCarbonMonoxide, attr: "carbonMonoxide", iconAttrVal: { it -> it }, condition: { val -> onlyDetectedCarbonMonoxide == "False" || (onlyDetectedCarbonMonoxide == "True" && val == "detected") }, pinnedList: myPinnedCarbonMonoxide]
+				return true; float t = val as float; return (t < minTemp.toInteger() || t > maxTemp.toInteger()) }],
+		33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> onlyWetSensors == "False" || (onlyWetSensors == "True" && val == "wet") }],
+        34: [list: myMotion, attr: "motion", iconAttrVal: { it -> it }, condition: { val -> onlyActiveMotionSensors == "False" || (onlyActiveMotionSensors == "True" && val == "active") }],
+        35: [list: myPresence, attr: "presence", iconAttrVal: { it -> it }, condition: { val -> onlyPresentPresenceSensors == "False" || (onlyPresentPresenceSensors == "True" && val == "present") }],
+        36: [list: mySmoke, attr: "smoke", iconAttrVal: { it -> it }, condition: { val -> onlyDetectedSmoke == "False" || (onlyDetectedSmoke == "True" && val == "detected") }],
+        37: [list: myCarbonMonoxide, attr: "carbonMonoxide", iconAttrVal: { it -> it }, condition: { val -> onlyDetectedCarbonMonoxide == "False" || (onlyDetectedCarbonMonoxide == "True" && val == "detected") }]
 	]
 	//Loops through the sensor types
 	sensorConfigs.each { type, cfg ->
@@ -1255,18 +1210,12 @@ def getJSON() {
 			def iconInfo = getIcon(type, cfg.iconAttrVal(rawVal))
 			deviceData.put("icon", iconInfo?.icon)
 			deviceData.put("cl", iconInfo?.class)
-
-			def isPinned = cfg.pinnedList ? containsDeviceID(cfg.pinnedList, device.getId()) : false
+			
 			def meetsCondition = cfg.condition ? cfg.condition(rawVal) : true
 
-			if (isPinned) {
-				deviceData.put("pin", "on")
-				deviceAttributesList << deviceData
-			} else if (meetsCondition) {
-				deviceAttributesList << deviceData
-			}
-
-			def deviceDetails = getDeviceInfo(device, type)
+            deviceAttributesList << deviceData
+            
+            def deviceDetails = getDeviceInfo(device, type)
 			if (!hideColumn7) deviceData.put("i1", deviceDetails."${info1Source}")
 			if (!hideColumn8) deviceData.put("i2", deviceDetails."${info2Source}")
 			if (!hideColumn9) deviceData.put("i3", deviceDetails."${info3Source}")
@@ -1286,19 +1235,30 @@ def getJSON() {
 			def myType
 			deviceData.put("ID", "$deviceID") // We use a negative deviceID for Custom Rows because they can conflict with very low numbered devices.
 
-			if (rowType == "Separator Row" ) {
-				myType = 51 //Separator Row
-				deviceData.put("icon", getIcon(myType, "separatorRow")?.icon)
-				deviceData.put("cl", getIcon(myType, "separatorRow")?.class)
-			} else if (rowType == "Device Row") {
-				myType = 52 //Device Row
-				deviceData.put("icon", getIcon(myType, "deviceRow")?.icon)
-				deviceData.put("cl", getIcon(myType, "deviceRow")?.class)
-			}
+            if (rowType == "Separator Row") {
+                myType = 51 // Separator Row
+                deviceData.put("icon", getIcon(myType, "separatorRow")?.icon)
+                deviceData.put("cl", getIcon(myType, "separatorRow")?.class)
+            } else if (rowType == "Device Row") {
+                myType = 52 // Device Row
+                deviceData.put("icon", getIcon(myType, "deviceRow")?.icon)
+                deviceData.put("cl", getIcon(myType, "deviceRow")?.class)
+            } else if (rowType == "iFrame Row") {
+                myType = 53 // iFrame Row
+                deviceData.put("icon", getIcon(myType, "iFrameRow")?.icon)
+                deviceData.put("cl", getIcon(myType, "iFrameRow")?.class)
+            }
+
 			//Put the data into the cells that are expected by the applet.
 			deviceData.put("type", myType)
 			deviceData.put("name", toHTML(replaceVarsInString(settings["myNameText$i"]?.toString())))
-			deviceData.put("switch", toHTML(replaceVarsInString(settings["myStateText$i"]?.toString())))
+			if (rowType == "iFrame Row") { 
+    			def srcUrl = settings["myStateText$i"]?.toString() ?: ""
+                def myHeight = settings["myIFrameHeight$i"]
+                def myURL = "[iframe src='${srcUrl}' style='height:${myHeight}px; width:100%; border:none; overflow:hidden;'][/iframe]"		//Note: You cannot use percentages for height because no height is defined. So we must use pixels.
+    			deviceData.put("switch", toHTML(replaceVarsInString(myURL)))
+			}
+            else deviceData.put("switch", toHTML(replaceVarsInString(settings["myStateText$i"]?.toString()))) 
 			if (!hideColumn5) deviceData.put("level", toHTML(replaceVarsInString(settings["myControlABText$i"]?.toString())))
             if (!hideColumn6) deviceData.put("CT", toHTML(replaceVarsInString(settings["myControlCText$i"]?.toString())))
 			if (!hideColumn7) deviceData.put("i1", toHTML(replaceVarsInString(settings["myInfoAText$i"]?.toString())))
@@ -1332,19 +1292,11 @@ def getJSON() {
 			return item
 		}
 		state.JSON = JsonOutput.prettyPrint(JsonOutput.toJson(mergedList))
-		if (isLogDebug) log.debug  ("Merged List: " + JsonOutput.prettyPrint(JsonOutput.toJson(mergedList)) )
+		//if (isLogDebug) 
+        //log.debug  ("Merged List: " + JsonOutput.prettyPrint(JsonOutput.toJson(mergedList)) )
 	}
     def timeElapsed = now() - timeStart
     if (isLogTrace) log.trace ("Leaving: getJSON " + timeElapsed/1000 + " seconds.")
-}
-
-//Checks the cached list to see if the received deviceID is part of that list.  This is used to determine whether something is pinned or not.
-def containsDeviceID(deviceList, deviceID) {
-    def pattern = /\((\d+)\)/ // Regular expression to extract the ID in parentheses
-    return deviceList.any { item ->
-        def matcher = (item =~ pattern)
-        matcher && matcher[0][1] == deviceID.toString()
-    }
 }
 
 // Return the appropriate icon and class to match the type and deviceState
@@ -1377,7 +1329,8 @@ def getIcon(type, deviceState) {
 		39 : [battery: [icon: "battery_android_4", class: "off"] ],
 		//Custom Devices start at 51
         51 : [separatorRow: [icon: "atr", class: "group"] ],
-		52 : [deviceRow: [icon: "info", class: "off"] ]
+		52 : [deviceRow: [icon: "info", class: "off"] ],
+        53 : [iFrameRow: [icon: "iframe", class: "off"] ]
     ]
 
     // Retrieve the entry for the given type and deviceState
@@ -1799,7 +1752,14 @@ def compile(){
 		content = content.replace('#bc#', bc )
 		content = content.replace('#bwo#', bwo )
 		content = content.replace('#bwi#', bwi )
-
+        
+        // Configure the colspan required for the iFrame rows depending on what other columns are hidden or visible
+        def columns = [ hideColumn1, hideColumn2, hideColumn3, hideColumn4, hideColumn5, hideColumn6, hideColumn7, hideColumn8, hideColumn9, hideColumn10, hideColumn11, hideColumn12 ]
+		def visibleColumnCount = columns.count { !(it == true) }
+		def colspan = visibleColumnCount - ( (hideColumn1 != true) ? 1 : 0 ) - ( (hideColumn2 != true) ? 1 : 0 ) - ( (hideColumn11 != true) ? 1 : 0 ) - ( (hideColumn12 != true) ? 1 : 0 )
+        if (isLogDebug) log.debug "iFrame Row Column Span is: ${colspan}"
+        content = content.replace('#iFrameColspan#', toHTML(colspan.toString()) )
+        
 		//Column Headers
 		content = content.replace('#column3Header#', toHTML(column3Header) )	// Column 3 header text
 		content = content.replace('#column5Header#', toHTML(column5Header) )	// Column 5 header text
@@ -1807,9 +1767,9 @@ def compile(){
 
 		//Forced Column Widths - If the columns are marked as hidden change the width to zero.
 		if (hideColumn3) { content = content.replace('#column3Width#', '0') } else { content = content.replace('#column3Width#', column3Width.toString()) }
+        if (hideColumn4) { content = content.replace('#column4Width#', '0') } else { content = content.replace('#column4Width#', column4Width.toString()) }
 		if (hideColumn5) { content = content.replace('#column5Width#', '0') } else { content = content.replace('#column5Width#', column5Width.toString()) }
 		if (hideColumn6) { content = content.replace('#column6Width#', '0') } else { content = content.replace('#column6Width#', column6Width.toString()) }
-		if ( highlightPinnedRows == "True" ) content = content.replace('#rbpc#', rbpc )
 		if ( highlightSelectedRows == "True" ) content = content.replace('#rbs#', rbs ) 
 		else content = content.replace('#rbs#', "00000000" ) 
 	
@@ -1860,7 +1820,8 @@ def compile(){
 		content = content.replace('#rbs#', rbs )	// Row Background Color Selected
 	
 		//Hide unwanted columns
-		content = content.replace('#hideColumn1#', hideColumn1 ? 'none' : 'table-cell')
+        
+        content = content.replace('#hideColumn1#', hideColumn1 ? 'none' : 'table-cell')
 		content = content.replace('#hideColumn2#', hideColumn2 ? 'none' : 'table-cell')
 		content = content.replace('#hideColumn3#', hideColumn3 ? 'none' : 'table-cell')
 		content = content.replace('#hideColumn4#', hideColumn4 ? 'none' : 'table-cell')
@@ -2089,7 +2050,7 @@ def disabledEndpointHTML(){
     return myHTML
 }
 
-// Allows the client to send the changed Device List and JSON to the Hub. types are 1: switch, 2: switchLevel (dimmer), 3: colorTemperature, 4: colorControl - HSL, 5: colorControl - HSV
+// Allows the client to send the changed Device List and JSON to the Hub.
 def toHub() {
 	def sessionID = params.sessionID
 	if (isLogTrace) log.trace ("<b>Entering toHub:</b> Session ID: $sessionID")
@@ -2658,7 +2619,6 @@ def HTML =
 	tr:hover { background-color: #rbs#;} 
     
 	.selected-row {	background-color: #rbs#;}
-	.pinned-row {background-color: #rbpc#;}
 	.custom-row-separator {background-color: #crbc#; color:#crtc#; font-size: #crts#%;}
 	//Drag and Drop Support
 	#isDragDropCSS#
@@ -2666,7 +2626,7 @@ def HTML =
 	/* Widths of columns 1, 2 & 10 are derived from the width of the control element. Columns 5 and 6 are fixed as set by the user. The remaining columns with be auto-calculated to best fit the text. */
 	th:nth-child(1), td:nth-child(1) { width:calc(var(--control) * 1.5); display:#hideColumn1#; }
 	th:nth-child(2), td:nth-child(2) { width:calc(var(--control) * 2.5); display:#hideColumn2#; }
-	th:nth-child(3) {padding-left:calc(#thp#px + 5px); text-align:left;}
+	th:nth-child(3) {padding-left:calc(#thp#px + 5px);}
 	td:nth-child(3) {text-align:left; padding-left:calc(#thp#px); }
 	th:nth-child(4), td:nth-child(4) { width:calc(var(--control) * 3); display:#hideColumn4#; }
 	th:nth-child(5), td:nth-child(5) { width:#column5Width#px; display:#hideColumn5#; }
@@ -2768,6 +2728,8 @@ def HTML =
     .close {cursor:pointer; float:right; font-size: 24px}
 	.group-icon-active { transform: rotate(0deg); transition: transform 0.3s ease;}
 	.group-icon-inactive { transform: rotate(90deg); background-color: #F0F0F0; border-radius: 50%; padding: 2px; transition: transform 0.5s ease, background-color 0.5s ease; }
+
+	iframe {position: relative; z-index: 10; pointer-events: auto;}
 }
 
 </style>
@@ -2793,7 +2755,7 @@ def HTML =
 				<th id="i1" class="sortLinks" onclick="sortTable(6, this);" title="Info1 - Alpha Sort"><span id="info1Header">#Info1#</span></th>
 				<th id="i2" class="sortLinks" onclick="sortTable(7, this);" title="Info2 - Alpha Sort"><span id="info2Header">#Info2#</span></th>
 				<th id="i3" class="sortLinks" onclick="sortTable(8, this);" title="Info3 - Alpha Sort"><span id="info3Header">#Info3#</span></th>
-				<th id="pin" title="Pinned Items"><span id="pinHeader">Pin</span></th>
+				<th id="Unused" title="Unused"><span id="unusedHeader">Unused</span></th>
 				<th id="sort">Custom Sort</th>
 				<th id="group">Group</th>
 			</tr>
@@ -2835,6 +2797,7 @@ let currentFetchController;		//Used for the fetch operation
 let pollingTimeoutID = null;	//Handle for the Polling Timeout
 const separatorRow = 51;
 const deviceRow = 52;
+const iFrameRow = 53;
 const valve = 10;
 const stateMap = #deviceStateMap#;
 
@@ -2988,6 +2951,7 @@ function loadTableFromJSON(data) {
 		if (filterValues["filterLock"] === "onlyUnlocked" && d.type === 11 && d.switch !== "off") show = false;
 		if (filterValues["filterContact"] === "onlyOpen" && d.type === 31 && d.switch !== "open") show = false;
 		if (filterValues["filterLeak"] === "onlyWet" && d.type === 33 && d.switch !== "wet") show = false;
+		if (filterValues["filterMotion"] === "onlyActive" && d.type === 34 && d.switch !== "active") show = false;
 		if (!show) return;
 
 		const row = document.createElement('tr');
@@ -2995,7 +2959,7 @@ function loadTableFromJSON(data) {
 		Object.assign(row.dataset, {
 			ID: d.ID, name: d.name, type: d.type, speed: d.speed, level: d.level,
 			position: d.position, tilt: d.tilt, volume: d.volume, colorMode: d.colorMode || "None",
-			info1: d.i1, info2: d.i2, info3: d.i3, icon: d.icon, class: d.cl, pin: d.pin, row: d.row, group: d.group
+			info1: d.i1, info2: d.i2, info3: d.i3, icon: d.icon, class: d.cl, row: d.row, group: d.group
 		});
 		
 		const col = /^#[0-9A-F]{6}$/i.test(d.color) ? d.color : "#FFF";
@@ -3003,10 +2967,7 @@ function loadTableFromJSON(data) {
 		//Show or Hide Groups when using Custom Sort.
 		if (d.type === separatorRow) icon = `<i class='material-symbols-outlined ${d.cl}' onclick="toggleGroupVisibility(this)">${d.icon}</i>`;
 		else icon = `<i class='material-symbols-outlined ${d.cl}'>${d.icon}</i>`;
-		
-		const pinHTML = d.pin === "on" ? `<i class="material-symbols-outlined">location_on</i>` : "";
-		if (d.pin === "on") row.className = "pinned-row";
-
+				
 		const getSlider = (cls, val, min, max, label, disp, extra = "") => `
 			<input type="range" class="${cls}" min="${min}" max="${max}" value="${val}"
 				style="display:${disp}" oninput="updateSliderValue(this, '${label}')" onchange="updateHUB()" ${extra}>
@@ -3036,11 +2997,17 @@ function loadTableFromJSON(data) {
 		if (d.type === separatorRow || d.type === deviceRow) {c1 = d.level; c2 = d.CT};
 		if ([1,10,11,13].includes(d.type)) c1 = "";
 
-		row.innerHTML = `
-			<td><input type="checkbox" class="option-checkbox" ${saved[d.ID] ? "checked" : ""} onchange="toggleRowSelection(this)"></td>
-			<td>${icon}</td><td>${d.name}</td><td>${state}</td><td>${c1}</td><td>${c2}</td>
-			<td><div class="info1">${d.i1}</div></td><td><div class="info2">${d.i2}</div></td><td><div class="info3">${d.i3}</div></td>
-			<td>${pinHTML}</td><td>${d.row}</td><td>${d.group}</td>`;
+        if (d.type === 53) {
+            // iFrame rows get a custom column configuration. It is sized to fill up all visible rows between column 3 (state) and the column 10 (unused)
+            row.innerHTML = `<td colspan="1"></td><td colspan="1">${icon}</td><td colspan="#iFrameColspan#">${state}</td><td style="display:#hideColumn11#;">${d.row}</td><td style="display:#hideColumn12#;">${d.group}</td>`;
+		} else {
+            // Default: full multi-column row
+            row.innerHTML = `
+                <td><input type="checkbox" class="option-checkbox" ${saved[d.ID] ? "checked" : ""} onchange="toggleRowSelection(this)"></td>
+                <td>${icon}</td><td>${d.name}</td><td>${state}</td><td>${c1}</td><td>${c2}</td>
+                <td><div class="info1">${d.i1}</div></td><td><div class="info2">${d.i2}</div></td><td><div class="info3">${d.i3}</div></td>
+                <td></td><td>${d.row}</td><td>${d.group}</td>`;
+        }
 		fragment.appendChild(row);
 	});
   
@@ -3080,7 +3047,6 @@ function loadTableFromJSON(data) {
 
 }
 
-
 //******************************  Custom Rows, Manual Sort Order and Collapsible Groups ************************************************
 //**************************************************************************************************************************************
 
@@ -3097,7 +3063,7 @@ function updateState() {
     });
 }
 
-//Formats the appearance of the Custom Rows. 51: Separator Row, 52: Device Row  
+//Formats the appearance of the Custom Rows. 51: Separator Row, 52: Device Row, 53: iFrame Row  
 function updateRows() {
     document.querySelectorAll("#sortableTable tr").forEach(row => {
         if (Number(row.dataset.type) === separatorRow) {
@@ -3128,12 +3094,14 @@ function saveRowOrder() {
         seen[baseID]++;
         // If it's a duplicate, append a suffix to ensure uniqueness
         const uniqueID = seen[baseID] > 1 ? `${baseID}__${seen[baseID]}` : baseID;
-        return { row: index + 1, ID: uniqueID };
+		const UID = row.dataset.ID + "-" + row.dataset.type
+        return { row: index + 1, ID: uniqueID, UID: UID };
     });
 
     sessionStorage.setItem(storageKey("customSortOrder"), JSON.stringify(sortedJSON));
     const output = { customSortOrder: sortedJSON };
-    const myData = JSON.stringify(output, null, 2);
+	const myData = JSON.stringify(output);
+	//console.log(`customSortOrder is: ${myData}`);
     sendData(myData);
 }
 
@@ -3142,8 +3110,13 @@ function assignGroupNumbers() {
 	const rows = document.querySelectorAll("#sortableTable tbody tr");
 	let group = 0;
 	rows.forEach(row => {
-		const type = parseInt(row.dataset.type);
-		if (type === separatorRow) group++;
+		const typeStr = row.dataset.type;
+		const type = parseInt(typeStr);
+		//console.log(`Row type: ${typeStr} parsed as ${type}, current group: ${group}`);
+		if (type === separatorRow) {
+			group++;
+			console.log(`Separator found, incrementing group to ${group}`);
+		}
 		row.dataset.group = group;
 		const groupCell = row.querySelector("td:last-child");
 		if (groupCell) groupCell.textContent = group;
@@ -3595,15 +3568,23 @@ function sortTable(i) {
 	const rows = Array.from(tbody.rows);
 	const val = (cell, sel) => cell?.querySelector(sel)?.value?.toLowerCase() || cell?.textContent?.trim().toLowerCase() || "";
 
-	if (isCustomSort) {
-		rows.sort((a, b) => (parseFloat(val(a.cells[10], 'input')) || 0) - (parseFloat(val(b.cells[10], 'input')) || 0));
-		rows.forEach(row => { row.classList.remove("pinned-row"); tbody.appendChild(row); });
-		setColumnHeaders(false);
-		return;
-	}
+	//This has been modified to handle sorting when there are two different colSpan as happens when using and iFrame. The customSort column is always second from the end.
+    if (isCustomSort) {
+        rows.sort((a, b) => {
+            const getGroupVal = row => {
+                const cellIndex = row.cells.length - 2;
+                return parseFloat(val(row.cells[cellIndex], 'input')) || 0;
+            };
+            return getGroupVal(a) - getGroupVal(b);
+        });
+        rows.forEach(row => tbody.appendChild(row));
+        setColumnHeaders(false);
+        return;
+    }
 
-	if (i === -1) i = sortDirection.activeColumn;
-	else {
+	if (i === -1) {
+		i = sortDirection.activeColumn;
+	} else {
 		sortDirection.activeColumn = i;
 		sortDirection.direction = sortDirection.direction === 'asc' ? 'desc' : 'asc';
 		sessionStorage.setItem(storageKey("activeColumn"), i);
@@ -3611,19 +3592,22 @@ function sortTable(i) {
 	const dir = sortDirection.direction;
 	localStorage.setItem(storageKey("sortDirection"), JSON.stringify(sortDirection));
 
-	const pinned = rows.filter(r => r.dataset.pin === "on").sort((a, b) => val(a.cells[2], 'input').localeCompare(val(b.cells[2], 'input')));
-	const unpinned = rows.filter(r => r.dataset.pin !== "on").sort((a, b) => {
-		let a1 = val(a.cells[i], i === 3 ? '.toggle-switch' : 'input'), b1 = val(b.cells[i], i === 3 ? '.toggle-switch' : 'input');
+	rows.sort((a, b) => {
+		let a1 = val(a.cells[i], i === 3 ? '.toggle-switch' : 'input');
+		let b1 = val(b.cells[i], i === 3 ? '.toggle-switch' : 'input');
+
 		if (i === 3) {
-			// Special sorting logic for the state column (toggle-switch)
 			a1 = a.cells[i]?.querySelector('.toggle-switch')?.dataset.state || a1;
 			b1 = b.cells[i]?.querySelector('.toggle-switch')?.dataset.state || b1;
 		}
-		if (i === 3 && a1 === b1) return val(a.cells[2], 'input').localeCompare(val(b.cells[2], 'input'));
+
+		if (i === 3 && a1 === b1) {
+			return val(a.cells[2], 'input').localeCompare(val(b.cells[2], 'input'));
+		}
 		return dir === 'asc' ? a1.localeCompare(b1) : b1.localeCompare(a1);
 	});
 
-	tbody.append(...pinned, ...unpinned);
+	tbody.append(...rows);
 	setColumnHeaders(true);
 }
 
