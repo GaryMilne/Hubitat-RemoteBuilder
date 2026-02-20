@@ -33,6 +33,7 @@
 *  Version 1.1.1 - Feature - Adds remote Icon to Browser window.
 *  Version 1.1.2 - Added Haptic Response option for button presses.
 *  Version 1.1.3 - Added option for Unassigned Buttons to be Hidden, Disabled or Normal
+*  Version 1.1.4 - Fixed bug with Tooltips not showing. Added ability to change tooltipTextSize. Removed excess logging information.
 *
 *  Possible Future Improvements:
 *  Default button group to have open on load.
@@ -45,8 +46,8 @@ import groovy.transform.Field
 
 static def buttonGroup() { return ['ONE', 'TWO', 'THREE'] }
 
-@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.1.3 (9/2/24 @ 9:45 AM)</b>"
-@Field static final codeVersion = 113
+@Field static final codeDescription = "<b>Remote Builder - 6 Button 1.1.4 (2/19/26 @ 8:57 AM)</b>"
+@Field static final codeVersion = 114
 //@Field static final moduleName = "Custom 6 Button"
 @Field static final moduleName = "Fixed 6 Button"
 
@@ -164,7 +165,8 @@ def mainPage(){
                     paragraph line(1)
                 } 
 				input(name: "unassignedButtonBehaviour", type: "enum", title: bold("Unassigned Button Behaviour"), options: ["Normal", "Disabled", "Hidden"], required: false, defaultValue: "Normal", submitOnChange: true, width: 2, newLine: true, style:"margin-right: 20px")
-				input(name: "enableHapticResponse", type: "enum", title: bold("Enable Haptic Response"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2)
+				input(name: "enableHapticResponse", type: "enum", title: bold("Enable Haptic Response"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right: 20px")
+                input(name: "tooltipTextSize", type: "enum", title: bold("Tooltip Text Size"), options: ["3vh", "4vh", "5vh", "6vh", "7vh", "8vh", "9vh", "10vh"], required: false, defaultValue: "6vh", submitOnChange: true, width: 2)
 				
 				text = "The contents of the <b>Command</b> drop down list is retrieved from the device and contains all available commands, plus some Remote Builder added commands described below.<br><br>"
 				text += "<b>Synthetic Commands</b><br>"
@@ -237,8 +239,6 @@ def mainPage(){
     }
 }
 
-
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  Compile Functions
@@ -258,20 +258,19 @@ def compile(){
 		isHidden = false
 		
 		if ( settings."myDevice$i" == null || settings."myCommand$i" == null ) isActive = false
-		//if (isLogDebug) 
-		log.debug ("Index: $i  and isActive: $isActive and myCommand is: " + settings."myCommand$i")
+		if (isLogDebug) log.debug ("Index: $i  and isActive: $isActive and myCommand is: " + settings."myCommand$i")
 		
 		switch(unassignedButtonBehaviour){
         	case ["Normal"]:  //Show all buttons
-				data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
+				data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "tooltip": settings."myTooltip$i", "bHidden": "false" ]
     	        break
         	case ["Disabled"]:  //Buttons are shown but are disabled
-				if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
+				if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "tooltip": settings."myTooltip$i", "bHidden": "false"  ]
 				else data = [ "index": "$i", "label": "?", "bColor": "#555", "tColor": "#555", "bHidden": "false"]
         	    break
 			case ["Hidden"]:
-				if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "false" ]
-				else data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "bHidden": "true" ]
+				if (isActive) data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "tooltip": settings."myTooltip$i", "bHidden": "false"  ]
+				else data = [ "index": "$i", "label": settings."myText$i", "bColor": settings."myButtonColor$i", "tColor": settings."myTextColor$i" , "tooltip": settings."myTooltip$i", "bHidden": "true"  ]
     	        break
         	default:
             	break
@@ -293,6 +292,7 @@ def compile(){
 	content = content.replace("#backgroundData#", state.backgroundData )
 	content = content.replace("#titlesData#", state.titlesData )
 	content = content.replace("#hapticResponse#", enableHapticResponse.toLowerCase() )
+    content = content.replace("#tooltipTextSize#", tooltipTextSize.toLowerCase() )
 	
 	//When we are in Fixed 6 Button mode then we disable the Mode Button because buttons 7-18 are deaactivated.
 	if (moduleName == "Fixed 6 Button") content = content.replace("#disableModeButton#", "no-cursor" )
@@ -496,7 +496,7 @@ def convertToInt(String input) {
 
 // Assemble the command string
 def assembleCommand(myCommand, myParameters) {
-	log.info ("assembleCommands: '$myCommand' -  '$myParameters' ")
+	if (isLogDebug) log.debug ("assembleCommands: '$myCommand' -  '$myParameters' ")
     def result = [command: "", parameters: [], parameterCount: 0]
     
 	//If we have no command just return the empty map
@@ -577,6 +577,8 @@ def disabledEndpointHTML(){
 //**************
 //*******************************************************************************************************************************************************************************************
 
+
+
 //This contains the whole HTML\CSS\SVG\SCRIPT file equivalent. Placing it in a function makes it easy to collapse.
 static def myHTML() {
 def HTML = 
@@ -594,9 +596,8 @@ def HTML =
         .control { cursor:pointer }
         .no-cursor { font-size:100%; font-weight:bold; pointer-events:none; text-anchor:middle; }
         .hidden { display:none }
-        .tooltip { background-color:yellow; opacity: 0.5; border-radius:4px; font-size:80%; color:black; display:none; left:50%; padding:2px; pointer-events:none; position:absolute; text-align:center; top:5%; transform: translateX(-50%); width:90%; }
-		.mode-button { font-size:14px; letter-spacing:3px;}
-
+		.tooltip { background-color: rgba(255, 255, 0, 0.3); border-radius:4px; font-size:#tooltipTextSize#; color:black; display:none; left:50%; padding:2px; pointer-events:none; position:absolute; text-align:center; top:5%; transform: translateX(-50%); width:90%; }		
+       .mode-button { font-size:14px; letter-spacing:3px;}
 		/* Animation */
 		.flicker {animation:flickerOrange 0.25s linear forwards}  
 		@keyframes flickerOrange {0%, 20%, 40%, 60%, 80%, 100% {fill:#555} 10%, 30%, 50%, 70%, 90% {fill:orange}}
@@ -689,10 +690,10 @@ def HTML =
 			<rect id="help-button" class="control" x="60%" y="78%" width=30% height=10% fill="#666" stroke="white" stroke-width="1" rx="2%" ry="2%"/>
 			<text class="no-cursor mode-button" id="help-button-text" x="76%" y="86%" text-anchor="middle" fill="#fff" style="font-size:18px" font-weight="bold">?</text>
 
-			<text class="no-cursor" id="title-text" x="50%" y="96%" text-anchor="middle" fill="#fff" style="font-size:12px; opacity:0.5 ">?</text>
-			
+			<text class="no-cursor" id="title-text" x="50%" y="96%" text-anchor="middle" fill="#fff" style="font-size:12px; opacity:0.5 ">?</text>	
         </svg>
-        <div id="tooltip" class="tooltip"></div>
+		<div id="tooltip" class="tooltip"></div>
+        
     </div>
 
 <script>
