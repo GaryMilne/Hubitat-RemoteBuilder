@@ -57,8 +57,9 @@
 *				 - Added customize Info1 - Info3 columns by Group if desired. Implemented new defaultStateMap to improve visibility for abnormal conditions.
 *				 - Added collapsible sections to the Sensors tab. Added Drag and Drop and Save Custom Sort buttons to the Controls and Sensors Tabs. Renamed Custom Rows tab to Group & Sort tab.
 *  Version 5.0.1 - Fixed logic error in Custom Sort order. Made some cosmetic changes to the designer screen for improved usability.
+*  Version 5.0.2 - Fixed error in custom sort order when groups were empty.
 *
-*  Gary Milne - April 4th, 2026 @ 10:58 AM
+*  Gary Milne - April 6th, 2026 @ 11:20 AM
 *
 **/
 
@@ -112,8 +113,8 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["Default", "None", "battery", "colorMode", "colorName", "colorTemperature", "deviceTypeName", "energy", "healthStatus", "ID", "lastActive", "lastActiveDuration", "lastInactive", "lastInactiveDuration", "lastSeen", "lastSeenElapsed", "network", "power", "roomName", "temperature"] }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.0.1 (4/5/26)</b>"
-@Field static final codeVersion = 501
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.0.2 (4/6/26)</b>"
+@Field static final codeVersion = 502
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -139,9 +140,9 @@ preferences {
 def mainPage(){
     //Does the initialization of variables at install, any variables added to the subsequent releases and checks for null variables created by when the user clicks on "No Selections".
     initialize()
-    state.remove("compiledLocal")
-    state.remove("compiledLocalTime")
-    if (state.initialized == true) compile()
+    
+    //Compile the JS every time to accomodate UI change requests. This compile will NOT run during normal operation of the SmartGrid, only in the edit\design phase.
+    compile()
 
     dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff; margin-top:-3vh !important;'>Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
 
@@ -180,14 +181,23 @@ def mainPage(){
                 input(name: "btnExpandAllSensors", type: "button", title: "Expand All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 25px")               
                 paragraph line(1)
                 
-                // Build group options once from named rows                
+                
+                // Build group options once from named rows
                 def groupCount = customRowCount?.toInteger() ?: 0
                 def groupOptions = ["None": "None"]
                 if (groupCount > 0) {
                     (1..groupCount).each { i ->
                         def rowType = settings["customRowType${i}"]?.toString() ?: ""
-                        if (rowType.contains("Group Row")) {
-                            def nameText = settings["myNameText${i}"]?.toString()?.replaceAll(/\[.*?\]/, "")?.trim() ?: "Row ${i}"
+                        // Check both "Group Row" and any variant spellings/timing issues
+                        if (rowType && rowType.contains("Group Row")) {
+                            // Fallback chain: try name text, strip tags, then fall back to index
+                            def rawName = settings["myNameText${i}"]
+                            def nameText = rawName?.toString()
+                                               ?.replaceAll(/\[.*?\]/, "")
+                                               ?.trim()
+
+                            // Only skip if truly empty after cleaning
+                            if (!nameText) nameText = "Group ${i}"
                             groupOptions["${i}"] = nameText
                         }
                     }
@@ -825,7 +835,7 @@ def initialize() {
         firstTimeSettings.each { name, config -> app.updateSetting(name, [value: config[0].toString(), type: config[1]]) }
         
         if (state.hidden == null) state.hidden = [:]
-        ["Battery", "Carbon Monoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"].each { if (state.hidden[it] == null) state.hidden[it] = true }
+        ["Battery", "CarbonMonoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"].each { if (state.hidden[it] == null) state.hidden[it] = true }
                 
         // State variables for first time
         state.updatedSessionList = []
@@ -1069,6 +1079,43 @@ def getHubProperty(hubPropertyName) {
 //**************
 //*******************************************************************************************************************************************************************************************
 
+//Assigns a list of Devices to one of the User created Groups
+def NEWautoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
+    if (deviceList == null || deviceList.isEmpty()) {
+        if (isLogDebug) log.debug "autoAssign: deviceList is null or empty for sensorTypeCode: ${sensorTypeCode}"
+        return
+    }
+    
+    def sortOrder = new groovy.json.JsonSlurper().parseText(state.customSortOrder ?: "[]")
+    
+    def targetUID = "${groupNumber}-51".toString()
+    def insertAfterIndex = sortOrder.findIndexOf { it.UID?.toString() == targetUID }
+    
+    // If the group row doesn't exist in the sort order yet, add it at the end
+    if (insertAfterIndex == -1) {
+        if (isLogDebug) log.debug "autoAssign: Group row ${targetUID} not found — inserting it into sort order."
+        def groupEntry = [ID: "${0 - groupNumber}".toString(), UID: targetUID, row: sortOrder.size() + 1]
+        sortOrder.add(groupEntry)
+        insertAfterIndex = sortOrder.size() - 1
+    }
+    
+    def newUIDs = deviceList.collect { "${it.id}-${sensorTypeCode}".toString() } as Set
+    sortOrder.removeAll { it.UID?.toString() in newUIDs }
+    
+    // Re-find after removal
+    insertAfterIndex = sortOrder.findIndexOf { it.UID?.toString() == targetUID }
+    
+    def newEntries = deviceList.collect { device ->
+        [ID: device.id.toString(), UID: "${device.id}-${sensorTypeCode}".toString()]
+    }
+    
+    sortOrder.addAll(insertAfterIndex + 1, newEntries)
+    sortOrder.eachWithIndex { entry, idx -> entry.row = idx + 1 }
+    
+    state.customSortOrder = groovy.json.JsonOutput.toJson(sortOrder)
+    if (isLogDebug) log.debug "autoAssign: Assigned ${deviceList.size()} device(s) of type ${sensorTypeCode} to group ${groupNumber}. Sort order size: ${sortOrder.size()}"
+}
+
 
 //Assigns a list of Devices to one of the User created Groups
 def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
@@ -1079,19 +1126,23 @@ def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
     
     def sortOrder = new groovy.json.JsonSlurper().parseText(state.customSortOrder ?: "[]")
     
-    // ✅ Compare as strings on both sides to avoid Integer vs String mismatch
     def targetID = "-${groupNumber}".toString()
-    def insertAfterIndex = sortOrder.findIndexOf { it.ID.toString() == targetID }
+    def targetUID = "${targetID}-51".toString()
+    def insertAfterIndex = sortOrder.findIndexOf { it.UID?.toString() == targetUID }
+    
+    // If the group row doesn't exist in the sort order yet, add it at the end
     if (insertAfterIndex == -1) {
-        if (isLogDebug) log.debug "autoAssign: Group row ${targetID} not found in sort order. Has a Custom Sort been saved?"
-        return
+        if (isLogDebug) log.debug "autoAssign: Group row ${targetUID} not found — inserting it into sort order."
+        def groupEntry = [ID: targetID, UID: targetUID, row: sortOrder.size() + 1]
+        sortOrder.add(groupEntry)
+        insertAfterIndex = sortOrder.size() - 1
     }
     
     def newUIDs = deviceList.collect { "${it.id}-${sensorTypeCode}".toString() } as Set
-    sortOrder.removeAll { it.UID.toString() in newUIDs }
+    sortOrder.removeAll { it.UID?.toString() in newUIDs }
     
     // Re-find after removal
-    insertAfterIndex = sortOrder.findIndexOf { it.ID.toString() == targetID }
+    insertAfterIndex = sortOrder.findIndexOf { it.UID?.toString() == targetUID }
     
     def newEntries = deviceList.collect { device ->
         [ID: device.id.toString(), UID: "${device.id}-${sensorTypeCode}".toString()]

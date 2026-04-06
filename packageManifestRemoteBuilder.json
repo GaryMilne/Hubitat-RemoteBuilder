@@ -1,10 +1,10 @@
 {
   "packageName": "Remote Builder",
   "author": "Gary J. Milne",
-  "version": "127",
+  "version": "129",
   "minimumHEVersion": "2.3.4.132",
-  "dateReleased": "2026-4-1",
-  "releaseNotes": "Package-127: Updates Remote Builder Parent to 2.0.0 and SmartGrid to 5.0.1",
+  "dateReleased": "2026-4-6",
+  "releaseNotes": "Package-129: Updates SmartGrid to version 5.0.2",
   "documentationLink": "https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf",
   "communityLink": "https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices-7-remotes-available/142060",
   "apps": [
@@ -86,7 +86,7 @@
       "required": false,
       "oauth": true,
       "primary": false,
-      "version": "5.0.1"
+      "version": "5.0.2"
     }
   ],
   "drivers": [
