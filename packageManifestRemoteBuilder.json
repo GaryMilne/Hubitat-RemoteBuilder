@@ -1,10 +1,10 @@
 {
   "packageName": "Remote Builder",
   "author": "Gary J. Milne",
-  "version": "125",
+  "version": "127",
   "minimumHEVersion": "2.3.4.132",
-  "dateReleased": "2026-2-19",
-  "releaseNotes": "Packages-126: Fixes Tooltips on Custom and Fixed 6 button remote.",
+  "dateReleased": "2026-4-1",
+  "releaseNotes": "Package-127: Updates Remote Builder Parent to 2.0.0 and SmartGrid to 5.0.1",
   "documentationLink": "https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf",
   "communityLink": "https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices-7-remotes-available/142060",
   "apps": [
@@ -16,7 +16,7 @@
       "required": true,
       "oauth": false,
       "primary": false,
-      "version": "1.1.2"
+      "version": "2.0.0"
     },
     {
       "id": "c3d1eb91-bbe4-4a9e-b938-db4b1b18f20b",
@@ -86,7 +86,7 @@
       "required": false,
       "oauth": true,
       "primary": false,
-      "version": "4.5.3"
+      "version": "5.0.1"
     }
   ],
   "drivers": [

@@ -56,8 +56,9 @@
 *				 - Added bulk assignment to groups by sensor type. Added filtering for all sensor types.
 *				 - Added customize Info1 - Info3 columns by Group if desired. Implemented new defaultStateMap to improve visibility for abnormal conditions.
 *				 - Added collapsible sections to the Sensors tab. Added Drag and Drop and Save Custom Sort buttons to the Controls and Sensors Tabs. Renamed Custom Rows tab to Group & Sort tab.
+*  Version 5.0.1 - Fixed logic error in Custom Sort order. Made some cosmetic changes to the designer screen for improved usability.
 *
-*  Gary Milne - April 1st, 2026 @ 11:30 AM
+*  Gary Milne - April 4th, 2026 @ 10:58 AM
 *
 **/
 
@@ -111,7 +112,7 @@ static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?
 static def devicePropertiesList() { return ["Default", "None", "battery", "colorMode", "colorName", "colorTemperature", "deviceTypeName", "energy", "healthStatus", "ID", "lastActive", "lastActiveDuration", "lastInactive", "lastInactiveDuration", "lastSeen", "lastSeenElapsed", "network", "power", "roomName", "temperature"] }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.0.1 (4/1/26)</b>"
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.0.1 (4/5/26)</b>"
 @Field static final codeVersion = 501
 @Field static final moduleName = "SmartGrid"
 
@@ -156,13 +157,6 @@ def mainPage(){
             if (state.activeButtonA == 1){ //Start of Controls Section
                 // Input for selecting filter criteria
                 input(name: "filter", type: "enum", title: bold("Filter Controls (optional)"), options: ["All Selectable Controls", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "All Selectable Controls", submitOnChange: true, width: 2, style:"margin-right: 100px")
-                //Display the Custom Sort Options
-                if (isCustomSort == "true"){
-                    if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
-                    else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
-                    input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
-                }
-
                 def filterOptions = [
                     "All Selectable Controls": [capability: "capability.powerMeter, capability.switch, capability.valve, capability.lock, capability.garageDoorControl, capability.doorControl, capability.fanControl, capability.audioVolume, capability.windowShade, capability.windowBlind", title: "<b>Select Controls</b>"],
                     "Power Meters": [capability: "capability.powerMeter", title: "<b>Select Power Meter Devices</b>"], "Switches": [capability: "capability.switch", title: "<b>Select Switch Devices</b>"], "Color Temperature Devices": [capability: "capability.colorTemperature", title: "<b>Select Color Temperature Devices</b>"],
@@ -182,29 +176,118 @@ def mainPage(){
                 if (visibleSensorSections == null) app.updateSetting("visibleSensorSections", [value: ["Battery", "Carbon Monoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"], type: "enum"])
 
                 input(name: "visibleSensorSections", type: "enum", title: bold("Select Sensor Types to Display"), options: ["Battery", "Carbon Monoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"], required: false, multiple: true, submitOnChange: true, width: 4, defaultValue: ["Temperature"], style:"margin-right: 100px")
-                if (isCustomSort == "true"){
-                    if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
-                    else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
-                    input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
-                }
+                input(name: "btnCollapseAllSensors", type: "button", title: "Collapse All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 25px")               
+                input(name: "btnExpandAllSensors", type: "button", title: "Expand All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 25px")               
                 paragraph line(1)
-
-                // Build group options once from named custom rows
+                
+                // Build group options once from named rows                
                 def groupCount = customRowCount?.toInteger() ?: 0
                 def groupOptions = ["None": "None"]
                 if (groupCount > 0) {
-                    def maps = createDeviceTypeMap()
-                    def nameToNumberMap = maps.nameToNumberMap
                     (1..groupCount).each { i ->
-                        def rowType = settings["customRowType${i}"]
-                        def rowTypeCode = nameToNumberMap[rowType]
-                        if (rowTypeCode != null && rowTypeCode in [51, 52, 53]) {
+                        def rowType = settings["customRowType${i}"]?.toString() ?: ""
+                        if (rowType.contains("Group Row")) {
                             def nameText = settings["myNameText${i}"]?.toString()?.replaceAll(/\[.*?\]/, "")?.trim() ?: "Row ${i}"
                             groupOptions["${i}"] = nameText
                         }
                     }
                 }
-
+                
+                if (visibleSensorSections?.contains("Battery")) {
+                    if (assignGroupBattery && assignGroupBattery != "None") { autoAssignDevicesToGroup(assignGroupBattery.toInteger(), myBattery, 39); app.updateSetting("assignGroupBattery", [value: "None", type: "enum"]) }
+                    paragraph buttonLink('btnHideBattery', (state.hidden?.Battery ? "🔋 Battery ▶" : "🔋 Battery ▼"), 0)
+                    if (!state.hidden?.Battery) {
+                        input "myBattery", "capability.battery", title: "<b>Select Battery Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRangeBattery", type: "enum", title: bold("Only Report Low Battery"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: "assignGroupBattery", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input (name: "minBattery", title: "<b>Low Battery</b>", type: "string", submitOnChange:true, width:1, defaultValue: "50", newLine:true, style:"margin-right: 10px")
+                    }
+                    paragraph line(1)
+                }
+                
+                if (visibleSensorSections?.contains("Carbon Monoxide")) {
+                    if (assignGroupCarbonMonoxide && assignGroupCarbonMonoxide != "None") { autoAssignDevicesToGroup(assignGroupCarbonMonoxide.toInteger(), myCarbonMonoxide, 37); app.updateSetting("assignGroupCarbonMonoxide", [value: "None", type: "enum"]) }
+                    paragraph buttonLink('btnHideCarbonMonoxide', (state.hidden?.CarbonMonoxide ? "☁️ Carbon Monoxide ▶" : "☁️ Carbon Monoxide ▼"), 0)
+                    if (!state.hidden?.CarbonMonoxide) {
+                        input "myCarbonMonoxide", "capability.carbonMonoxideDetector", title: "<b>Select Carbon Monoxide Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRangeCarbonMonoxide", type: "enum", title: bold("Only Report Detected CO"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: "assignGroupCarbonMonoxide", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                    }
+                    paragraph line(1)
+                }
+                
+                if (visibleSensorSections?.contains("Contacts")) {
+                    if (assignGroupContacts && assignGroupContacts != "None") { autoAssignDevicesToGroup(assignGroupContacts.toInteger(), myContacts, 31); app.updateSetting("assignGroupContacts", [value: "None", type: "enum"]) }
+                    paragraph buttonLink('btnHideContacts', (state.hidden?.Contacts ? "🚪 Contacts ▶" : "🚪 Contacts ▼"), 0)
+                    if (!state.hidden?.Contacts) {
+                        input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRangeContacts", type: "enum", title: bold("Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: "assignGroupContacts", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                    }
+                    paragraph line(1)
+                }
+                
+                if (visibleSensorSections?.contains("Humidity")) {
+                    if (assignGroupHumidity && assignGroupHumidity != "None") { autoAssignDevicesToGroup(assignGroupHumidity.toInteger(), myHumidity, 38); app.updateSetting("assignGroupHumidity", [value: "None", type: "enum"]) }
+                    paragraph buttonLink('btnHideHumidity', (state.hidden?.Humidity ? "💦 Humidity ▶" : "💦 Humidity ▼"), 0)
+                    if (!state.hidden?.Humidity) {
+                        input "myHumidity", "capability.relativeHumidityMeasurement", title: "<b>Select Humidity Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRangeHumidity", type: "enum", title: bold("Only Report Humidity Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: "assignGroupHumidity", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input (name: "minHumidity", title: "<b>Low Humidity</b>", type: "string", submitOnChange:true, width:1, defaultValue: "50", newLine:true, style:"margin-right: 10px")
+                        input (name: "minHumidityColor", type: "color", title: bold("Low Humidity Color"), required: false, defaultValue: "#D4B483", submitOnChange: true, width:1, style:"margin-right: 100px")
+                        input (name: "maxHumidity", title: bold("High Humidity"), type: "string", submitOnChange:true, width:1, defaultValue: "90", newLine:false, style:"margin-right: 10px")
+                        input (name: "maxHumidityColor", type: "color", title: bold("High Humidity Color"), required: false, defaultValue: "#5B8DB8", submitOnChange: true, width:1, style:"margin-right: 100px")
+                        input (name: "normalHumidityColor", type: "color", title: bold("Normal Humidity Color"), required: false, defaultValue: "#66BB6A", submitOnChange: true, width:1)
+                    }
+                    paragraph line(1)
+                }
+                
+                if (visibleSensorSections?.contains("Motion")) {
+                    if (assignGroupMotion && assignGroupMotion != "None") { autoAssignDevicesToGroup(assignGroupMotion.toInteger(), myMotion, 34); app.updateSetting("assignGroupMotion", [value: "None", type: "enum"]) }
+                    paragraph buttonLink('btnHideMotion', (state.hidden?.Motion ? "🏃 Motion ▶" : "🏃 Motion ▼"), 0)
+                    if (!state.hidden?.Motion) {
+                        input "myMotion", "capability.motionSensor", title: "<b>Select Motion Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRangeMotion", type: "enum", title: bold("Only Report Active Motion"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: "assignGroupMotion", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                    }
+                    paragraph line(1)
+                }
+                
+                if (visibleSensorSections?.contains("Power")) {
+                    if (assignGroupPower && assignGroupPower != "None") { autoAssignDevicesToGroup(assignGroupPower.toInteger(), myPower, 40); app.updateSetting("assignGroupPower", [value: "None", type: "enum"]) }
+                    paragraph buttonLink('btnHidePower', (state.hidden?.Power ? "⚡ Power ▶" : "⚡ Power ▼"), 0)
+                    if (!state.hidden?.Power) {
+                        input "myPower", "capability.powerMeter", title: "<b>Select Power Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRangePower", type: "enum", title: bold("Only Report Active Devices"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: "assignGroupPower", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input (name: "minPower", title: "<b>Low Power</b>", type: "string", submitOnChange:true, width:1, defaultValue: "0", newLine:true, style:"margin-right: 10px")
+                    }
+                    paragraph line(1)
+                }
+              
+                if (visibleSensorSections?.contains("Presence")) {
+                    if (assignGroupPresence && assignGroupPresence != "None") { autoAssignDevicesToGroup(assignGroupPresence.toInteger(), myPresence, 35); app.updateSetting("assignGroupPresence", [value: "None", type: "enum"]) }
+                    paragraph buttonLink('btnHidePresence', (state.hidden?.Presence ? "🏠 Presence ▶" : "🏠 Presence ▼"), 0)
+                    if (!state.hidden?.Presence) {
+                        input "myPresence", "capability.presenceSensor", title: "<b>Select Presence Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRangePresence", type: "enum", title: bold("Only Report Not Present"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: "assignGroupPresence", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                    }
+                    paragraph line(1)
+                }
+                
+                if (visibleSensorSections?.contains("Smoke")) {
+                    if (assignGroupSmoke && assignGroupSmoke != "None") { autoAssignDevicesToGroup(assignGroupSmoke.toInteger(), mySmoke, 36); app.updateSetting("assignGroupSmoke", [value: "None", type: "enum"]) }
+                    paragraph buttonLink('btnHideSmoke', (state.hidden?.Smoke ? "🔥 Smoke ▶" : "🔥 Smoke ▼"), 0)
+                    if (!state.hidden?.Smoke) {
+                        input "mySmoke", "capability.smokeDetector", title: "<b>Select Smoke Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRangeSmoke", type: "enum", title: bold("Only Report Detected Smoke"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: "assignGroupSmoke", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                    }
+                    paragraph line(1)
+                }
+                
                 if (visibleSensorSections?.contains("Temperature")) {
                     if (assignGroupTemperature && assignGroupTemperature != "None") {
                         autoAssignDevicesToGroup(assignGroupTemperature.toInteger(), myTemps, 32)
@@ -223,40 +306,7 @@ def mainPage(){
                     }
                     paragraph line(1)
                 }
-
-                if (visibleSensorSections?.contains("Battery")) {
-                    if (assignGroupBattery && assignGroupBattery != "None") { autoAssignDevicesToGroup(assignGroupBattery.toInteger(), myBattery, 39); app.updateSetting("assignGroupBattery", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideBattery', (state.hidden?.Battery ? "🔋 Battery ▶" : "🔋 Battery ▼"), 0)
-                    if (!state.hidden?.Battery) {
-                        input "myBattery", "capability.battery", title: "<b>Select Battery Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeBattery", type: "enum", title: bold("Only Report Low Battery"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupBattery", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input (name: "minBattery", title: "<b>Low Battery</b>", type: "string", submitOnChange:true, width:1, defaultValue: "50", newLine:true, style:"margin-right: 10px")
-                    }
-                    paragraph line(1)
-                }
-
-                if (visibleSensorSections?.contains("Contacts")) {
-                    if (assignGroupContacts && assignGroupContacts != "None") { autoAssignDevicesToGroup(assignGroupContacts.toInteger(), myContacts, 31); app.updateSetting("assignGroupContacts", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideContacts', (state.hidden?.Contacts ? "🚪 Contacts ▶" : "🚪 Contacts ▼"), 0)
-                    if (!state.hidden?.Contacts) {
-                        input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeContacts", type: "enum", title: bold("Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupContacts", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-
-                if (visibleSensorSections?.contains("Presence")) {
-                    if (assignGroupPresence && assignGroupPresence != "None") { autoAssignDevicesToGroup(assignGroupPresence.toInteger(), myPresence, 35); app.updateSetting("assignGroupPresence", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHidePresence', (state.hidden?.Presence ? "🏠 Presence ▶" : "🏠 Presence ▼"), 0)
-                    if (!state.hidden?.Presence) {
-                        input "myPresence", "capability.presenceSensor", title: "<b>Select Presence Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangePresence", type: "enum", title: bold("Only Report Not Present"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupPresence", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
+                
 
                 if (visibleSensorSections?.contains("Water")) {
                     if (assignGroupWater && assignGroupWater != "None") { autoAssignDevicesToGroup(assignGroupWater.toInteger(), myLeaks, 33); app.updateSetting("assignGroupWater", [value: "None", type: "enum"]) }
@@ -265,67 +315,6 @@ def mainPage(){
                         input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeWater", type: "enum", title: bold("Only Report Wet Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
                         input(name: "assignGroupWater", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-
-                if (visibleSensorSections?.contains("Smoke")) {
-                    if (assignGroupSmoke && assignGroupSmoke != "None") { autoAssignDevicesToGroup(assignGroupSmoke.toInteger(), mySmoke, 36); app.updateSetting("assignGroupSmoke", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideSmoke', (state.hidden?.Smoke ? "🔥 Smoke ▶" : "🔥 Smoke ▼"), 0)
-                    if (!state.hidden?.Smoke) {
-                        input "mySmoke", "capability.smokeDetector", title: "<b>Select Smoke Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeSmoke", type: "enum", title: bold("Only Report Detected Smoke"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupSmoke", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-
-                if (visibleSensorSections?.contains("Carbon Monoxide")) {
-                    if (assignGroupCarbonMonoxide && assignGroupCarbonMonoxide != "None") { autoAssignDevicesToGroup(assignGroupCarbonMonoxide.toInteger(), myCarbonMonoxide, 37); app.updateSetting("assignGroupCarbonMonoxide", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideCarbonMonoxide', (state.hidden?.CarbonMonoxide ? "☁️ Carbon Monoxide ▶" : "☁️ Carbon Monoxide ▼"), 0)
-                    if (!state.hidden?.CarbonMonoxide) {
-                        input "myCarbonMonoxide", "capability.carbonMonoxideDetector", title: "<b>Select Carbon Monoxide Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeCarbonMonoxide", type: "enum", title: bold("Only Report Detected CO"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupCarbonMonoxide", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-
-                if (visibleSensorSections?.contains("Motion")) {
-                    if (assignGroupMotion && assignGroupMotion != "None") { autoAssignDevicesToGroup(assignGroupMotion.toInteger(), myMotion, 34); app.updateSetting("assignGroupMotion", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideMotion', (state.hidden?.Motion ? "🏃 Motion ▶" : "🏃 Motion ▼"), 0)
-                    if (!state.hidden?.Motion) {
-                        input "myMotion", "capability.motionSensor", title: "<b>Select Motion Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeMotion", type: "enum", title: bold("Only Report Active Motion"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupMotion", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-
-                if (visibleSensorSections?.contains("Humidity")) {
-                    if (assignGroupHumidity && assignGroupHumidity != "None") { autoAssignDevicesToGroup(assignGroupHumidity.toInteger(), myHumidity, 38); app.updateSetting("assignGroupHumidity", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideHumidity', (state.hidden?.Humidity ? "💦 Humidity ▶" : "💦 Humidity ▼"), 0)
-                    if (!state.hidden?.Humidity) {
-                        input "myHumidity", "capability.relativeHumidityMeasurement", title: "<b>Select Humidity Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeHumidity", type: "enum", title: bold("Only Report Humidity Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupHumidity", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input (name: "minHumidity", title: "<b>Low Humidity</b>", type: "string", submitOnChange:true, width:1, defaultValue: "50", newLine:true, style:"margin-right: 10px")
-                        input (name: "minHumidityColor", type: "color", title: bold("Low Humidity Color"), required: false, defaultValue: "#D4B483", submitOnChange: true, width:1, style:"margin-right: 100px")
-                        input (name: "maxHumidity", title: bold("High Humidity"), type: "string", submitOnChange:true, width:1, defaultValue: "90", newLine:false, style:"margin-right: 10px")
-                        input (name: "maxHumidityColor", type: "color", title: bold("High Humidity Color"), required: false, defaultValue: "#5B8DB8", submitOnChange: true, width:1, style:"margin-right: 100px")
-                        input (name: "normalHumidityColor", type: "color", title: bold("Normal Humidity Color"), required: false, defaultValue: "#66BB6A", submitOnChange: true, width:1)
-                    }
-                    paragraph line(1)
-                }
-
-                if (visibleSensorSections?.contains("Power")) {
-                    if (assignGroupPower && assignGroupPower != "None") { autoAssignDevicesToGroup(assignGroupPower.toInteger(), myPower, 40); app.updateSetting("assignGroupPower", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHidePower', (state.hidden?.Power ? "⚡ Power ▶" : "⚡ Power ▼"), 0)
-                    if (!state.hidden?.Power) {
-                        input "myPower", "capability.powerMeter", title: "<b>Select Power Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangePower", type: "enum", title: bold("Only Report Active Devices"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupPower", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input (name: "minPower", title: "<b>Low Power</b>", type: "string", submitOnChange:true, width:1, defaultValue: "0", newLine:true, style:"margin-right: 10px")
                     }
                     paragraph line(1)
                 }
@@ -515,9 +504,6 @@ def mainPage(){
                 paragraph line(2)
                 input(name: "isCustomSort", type: "enum", title: bold("Enable Custom Sort"), options: ['true', 'false'], required: false, defaultValue: "false", submitOnChange: true, width:1, style:"margin-right: 50px;")
                 if (isCustomSort == "true"){
-                    if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
-                    else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
-                    input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left: 25px; margin-top: 25px;")
                     myText = "<b>Notes:</b><br>"
                     myText += "1) If you add devices or sensors to your SmartGrid you must update your Custom Sort Order to include the new lines.<br>"
                     myText += "2) " + red("<b>DO NOT EXECUTE ANY COMMANDS OR REFRESH YOUR SCREEN UNTIL YOU HAVE SAVED YOUR CUSTOM SORT OR YOUR PROGRESS WILL BE LOST.</b>")
@@ -526,7 +512,7 @@ def mainPage(){
                 myText = "To configure a Custom Sort Order follow the instructions below:<br>"
                 myText += "<b>Step 1:</b> Enable Drag & Drop.<br>"
                 myText += "<b>Step 2:</b> Now Reorder the rows to your liking in the grid below using drag and drop.<br>"
-                myText += "<b>Step 3:</b> Save the current sort order. (Drag and Drop will be disabled)"
+                myText += "<b>Step 3:</b> Save the current sort order. (Drag and Drop will then be disabled)"
                 paragraph summary("Custom Sort Help", myText)
                 paragraph line(2)
             }
@@ -576,8 +562,18 @@ def mainPage(){
             input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
             input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
             input(name: "tilePreviewBackground", type: "color", title: bold("Preview Background Color"), required: false, defaultValue: "#000000", width: 2, submitOnChange: true, style: "margin-right:25px")
-            if (myRemoteName != null && myRemote != null && state.deviceList != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:20px;margin-right:25px")
-            else input(name: "cannotPublish", type: "button", title: "Publish and Subscribe", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: false, width: 2, style:"margin-top:20px;margin-right:25px")
+            if (myRemoteName != null && myRemote != null && state.deviceList != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top:20px;margin-right:25px")
+            else input(name: "cannotPublish", type: "button", title: "Publish & Subscribe", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: false, width: 2, style:"margin-top:20px;margin-right:25px")
+            
+            if (isCustomSort == "true"){
+                if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+                else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+                if (isDragDrop) { input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "green", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+                                 paragraph red("<b>When Drag and Drop is enabled all devices are temporarily made visible. You can click on the section header Title to sort the contents of a section.</b>")
+                                }
+                else input(name: "saveCustomSort", type: "button", title: "Save  Custom  Sort", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+            }
+            
             myMaxWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 ) + 3 * 2
             myMaxHeight = ( (tilePreviewHeight.toFloat() * 200) - 10 ) + 3 * 2
 
@@ -1160,26 +1156,26 @@ def getJSON() {
         }
 
         def sensorConfigs = [
-            31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> if (onlyReportOutsideRangeContacts == "False") return true; return val == "open" }],
+            31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeContacts == "False") return true; return val == "open" }],
             32: [list: myTemps, attr: "temperature", iconAttrVal: { "temp" }, 
-                 	processVal: { val -> float t = val as float; if (tempDecimalPlaces == "0 Decimal Places") return t.round(0).toInteger().toString() + tempUnits; 
-					if (tempDecimalPlaces == "1 Decimal Place") return t.round(1).toString() + tempUnits; return t.toString() + tempUnits }, 
-					condition: { val -> if (onlyReportOutsideRangeTemperature == "False") return true; float t = val as float; float tMin = minTemp.toFloat(); float tMax = maxTemp.toFloat(); return (t <= tMin || t >= tMax) }],
-            33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> if (onlyReportOutsideRangeWater == "False") return true; return val == "wet" }],
-            34: [list: myMotion, attr: "motion", iconAttrVal: { it -> it },	condition: { val -> if (onlyReportOutsideRangeMotion == "False") return true; return val == "active" }],
-            35: [list: myPresence, attr: "presence", iconAttrVal: { it -> it },	condition: { val -> if (onlyReportOutsideRangePresence == "False") return true; return val == "not present" }],
-            36: [list: mySmoke, attr: "smoke", iconAttrVal: { it -> it }, condition: { val -> if (onlyReportOutsideRangeSmoke == "False") return true; return val == "detected" }],
-            37: [list: myCarbonMonoxide, attr: "carbonMonoxide", iconAttrVal: { it -> it }, condition: { val -> if (onlyReportOutsideRangeCarbonMonoxide == "False") return true; return val == "detected" }],
+                    processVal: { val -> float t = val as float; if (tempDecimalPlaces == "0 Decimal Places") return t.round(0).toInteger().toString() + tempUnits; 
+                    if (tempDecimalPlaces == "1 Decimal Place") return t.round(1).toString() + tempUnits; return t.toString() + tempUnits }, 
+                    condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeTemperature == "False") return true; float t = val as float; float tMin = minTemp.toFloat(); float tMax = maxTemp.toFloat(); return (t <= tMin || t >= tMax) }],
+            33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeWater == "False") return true; return val == "wet" }],
+            34: [list: myMotion, attr: "motion", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeMotion == "False") return true; return val == "active" }],
+            35: [list: myPresence, attr: "presence", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangePresence == "False") return true; return val == "not present" }],
+            36: [list: mySmoke, attr: "smoke", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeSmoke == "False") return true; return val == "detected" }],
+            37: [list: myCarbonMonoxide, attr: "carbonMonoxide", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeCarbonMonoxide == "False") return true; return val == "detected" }],
             38: [list: myHumidity, attr: "humidity", iconAttrVal: { "humidity" }, processVal: { val -> float h = val as float; if (tempDecimalPlaces == "0 Decimal Places") return h.round(0).toInteger().toString() + "%"; 
                         if (tempDecimalPlaces == "1 Decimal Place") return h.round(1).toString() + "%"; return h.toString() + "%" }, 
-                 		condition: { val -> if (onlyReportOutsideRangeHumidity == "False") return true; float h = val as float; float hMin = minHumidity.toFloat(); float hMax = maxHumidity.toFloat(); return (h <= hMin || h >= hMax) }],
+                        condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeHumidity == "False") return true; float h = val as float; float hMin = minHumidity.toFloat(); float hMax = maxHumidity.toFloat(); return (h <= hMin || h >= hMax) }],
             39: [list: myBattery, attr: "battery", iconAttrVal: { val -> float b = val as float
-                 	if (b > 85) return "battery_android_6"; if (b > 70) return "battery_android_5"; if (b > 55) return "battery_android_4"; if (b > 40) return "battery_android_3"; if (b > 25) return "battery_android_2"; if (b > 10) return "battery_android_1"; return "battery_android_0" },
-                 		processVal: { val -> float b = val as float; return b.round(0).toInteger().toString() + "%" },
-                 		condition: { val -> if (onlyReportOutsideRangeBattery == "False") return true; float b = val as float; return b <= minBattery.toFloat() }],
+                    if (b > 85) return "battery_android_6"; if (b > 70) return "battery_android_5"; if (b > 55) return "battery_android_4"; if (b > 40) return "battery_android_3"; if (b > 25) return "battery_android_2"; if (b > 10) return "battery_android_1"; return "battery_android_0" },
+                    processVal: { val -> float b = val as float; return b.round(0).toInteger().toString() + "%" },
+                    condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeBattery == "False") return true; float b = val as float; return b <= minBattery.toFloat() }],
             40: [list: myPower, attr: "power", iconAttrVal: { val -> float p = val as float; return p > 0 ? "power_on" : "power_off" },
-                 	processVal: { val -> float p = val as float; return p.round(0).toInteger().toString() + "W" },
-                 	condition: { val -> if (onlyReportOutsideRangePower == "False") return true; float p = val as float; return p >= minPower.toFloat() }],
+                    processVal: { val -> float p = val as float; return p.round(0).toInteger().toString() + "W" },
+                    condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangePower == "False") return true; float p = val as float; return p >= minPower.toFloat() }],
         ]
 
 sensorConfigs.each { type, cfg ->
@@ -2086,7 +2082,8 @@ def appButtonHandler(btn) {
 		case "btnHidePreview": state.hidden.Preview = state.hidden.Preview ? false : true; break
 		case "publishSubscribe": publishSubscribe(); break
         case "unsubscribe": deleteSubscription(); break
-        
+        case "btnCollapseAllSensors": collapseAllSensors(true); break
+        case "btnExpandAllSensors": collapseAllSensors(false); break
         case "btnHideTemperature":  state.hidden.Temperature  = !state.hidden?.Temperature;  break
 		case "btnHideBattery":      state.hidden.Battery      = !state.hidden?.Battery;      break
         case "btnHideContacts":     state.hidden.Contacts     = !state.hidden?.Contacts;     break
@@ -2098,6 +2095,11 @@ def appButtonHandler(btn) {
         case "btnHideHumidity":     state.hidden.Humidity     = !state.hidden?.Humidity;     break
         case "btnHidePower":        state.hidden.Power        = !state.hidden?.Power;        break
     }
+}
+
+//Collapse or expand the visibility of the sensor sections
+def collapseAllSensors(collapsed) {
+    ["Battery", "CarbonMonoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"].each { state.hidden[it] = collapsed }
 }
 
 //Returns a formatted title for a section header based on whether the section is visible or not.
