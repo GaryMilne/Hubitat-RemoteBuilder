@@ -58,8 +58,12 @@
 *				 - Added collapsible sections to the Sensors tab. Added Drag and Drop and Save Custom Sort buttons to the Controls and Sensors Tabs. Renamed Custom Rows tab to Group & Sort tab.
 *  Version 5.0.1 - Fixed logic error in Custom Sort order. Made some cosmetic changes to the designer screen for improved usability.
 *  Version 5.0.2 - Fixed error in custom sort order when groups were empty.
+*  Version 5.0.3 - Fixed initialization error with the [mark] tags.
+*  Version 5.1.0 - Fixed a couple of small UI issues including using "Enable Groups and Custom Sort" to hide irrelevant controls.
+*				   Fixed issue with loss of manual sort order under certain conditions. Removed capitalizeStrings function in favor of the attribute mapping on the Advanced tab.
+*				   Added additional device types to the lastActive and lastInactive queries. Added humidity as an info source. Cleanup up getDeviceInfo to make fewer calls to the hub API's
 *
-*  Gary Milne - April 6th, 2026 @ 11:20 AM
+*  Gary Milne - April 18th, 2026 @ 8:42 PM
 *
 **/
 
@@ -73,7 +77,6 @@ Sometimes a Shade Slider will show the value Null briefly when the slider is cha
 /* Ideas for future releases
 Add support for Thermostats - OR - Create a standalone digital Thermostat control that can be embedded with a URL.
 Add Media Control
-PIN Protect if possible.
 Remove blank fields from the data payload.
 */
 
@@ -110,11 +113,11 @@ static def createDeviceTypeMap() {
 static def durationFormatsMap() { return [21: "To: Elapsed Time (dd):hh:mm:ss", 22: "To: Elapsed Time (dd):hh:mm"] }
 static def durationFormatsList() { return durationFormatsMap().values() }
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
-static def devicePropertiesList() { return ["Default", "None", "battery", "colorMode", "colorName", "colorTemperature", "deviceTypeName", "energy", "healthStatus", "ID", "lastActive", "lastActiveDuration", "lastInactive", "lastInactiveDuration", "lastSeen", "lastSeenElapsed", "network", "power", "roomName", "temperature"] }
+static def devicePropertiesList() { return ["Default", "None", "battery", "colorMode", "colorName", "colorTemperature", "deviceTypeName", "energy", "healthStatus", "humidity", "ID", "lastActive", "lastActiveDuration", "lastInactive", "lastInactiveDuration", "lastSeen", "lastSeenElapsed", "network", "power", "roomName", "temperature"] }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.0.2 (4/6/26)</b>"
-@Field static final codeVersion = 502
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.1.0 (4/18/26)</b>"
+@Field static final codeVersion = 510
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -450,82 +453,84 @@ def mainPage(){
                 paragraph "<b>Note:</b> A change in the value of a variable will cause the SmartGrid to refresh it's data. Choose wisely."
                 paragraph red("<b>Important: Custom rows are only displayed when Custom Sort is enabled.</b>")
             }
-
+            
             if (state.activeButtonA == 8){ //Start of Group & Sort
-                input (name: "customRowCount", title: "<b>How Many Custom Groups\\Rows?</b>", type: "enum", options: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20], submitOnChange:true, width:2, defaultValue: 0)
-                if (customRowCount.toInteger() > 0) {
-                    def slurper = new groovy.json.JsonSlurper()
-                    def sortOrder = slurper.parseText(state.customSortOrder ?: "[]")
-                    def separators = sortOrder.findAll { it.containsKey("UID") && it.UID?.toString().endsWith("-51") }.sort { it.row }
-                    //def separators = sortOrder.findAll { it.UID?.toString().endsWith("-51") }.sort { it.row }
-                    def rowOptions = ["All"] + (1..customRowCount.toInteger()).collect { i ->
-                        def nameText = settings["myNameText${i}"]?.toString()?.replaceAll(/\[.*?\]/, "")?.trim() ?: "Row ${i}"
-                        def rowType = settings["customRowType${i}"]?.toString() ?: "Unknown"
-                        def visualPos = separators.findIndexOf { it.UID.toString().tokenize("-")[0].toInteger() == i }
-                        def posLabel = visualPos >= 0 ? " [pos:${visualPos + 1}]" : ""
-                        "${i} - ${nameText}${posLabel}"
-                    }
-                    input (name: "displayCustomRow", title: "<b>Display Group\\Row</b>", type: "enum", options: rowOptions, submitOnChange: true, width: 2, defaultValue: "All")
-                }
-
-                for (int i = 1; i <= customRowCount.toInteger(); i++) {
-                    if (displayCustomRow != null && displayCustomRow != "All" && !displayCustomRow.startsWith("${i} -")) continue
-                    if (settings["showInfoColumnControls${i}"] == null) { app.updateSetting("showInfoColumnControls${i}", [value: false, type: "bool"]) }
-                    input (name: "customRowType${i}", title: "<b>Group\\Row $i</b>", type: "enum", options: ["Device Row", "Group Row", "iFrame Row", "Disabled"], submitOnChange:true, newLine: true, width:1, defaultValue: "Disabled", style:"margin-right: 25px")
-                    if (settings["customRowType${i}"] == "Device Row") {
-                        input "myNameText${i}", "string", title: "<b>Name Column Text</b>", defaultValue: "[b]Your Text Here (%var%)[/b]", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
-                        input "myStateText${i}", "string", title: "<b>State Column Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
-                        input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
-                        input "myControlCText${i}", "string", title: "<b>Control C Column Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
-                        input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
-                        input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
-                        input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
-                    }
-                    if (settings["customRowType${i}"] == "Group Row") {
-                        input "myNameText${i}", "string", title: "<b>Name Column Text</b>", defaultValue: "[b]Your Text Here (%var%)[/b]", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
-                        input "myStateText${i}", "string", title: "<b>State Column Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
-                        input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
-                        input "myControlCText${i}", "string", title: "<b>Control C Column Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
-                        input "showInfoColumnControls${i}", "bool", title: "<b>Show Info Column Controls</b>", defaultValue: false, submitOnChange: true, width: 2, newLine: false
-                        if (settings["showInfoColumnControls${i}"] == true) {
-                            input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: true, style: "margin-right: 25px"
-                            input "info1SourceGroup${i}", "enum", title: bold("Info 1 Source"), defaultValue: "Default", required: false, multiple: false, options: devicePropertiesList(), submitOnChange: true, width: 1, newLine: false, style: "margin-right: 25px"
-                            input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
-                            input "info2SourceGroup${i}", "enum", title: bold("Info 2 Source"), defaultValue: "Default", required: false, multiple: false, options: devicePropertiesList(), submitOnChange: true, width: 1, newLine: false, style: "margin-right: 25px"
-                            input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
-                            input "info3SourceGroup${i}", "enum", title: bold("Info 3 Source"), defaultValue: "Default", required: false, multiple: false, options: devicePropertiesList(), submitOnChange: true, width: 1, newLine: false, style: "margin-right: 25px"
-                        }
-                    }
-                    if (settings["customRowType${i}"] == "iFrame Row") {
-                        input "myStateText${i}", "string", title: "<b>iFrame URL in form http://www.example.com</b>", defaultValue: "[b]Your Text Here (%var%)[/b]", submitOnChange: false, width: 5, newLine: false, style: "margin-right: 45px"
-                        input "myIFrameHeight${i}", "string", title: "<b>iFrame Height (px)</b>", defaultValue: "200", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
-                    }
-                    paragraph line(1)
-                }
-                input(name: "refresh", type: "button", title: "Apply Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
-                paragraph red("<b>Important: Custom rows are only displayed when Custom Sort is enabled.</b>")
+                input(name: "isCustomSort", type: "enum", title: bold("Enable Groups and Custom Sort"), options: ['true', 'false'], required: false, defaultValue: "false", submitOnChange: true, width:2, style:"margin-right: 50px;")
+                myText = "When you enable Groups and Custom Sort you can rearrange grid as follows:<br>"
+                myText += "<b>Step 1:</b> Add Groups as needed.<br>"
+                myText += "<b>Step 2:</b> Enable Drag & Drop.<br>"
+                myText += "<b>Step 3:</b> Reorder the rows to your liking in the grid below using drag and drop.<br>"
+                myText += "<b>Step 4:</b> Save the sort order. (Drag and Drop will then be disabled)"
+                paragraph summary("Custom Groups and Sort Help", myText)
                 paragraph line(1)
-                myText = "Here you can configure custom lines that can be placed within the table when using a <b>Custom Sort</b>. These are generally intended as groups between functional groups within a table.<br>"
-                myText += "<b>Name Column Text X:</b> This text will be placed within the <b>Name</b> column.<br>"
-                myText += "<b>State Column Text X:</b> If configured this value will be displayed within the <b>State</b> column.<br>"
-                myText += "You can place static text, HTML text using [] or variables within this text. To access a variable just enter %varX% where X is the variable number defined within the <b>Variables</b> tab.<br>"
-                myText += "To use a blank value for a field simply use the space bar to remove the default values."
-                paragraph summary("Custom Row Help", myText)
-                paragraph line(2)
-                input(name: "isCustomSort", type: "enum", title: bold("Enable Custom Sort"), options: ['true', 'false'], required: false, defaultValue: "false", submitOnChange: true, width:1, style:"margin-right: 50px;")
-                if (isCustomSort == "true"){
+                if (isCustomSort == "true"){                    
+                    input (name: "customRowCount", title: "<b>How Many Custom Groups\\Rows?</b>", type: "enum", options: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20], submitOnChange:true, width:2, defaultValue: 0)
+                    if (customRowCount.toInteger() > 0) {
+                        def slurper = new groovy.json.JsonSlurper()
+                        def sortOrder = slurper.parseText(state.customSortOrder ?: "[]")
+                        def separators = sortOrder.findAll { it.containsKey("UID") && it.UID?.toString().endsWith("-51") }.sort { it.row }
+                        //def separators = sortOrder.findAll { it.UID?.toString().endsWith("-51") }.sort { it.row }
+                        def rowOptions = ["All": "All"]
+                        (1..customRowCount.toInteger()).each { i ->
+                            def nameText = settings["myNameText${i}"]?.toString() ?.replaceAll(/\[.*?\]/, "")?.trim() ?: "Row ${i}"
+                            def rowType   = settings["customRowType${i}"]?.toString() ?: "Unknown"
+                            def visualPos = separators.findIndexOf { it.UID.toString().tokenize("-")[0].toInteger() == i }
+                            def posLabel  = visualPos >= 0 ? " [pos:${visualPos + 1}]" : ""
+                            rowOptions["${i}"] = "${i} - ${nameText}${posLabel}"
+                        }
+                        input (name: "displayCustomRow", title: "<b>Display Group\\Row</b>", type: "enum", options: rowOptions, submitOnChange: true, width: 2, defaultValue: "All")
+                    }
+
+                    for (int i = 1; i <= customRowCount.toInteger(); i++) {
+                        if (displayCustomRow != null && displayCustomRow != "All" && displayCustomRow != "${i}") continue
+                        if (settings["showInfoColumnControls${i}"] == null) { app.updateSetting("showInfoColumnControls${i}", [value: false, type: "bool"]) }
+                        input (name: "customRowType${i}", title: "<b>Group\\Row $i</b>", type: "enum", options: ["Device Row", "Group Row", "iFrame Row", "Disabled"], submitOnChange:true, newLine: true, width:1, defaultValue: "Disabled", style:"margin-right: 25px")
+                        if (settings["customRowType${i}"] == "Device Row") {
+                            input "myNameText${i}", "string", title: "<b>Name Column Text</b>", defaultValue: "[b]Your Text Here (%var%)[/b]", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
+                            input "myStateText${i}", "string", title: "<b>State Column Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
+                            input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
+                            input "myControlCText${i}", "string", title: "<b>Control C Column Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
+                            input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
+                            input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
+                            input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", defaultValue: "", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
+                        }
+                        if (settings["customRowType${i}"] == "Group Row") {
+                            input "myNameText${i}", "string", title: "<b>Name Column Text</b>", defaultValue: "[b]Your Text Here (%var%)[/b]", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
+                            input "myStateText${i}", "string", title: "<b>State Column Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
+                            input "myControlABText${i}", "string", title: "<b>Control A/B Column Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
+                            input "myControlCText${i}", "string", title: "<b>Control C Column Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
+                            input "showInfoColumnControls${i}", "bool", title: "<b>Show Info Column Controls</b>", defaultValue: false, submitOnChange: true, width: 2, newLine: false
+                            if (settings["showInfoColumnControls${i}"] == true) {
+                                input "myInfoAText${i}", "string", title: "<b>Info 1 Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: true, style: "margin-right: 25px"
+                                input "info1SourceGroup${i}", "enum", title: bold("Info 1 Source"), defaultValue: "Default", required: false, multiple: false, options: devicePropertiesList(), submitOnChange: true, width: 1, newLine: false, style: "margin-right: 25px"
+                                input "myInfoBText${i}", "string", title: "<b>Info 2 Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
+                                input "info2SourceGroup${i}", "enum", title: bold("Info 2 Source"), defaultValue: "Default", required: false, multiple: false, options: devicePropertiesList(), submitOnChange: true, width: 1, newLine: false, style: "margin-right: 25px"
+                                input "myInfoCText${i}", "string", title: "<b>Info 3 Text</b>", defaultValue: "", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"
+                                input "info3SourceGroup${i}", "enum", title: bold("Info 3 Source"), defaultValue: "Default", required: false, multiple: false, options: devicePropertiesList(), submitOnChange: true, width: 1, newLine: false, style: "margin-right: 25px"
+                            }
+                        }
+                        if (settings["customRowType${i}"] == "iFrame Row") {
+                            input "myStateText${i}", "string", title: "<b>iFrame URL in form http://www.example.com</b>", defaultValue: "[b]Your Text Here (%var%)[/b]", submitOnChange: false, width: 5, newLine: false, style: "margin-right: 45px"
+                            input "myIFrameHeight${i}", "string", title: "<b>iFrame Height (px)</b>", defaultValue: "200", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
+                        }
+                        paragraph line(1)
+                    }
+                    input(name: "refresh", type: "button", title: "Apply Changes", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2)
+                    paragraph line(1)
+                    myText = "Here you can configure custom lines that can be placed within the table when using a <b>Custom Sort</b>. These are generally intended as groups between functional groups within a table.<br>"
+                    myText += "<b>Name Column Text X:</b> This text will be placed within the <b>Name</b> column.<br>"
+                    myText += "<b>State Column Text X:</b> If configured this value will be displayed within the <b>State</b> column.<br>"
+                    myText += "You can place static text, HTML text using [] or variables within this text. To access a variable just enter %varX% where X is the variable number defined within the <b>Variables</b> tab.<br>"
+                    myText += "To use a blank value for a field simply use the space bar to remove the default values."
+                    paragraph summary("Custom Row Help", myText)
+                    paragraph line(2)               
+                    
                     myText = "<b>Notes:</b><br>"
-                    myText += "1) If you add devices or sensors to your SmartGrid you must update your Custom Sort Order to include the new lines.<br>"
+                    myText += "1) <b>If you add devices or sensors to your SmartGrid you must update your Custom Sort Order to include the new lines.</b><br>"
                     myText += "2) " + red("<b>DO NOT EXECUTE ANY COMMANDS OR REFRESH YOUR SCREEN UNTIL YOU HAVE SAVED YOUR CUSTOM SORT OR YOUR PROGRESS WILL BE LOST.</b>")
                     paragraph myText
-                }
-                myText = "To configure a Custom Sort Order follow the instructions below:<br>"
-                myText += "<b>Step 1:</b> Enable Drag & Drop.<br>"
-                myText += "<b>Step 2:</b> Now Reorder the rows to your liking in the grid below using drag and drop.<br>"
-                myText += "<b>Step 3:</b> Save the current sort order. (Drag and Drop will then be disabled)"
-                paragraph summary("Custom Sort Help", myText)
-                paragraph line(2)
-            }
+            	}     
+      		}
 
             if (state.activeButtonA == 9){ //Start of Publish Section
                 input(name: "myRemote", title: bold("Attribute to store the Remote?"), type: "enum", options: parent.allTileList(), required: false, submitOnChange: true, width: 3, defaultValue: 25, newLine: false)
@@ -615,7 +620,7 @@ def mainPage(){
                 input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
                 input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "°F", style:"margin-right:25px")
                 input ("tempDecimalPlaces", "enum", title: "<b>Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, defaultValue: "0 Decimal Places", submitOnChange: true, width: 2, required: false, style:"margin-right:25px")
-                input ("capitalizeStrings", "enum", title: "<b>Capitalize Variable Strings</b>", options: ["True", "False"], multiple: false, defaultValue: "False", submitOnChange: true, width: 2, required: false)
+                //input ("capitalizeStrings", "enum", title: "<b>Capitalize Variable Strings</b>", options: ["True", "False"], multiple: false, defaultValue: "False", submitOnChange: true, width: 2, required: false)
                 input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
                 input(name: "sortHeaderHintZA", type: "color", title: bold("Sort Header Hint Z-A"), required: false, defaultValue: "#FF0000", submitOnChange: true, width: 2, style:"margin-right:25px")
             }
@@ -626,10 +631,10 @@ def mainPage(){
                 input(name: "hbc", type: "color", title: bold2("Header Background Color", hbc), required: false, defaultValue: "#2375b8", width: 2, submitOnChange: true)
                 input(name: "hbo", type: "enum", title: bold("Header Opacity"), options: opacity(), required: false, defaultValue: "1", width:2, submitOnChange: true)
                 paragraph line(2)
-                input (name: "crts", type: "enum", title: bold("Custom Row Text Size %"), options: textScale(), required: false, defaultValue: "100", submitOnChange: true, width: 2, style:"margin-right:25px; margin-left:20px")
-                input (name: "crtc", type: "color", title: bold2("Custom Row Text Color", crtc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2)
-                input (name: "crbc", type: "color", title: bold2("Custom Row Background Color #1", crbc), required: false, defaultValue: "#b6d7f1", submitOnChange: true, width: 2)
-                input (name: "crbc2", type: "color", title: bold2("Custom Row Background Color #2", crbc2), required: false, defaultValue: "#2375b8", submitOnChange: true, width: 2)
+                input (name: "crts", type: "enum", title: bold("Group Row Text Size %"), options: textScale(), required: false, defaultValue: "100", submitOnChange: true, width: 2, style:"margin-right:25px; margin-left:20px")
+                input (name: "crtc", type: "color", title: bold2("Group Row Text Color", crtc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2)
+                input (name: "crbc", type: "color", title: bold2("Group Row Background Color #1", crbc), required: false, defaultValue: "#b6d7f1", submitOnChange: true, width: 2)
+                input (name: "crbc2", type: "color", title: bold2("Group Row Background Color #2", crbc2), required: false, defaultValue: "#2375b8", submitOnChange: true, width: 2)
                 paragraph line(2)
                 input(name: "rts", type: "enum", title: bold("Device Row Text Size %"), options: textScale(), required: false, defaultValue: "100", submitOnChange: true, width:2, style:"margin-right:25px; margin-left:20px")
                 input(name: "rtc", type: "color", title: bold2("Device Row Text Color", rtc), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
@@ -707,12 +712,12 @@ def mainPage(){
             }
 
             if (state.activeButtonB == 26){ //Advanced
-                if (markTag == null) app.updateSetting("markTag", value: "background-color:yellow; color:black; padding:0.05em 0.25em; border-radius:0.3em; outline:1px dotted #000000; font-weight:bold;", type:"text")
-                if (m1Tag == null) app.updateSetting("m1Tag", value: "background-color:dodgerBlue; color:white; padding:0.1em 0.4em;border-radius: 0.4em;outline: 1px dashed black; font-weight:bold;", type:"text")
-                if (m2Tag == null) app.updateSetting("m2Tag", value: "background-color:lime; color:black; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type:"text")
-                if (m3Tag == null) app.updateSetting("m3Tag", value: "background-color:indianRed; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type:"text")
-                if (m4Tag == null) app.updateSetting("m4Tag", value: "background-color:orange; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type:"text")
-                if (m5Tag == null) app.updateSetting("m5Tag", value: "background-color:gray; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type:"text")
+                if (markTag == null) app.updateSetting("markTag", [value: "background-color:yellow; color:black; padding:0.05em 0.25em; border-radius:0.3em; outline:1px dotted #000000; font-weight:bold;", type: "text"])
+                if (m1Tag == null) app.updateSetting("m1Tag", [value: "background-color:dodgerBlue; color:white; padding:0.1em 0.4em;border-radius: 0.4em;outline: 1px dashed black; font-weight:bold;", type: "text"])
+                if (m2Tag == null) app.updateSetting("m2Tag", [value: "background-color:lime; color:black; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type: "text"])
+                if (m3Tag == null) app.updateSetting("m3Tag", [value: "background-color:indianRed; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type: "text"])
+                if (m4Tag == null) app.updateSetting("m4Tag", [value: "background-color:orange; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type: "text"])
+                if (m5Tag == null) app.updateSetting("m5Tag", [value: "background-color:gray; color:white; padding:0.1em 0.4em; border-radius:0.4em; outline:1px dashed black; font-weight:bold;", type: "text"])
 
                 def part1 = "<b>Here you can configure some CSS style tags that you can reference in your SmartGrid to draw attention to a value.</b> Use something like: <b><mark> [m1]%var32%[/m1] </mark></b><br>"
                 def part2 = "You often do not need to add the closing tags but if you have any formatting issues you can add them. To restore the default value for a tag just delete the contents of the field.<br>"
@@ -778,6 +783,7 @@ def initialize() {
         state.localEndpointPoll = "${getFullLocalApiServerUrl()}/tb/poll?access_token=${state.accessToken}"
         state.cloudEndpointPoll = "${getFullApiServerUrl()}/tb/poll?access_token=${state.accessToken}"
         
+        
         // All first-time settings in one map: [settingName: [value, type]]
         def firstTimeSettings = [
             // Polling
@@ -824,8 +830,6 @@ def initialize() {
             bc: ["#000000", "color"], bwo: ["4", "enum"], bwi: ["2", "enum"], tpad: ["3", "enum"],
             // Publishing
             mySelectedRemote: ["", "text"], publishEndpoints: ["Local", "enum"], eventTimeout: ["Never", "enum"],
-            // Group & Sort
-            displayCustomRow: ["All", "enum"],
             // Variables
             myVariableCount: ["0", "enum"],
             // Logging
@@ -850,7 +854,14 @@ def initialize() {
     if (state.hidden == null) state.hidden = [Configure: false, Preview: false, Design: false]
     if (state.activeButtonA == null) state.activeButtonA = 1
     if (state.activeButtonB == null) state.activeButtonB = 21
-    if (state.customSortOrder == null) state.customSortOrder = JsonOutput.toJson([[UID: "1-1", row: 1]])
+    // Validate that customSortOrder is parseable; heal to empty list if missing or corrupt
+    try {
+        def testParse = new JsonSlurper().parseText(state.customSortOrder ?: "[]")
+        if (!(testParse instanceof List)) throw new Exception("Not a List")
+    } catch (Exception e) {
+        log.warn("initialize: state.customSortOrder was corrupt ('${state.customSortOrder}') — resetting to empty. Error: $e")
+        state.customSortOrder = JsonOutput.toJson([])
+    }
     if (state.hidden.Preview == null) state.hidden.Preview = false
     
     // Settings that default when null — [settingName: [value, type]]
@@ -873,6 +884,7 @@ def initialize() {
         hideColumn11: [true, "bool"], hideColumn12: [true, "bool"],
         // New variables section
         displayCustomRow: ["All", "enum"], myVariableCount: ["0", "enum"]
+        // customSortOrder intentionally omitted — managed exclusively by the parse-validation block above
     ]
     nullDefaults.each { name, config ->
         if (settings[name] == null) app.updateSetting(name, [value: config[0].toString(), type: config[1]])
@@ -884,17 +896,14 @@ def initialize() {
     if (state.variablesVersion == null || state.variablesVersion < codeVersion) {
         state.variablesVersion = codeVersion
         
-        // customSortOrder key renamed from 'ID' to 'UID' — reset to avoid broken sort logic on existing installs
-        if (state.customSortOrder == null) state.customSortOrder = JsonOutput.toJson([[UID: "1-1", row: 1]])
-
-        // displayCustomRow is a new setting not present in older installs
-        if (settings.displayCustomRow == null) app.updateSetting("displayCustomRow", [value: "All", type: "enum"])
+        // customSortOrder seed removed from here — the parse-validation block above already handles
+        // healing a missing or corrupt sort order safely without overwriting a valid existing one
         
         // myVariableCount is a new setting not present in older installs
         if (settings.myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])
         
         // Force reset all onlyReportOutsideRange settings to False on upgrade so that all selected controls and sensors are displayed
-    	["Battery", "Carbon Monoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"].each { type -> app.updateSetting("onlyReportOutsideRange${type}", [value: "False", type: "enum"]) }
+        ["Battery", "Carbon Monoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"].each { type -> app.updateSetting("onlyReportOutsideRange${type}", [value: "False", type: "enum"]) }
     }
     
     // Fix spelling mistake from older versions: "Seperator" -> "Separator"
@@ -970,20 +979,18 @@ def replaceVarsInString(str) {
 
 // Helper Function to replace variables with their attribute values.
 String getVariableText(var, dp) {
-    //log.info("getVariableText(): $var with dp: $dp")
     def dev, attrIndex
     def varStr = var.toString()
     def myValue = null
-
     if (var < 11) {
         dev = var
         attrIndex = 0
     } else {
-        attrIndex = varStr[-1] as Integer  // Last digit
-        dev = varStr[0..-2] as Integer     // All but last digit
+        attrIndex = varStr[-1] as Integer
+        dev = varStr[0..-2] as Integer
     }
 
-// Check device attribute
+    // Check Device Attribute
     if (settings["variableSource${dev}"] == "Device Attribute" &&
         settings["myDevice${dev}"] != null &&
         settings["myAttribute${var}"] != null) {
@@ -992,7 +999,9 @@ String getVariableText(var, dp) {
         
         def myStateMap = new JsonSlurper().parseText(deviceStateMap)
         def key = myValue.toString()
-        if (myStateMap?.containsKey(key)) { myValue = myStateMap[key] }   
+        def matchedKey = myStateMap?.keySet()?.find { it.equalsIgnoreCase(key) }
+        if (matchedKey) { myValue = myStateMap[matchedKey] }
+        
         if (isLogDebug) log.debug("getVariableText(Device - $var) - Attribute: ${settings["myAttribute${var}"]} = $myValue")
     }
     
@@ -1012,17 +1021,14 @@ String getVariableText(var, dp) {
     }
 
     if (myValue == null) return invalidAttribute.toString()
+    
     def str = myValue.toString().trim()
-
     try {
         def num = new BigDecimal(str)
         def rounded = num.setScale(dp, BigDecimal.ROUND_HALF_UP)
-        //log.info("Returning: $rounded")
         return rounded.toPlainString()
     } catch (e) {
-        //log.info("Error Found: $e")
-        //log.info("Returning: $str")
-        return capitalizeStrings.toString() == "True" ? str.capitalize() : str
+        return str
     }
 }
 
@@ -1078,44 +1084,6 @@ def getHubProperty(hubPropertyName) {
 //**************  End Device Renaming and Variable Substitution
 //**************
 //*******************************************************************************************************************************************************************************************
-
-//Assigns a list of Devices to one of the User created Groups
-def NEWautoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
-    if (deviceList == null || deviceList.isEmpty()) {
-        if (isLogDebug) log.debug "autoAssign: deviceList is null or empty for sensorTypeCode: ${sensorTypeCode}"
-        return
-    }
-    
-    def sortOrder = new groovy.json.JsonSlurper().parseText(state.customSortOrder ?: "[]")
-    
-    def targetUID = "${groupNumber}-51".toString()
-    def insertAfterIndex = sortOrder.findIndexOf { it.UID?.toString() == targetUID }
-    
-    // If the group row doesn't exist in the sort order yet, add it at the end
-    if (insertAfterIndex == -1) {
-        if (isLogDebug) log.debug "autoAssign: Group row ${targetUID} not found — inserting it into sort order."
-        def groupEntry = [ID: "${0 - groupNumber}".toString(), UID: targetUID, row: sortOrder.size() + 1]
-        sortOrder.add(groupEntry)
-        insertAfterIndex = sortOrder.size() - 1
-    }
-    
-    def newUIDs = deviceList.collect { "${it.id}-${sensorTypeCode}".toString() } as Set
-    sortOrder.removeAll { it.UID?.toString() in newUIDs }
-    
-    // Re-find after removal
-    insertAfterIndex = sortOrder.findIndexOf { it.UID?.toString() == targetUID }
-    
-    def newEntries = deviceList.collect { device ->
-        [ID: device.id.toString(), UID: "${device.id}-${sensorTypeCode}".toString()]
-    }
-    
-    sortOrder.addAll(insertAfterIndex + 1, newEntries)
-    sortOrder.eachWithIndex { entry, idx -> entry.row = idx + 1 }
-    
-    state.customSortOrder = groovy.json.JsonOutput.toJson(sortOrder)
-    if (isLogDebug) log.debug "autoAssign: Assigned ${deviceList.size()} device(s) of type ${sensorTypeCode} to group ${groupNumber}. Sort order size: ${sortOrder.size()}"
-}
-
 
 //Assigns a list of Devices to one of the User created Groups
 def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
@@ -1313,18 +1281,36 @@ sensorConfigs.each { type, cfg ->
     state.JSON = JsonOutput.toJson(cleanedList)
 
     // Apply custom sort order if needed
-    if (isCustomSort == "true") {
-        def slurper = new JsonSlurper()
-        def list1 = slurper.parseText(state.JSON)
-        def list2 = slurper.parseText(state.customSortOrder)
-        def uidMap = list2.collectEntries { [(it.UID): it.row] }
-        def mergedList = list1.collect { item ->
-            def uid = "${item.ID}-${item.type}".toString()
-            if (uidMap.containsKey(uid)) item.row = uidMap[uid]
-            return item
-        }
-        state.JSON = JsonOutput.prettyPrint(JsonOutput.toJson(mergedList))
-    }
+	if (isCustomSort == "true") {
+		def slurper2 = new JsonSlurper()
+		def list1 = slurper2.parseText(state.JSON)
+		def list2 = slurper2.parseText(state.customSortOrder ?: "[]")
+		def uidMap = list2.collectEntries { [(it.UID?.toString()): it.row] }
+		
+		// Find any UIDs not yet in the sort order and append them
+		def maxRow = list2 ? list2.max { it.row }?.row ?: 0 : 0
+		def newEntries = []
+		list1.each { item ->
+			def uid = "${item.ID}-${item.type}".toString()
+			if (!uidMap.containsKey(uid)) {
+				maxRow++
+				newEntries << [UID: uid, row: maxRow]
+				uidMap[uid] = maxRow
+				if (isLogDebug) log.debug("getJSON: Auto-appending unrecognized UID to sort order: $uid at row $maxRow")
+			}
+		}
+		if (newEntries) {
+			list2.addAll(newEntries)
+			state.customSortOrder = JsonOutput.toJson(list2)
+		}
+		
+		def mergedList = list1.collect { item ->
+			def uid = "${item.ID}-${item.type}".toString()
+			if (uidMap.containsKey(uid)) item.row = uidMap[uid]
+			return item
+		}
+		state.JSON = JsonOutput.prettyPrint(JsonOutput.toJson(mergedList))
+	}
 
     def timeElapsed = now() - timeStart  
     if (isLogTrace) log.trace("Leaving: getJSON()" + timeElapsed / 1000 + " seconds.")
@@ -1424,34 +1410,48 @@ def isInfoSource(source) {
     return false
 }
 
-//Gets information about the lastActive, lastInactive etc and put it into a map. Data from selected fields will be mapped into the Info columns.
 def getDeviceInfo(device, type){
     def lastActiveEvent, lastInactiveEvent, lastActive, lastInactive, lastActiveInstant, lastInactiveInstant, lastActiveDuration, lastSeen, lastSeenElapsed
-    def roomName, colorName, colorMode, power, healthStatus, energy, network, colorTemperature, deviceTypeName, lastActivity, battery, temperature
+    def roomName, colorName, colorMode, power, healthStatus, energy, network, colorTemperature, deviceTypeName, lastActivity, battery, temperature, humidity
     def ID = device?.getId()
     def deviceName = device.getLabel()
-
-    if (isInfoSource("roomName")) roomName = device?.getRoomName()
-    if (isInfoSource("colorName")) colorName = device?.currentValue("colorName")
-    if (isInfoSource("colorMode")) colorMode = device?.currentValue("colorMode")
-    if (isInfoSource("power")) power = device?.currentValue("power")
-    if (isInfoSource("healthStatus")) healthStatus = device?.currentValue("healthStatus")
-    if (isInfoSource("energy")) energy = device?.currentValue("energy")
-    if (isInfoSource("network")) network = getNetworkType(device?.getDeviceNetworkId())
-    if (isInfoSource("deviceTypeName")) deviceTypeName = getDeviceTypeInfo(type)
-    if (isInfoSource("battery") && device.hasCapability("Battery")) battery = device?.currentValue("battery") + "%"
-    if (isInfoSource("colorTemperature") && device.hasCapability("ColorTemperature")) colorTemperature = device?.currentValue("colorTemperature") + "°K"
-    if (isInfoSource("temperature") && device.hasCapability("TemperatureMeasurement")) {
+    
+    // Resolve all active info sources once — avoids calling isInfoSource() repeatedly per device
+    def activeSources = [info1Source, info2Source, info3Source] as Set
+    if (isCustomSort == "true") {
+        (1..customRowCount.toInteger()).each { i ->
+            if (settings["customRowType${i}"] == "Group Row") {
+                ["info1SourceGroup${i}", "info2SourceGroup${i}", "info3SourceGroup${i}"].each { key ->
+                    def val = settings[key]
+                    if (val && val != "Default" && val != "None") activeSources << val
+                }
+            }
+        }
+    }
+    def hasSource = { String s -> activeSources.contains(s) }
+    if (hasSource("roomName")) roomName = device?.getRoomName()
+    if (hasSource("colorName")) colorName = device?.currentValue("colorName")
+    if (hasSource("colorMode")) colorMode = device?.currentValue("colorMode")
+    if (hasSource("power")) power = device?.currentValue("power")
+    if (hasSource("healthStatus")) healthStatus = device?.currentValue("healthStatus")
+    if (hasSource("energy")) energy = device?.currentValue("energy")
+    if (hasSource("network")) network = getNetworkType(device?.getDeviceNetworkId())
+    if (hasSource("deviceTypeName")) deviceTypeName = getDeviceTypeInfo(type)
+    if (hasSource("battery") && device.hasCapability("Battery")) battery = device?.currentValue("battery") + "%"
+    if (hasSource("colorTemperature") && device.hasCapability("ColorTemperature")) colorTemperature = device?.currentValue("colorTemperature") + "°K"
+    if (hasSource("temperature") && device.hasCapability("TemperatureMeasurement")) {
         def myTemp = device?.currentValue("temperature")
         temperature = Math.round(myTemp).toInteger().toString() + tempUnits
     }
-
-    //log.info("deviceName: $deviceName  type: $type")
-    if (isInfoSource("lastActive") || isInfoSource("lastActiveDuration") || isInfoSource("lastInactive") || isInfoSource("lastInactiveDuration")) {
-        // [attribute, activeValue, inactiveValue] — prefix "!" means "not equal to"
+    if (hasSource("humidity") && device.hasCapability("RelativeHumidityMeasurement")) {
+        def myHumid = device?.currentValue("humidity")
+        humidity = Math.round(myHumid).toInteger().toString() + "%"
+    }
+    if (hasSource("lastActive") || hasSource("lastActiveDuration") || hasSource("lastInactive") || hasSource("lastInactiveDuration")) {
         def ec = [ 1:["switch","on","off"], 2:["switch","on","off"], 3:["switch","on","off"], 4:["switch","on","off"], 5:["switch","on","off"],
-                   10:["valve","open","closed"], 11:["lock","locked","unlocked"], 12:["speed","!off","off"], 13:["door","closed","!closed"],
-                   14:["windowShade","open","!open"], 15:["windowShade","open","!open"], 31:["contact","open","closed"], 33:["water","wet","dry"] ]
+                   10:["valve","open","closed"], 11:["lock","locked","unlocked"], 12:["speed","!off","off"], 13:["door","!closed","closed"],
+                   14:["windowShade","open","!open"], 15:["windowShade","open","!open"], 31:["contact","open","closed"], 33:["water","wet","dry"], 34:["motion","active","inactive"],
+                   35:["presence","not present","present"], 36:["smoke","!clear","clear"], 37:["carbonMonoxide","!clear","clear"] ]
         def cfg = ec[type]
         if (cfg) {
             def events = device.events(max: 500)
@@ -1463,7 +1463,6 @@ def getDeviceInfo(device, type){
             lastActiveEvent = findEvent(cfg[1])
             lastInactiveEvent = findEvent(cfg[2])
         }
-
         if (lastActiveEvent != null) {
             lastActive = formatTime(lastActiveEvent?.getDate(), defaultDateTimeFormat.toInteger() ?: 3)
             lastActiveDuration = formatTime(lastActiveEvent?.getDate(), defaultDurationFormat.toInteger() ?: 21)
@@ -1480,8 +1479,7 @@ def getDeviceInfo(device, type){
             lastInactiveDuration = durations.lastInactiveDuration
         }
     }
-
-    if (isInfoSource("lastSeen") || isInfoSource("lastSeenElapsed")) {
+    if (hasSource("lastSeen") || hasSource("lastSeenElapsed")) {
         lastActivity = device?.getLastActivity()
         if (lastActivity != null) {
             def timestamp = lastActivity.time
@@ -1490,16 +1488,16 @@ def getDeviceInfo(device, type){
             lastSeenElapsed = durations.lastActiveDuration
         }
     }
-	
+    
     return [lastActive: lastActive, lastInactive: lastInactive, lastInactiveInstant: lastInactiveInstant, lastActiveInstant: lastActiveInstant, lastActiveDuration: lastActiveDuration,
             lastInactiveDuration: lastInactiveDuration, roomName: roomName, colorName: colorName, colorMode: colorMode, power: power, healthStatus: healthStatus,
             energy: energy, ID: ID, network: network, deviceTypeName: deviceTypeName, lastSeen: lastSeen, lastSeenElapsed: lastSeenElapsed, battery: battery, 
-            temperature: temperature, colorTemperature: colorTemperature].collectEntries { key, value -> [key, value != null ? value : invalidAttribute.toString()] }
+            temperature: temperature, humidity: humidity, colorTemperature: colorTemperature].collectEntries { key, value -> [key, value != null ? value : invalidAttribute.toString()] }
 }
 
 // Function to determine network type based on DNI length
 def getNetworkType(dni) {
-    def networkTypes = [2: "Z-Wave", 4: "Zigbee", 8: "LAN", 36: "Virtual" ]
+    def networkTypes = [2: "Z-Wave", 4: "Zigbee", 8: "LAN", 16: "Matter", 36: "Virtual"]
     return networkTypes[dni?.length()] ?: "Other"
 }
 
