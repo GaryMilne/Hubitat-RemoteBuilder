@@ -62,19 +62,20 @@
 *  Version 5.1.0 - Fixed a couple of small UI issues including using "Enable Groups and Custom Sort" to hide irrelevant controls.
 *				   Fixed issue with loss of manual sort order under certain conditions. Removed capitalizeStrings function in favor of the attribute mapping on the Advanced tab.
 *				   Added additional device types to the lastActive and lastInactive queries. Added humidity as an info source. Cleanup up getDeviceInfo to make fewer calls to the hub API's
+*  Version 5.1.2 - Add ability to append sensor types to duplicate sensor names and thus de-dupe them for use with device rename.
+*  Version 5.1.3 - Add two additional time formats.
+*  Version 5.2.0 - Add ability to embed variable names in the header columns. Fix bugs in the handling of colors and text sizes in the Appearance tab. Fixed error with Highlight Selected Rows not working correctly.
 *
-*  Gary Milne - April 18th, 2026 @ 8:42 PM
+*  Gary Milne - May 30th, 2026 @ 6:49 PM
 *
 **/
-
-/* ToDo's before release
-*/
 
 /* Known Issues 
 Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
 */
 
 /* Ideas for future releases
+Upgrade to handle 5 speed fans
 Add support for Thermostats - OR - Create a standalone digital Thermostat control that can be embedded with a URL.
 Add Media Control
 Remove blank fields from the data payload.
@@ -94,30 +95,35 @@ static def opacity() { return ['1', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0
 static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'] }
 static def elementSize2() { return ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '11', '11.5', '12', '12.5', '13', '13.5', '14', '14.5', '15', '15.5', '16', '16.5', '17', '17.5', '18', '18.5', '19', '19.5','20'] }
 static def elementSizeMinor() { return ['0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'] }
-static def unitsMap() { return ['°F', ' °F', '°C', ' °C']}
+static def unitsMap() { return ['�F', '��F', '�C', '��C']}
 static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: HH:mm", 3: "To: h:mm a", 4: "To: HH:mm:ss", 5: "To: h:mm:ss a", 6: "To: E HH:mm", 7: "To: E h:mm a", 8: "To: EEEE HH:mm", 9: "To: EEEE h:mm a", \
-								10: "To: MM-dd HH:mm", 11: "To: MM-dd h:mm a", 12: "To: MMMM dd HH:mm", 13: "To: MMMM dd h:mm a", 14: "To: yyyy-MM-dd HH:mm", 15: "To: dd-MM-yyyy h:mm a", 16: "To: MM-dd-yyyy h:mm a", 17: "To: E @ h:mm a" ] }
+								10: "To: MM-dd HH:mm", 11: "To: MM-dd h:mm a", 12: "To: MMMM dd HH:mm", 13: "To: MMMM dd h:mm a", 14: "To: yyyy-MM-dd HH:mm", 15: "To: dd-MM-yyyy h:mm a", 16: "To: MM-dd-yyyy h:mm a", 17: "To: E @ h:mm a", 18: "To: MMM dd HH:mm", 19: "To: MMM dd HH:mm a"] }
 static def dateFormatsList() { return dateFormatsMap().values() }
 static def hubProperties() { return ["sunrise", "sunrise1", "sunrise2", "sunset", "sunset1", "sunset2", "hubName", "hsmStatus", "currentMode", "firmwareVersionString", "uptime", "timeZone", "daylightSavingsTime", "currentTime", "currentTime1", "currentTime2"].sort() }
-
-//static def defaultStateMap() { return '''{"open": "open", "closed": "closed", "active": "active", "inactive": "inactive", "wet": "wet", "dry": "dry", "present": "present", "not present": "not present", "detected": "detected", "clear": "clear", "tested": "tested"}''' }
 static def defaultStateMap() { return '''{"open": "[m4]Open[/m4]", "closed": "[m2]Closed[/m2]", "active": "[m4]Active[/m4]", "inactive": "Idle", "wet": "[m3]WET![/m3]", "dry": "Dry", "present": "Present", "not present": "[m4]Away[/m4]", "detected": "[m3]ALERT![/m3]", "clear": "Clear", "tested": "[m1]Tested[/m1]"}''' }
 
 static def createDeviceTypeMap() {
-    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak", 34:"Motion", 35:"Presence", 36:"Smoke", 37:"Carbon Monoxide", 51:"Group Row", 52:"Device Row", 53:"iFrame Row" ]
+    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak", 34:"Motion", 35:"Presence", 36:"Smoke", 37:"Carbon Monoxide", 38:"Humidity", 39:"Battery", 40:"Power", 51:"Group Row", 52:"Device Row", 53:"iFrame Row" ]
     // Create the inverse map for name-to-number lookups
     def nameToNumberMap = typeMap.collectEntries { key, value -> [value, key] }
     return [typeMap: typeMap, nameToNumberMap: nameToNumberMap]
 }
 
+static def sensorSectionToTypeMap() {
+    def maps = createDeviceTypeMap()
+    // Maps UI section names to the canonical type names used in createDeviceTypeMap()
+    def sectionToTypeName = ["Battery": "Battery", "Carbon Monoxide": "Carbon Monoxide", "Contacts": "Contact", "Humidity": "Humidity", "Motion": "Motion", "Power": "Power", "Presence": "Presence", "Smoke": "Smoke", "Temperature": "Temperature", "Water": "Leak"]
+    return sectionToTypeName.collectEntries { section, typeName -> [section, maps.nameToNumberMap[typeName]] }
+}
+static def sensorSectionsList() { return sensorSectionToTypeMap().keySet().sort() }
 static def durationFormatsMap() { return [21: "To: Elapsed Time (dd):hh:mm:ss", 22: "To: Elapsed Time (dd):hh:mm"] }
 static def durationFormatsList() { return durationFormatsMap().values() }
-static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
+static def invalidAttributeStrings() { return ["N/A", "n/a", "�", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["Default", "None", "battery", "colorMode", "colorName", "colorTemperature", "deviceTypeName", "energy", "healthStatus", "humidity", "ID", "lastActive", "lastActiveDuration", "lastInactive", "lastInactiveDuration", "lastSeen", "lastSeenElapsed", "network", "power", "roomName", "temperature"] }
 static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.1.0 (4/18/26)</b>"
-@Field static final codeVersion = 510
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.2.0 (5/26/26)</b>"
+@Field static final codeVersion = 520
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -147,7 +153,7 @@ def mainPage(){
     //Compile the JS every time to accomodate UI change requests. This compile will NOT run during normal operation of the SmartGrid, only in the edit\design phase.
     compile()
 
-    dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff; margin-top:-3vh !important;'>Remote Builder - " + moduleName + " 💡 </div>", uninstall: true, install: true, singleThreaded:false) {
+    dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff; margin-top:-3vh !important;'>Remote Builder - " + moduleName + " ?? </div>", uninstall: true, install: true, singleThreaded:false) {
 
         section(hideable: true, hidden: state.hidden.Configure, title: buttonLink('btnHideConfigure', getSectionTitle("Configure"), 20)) {
             //Setup the Table Style
@@ -177,14 +183,12 @@ def mainPage(){
             }
 
             if (state.activeButtonA == 2){ //Start of Sensors Section
-                if (visibleSensorSections == null) app.updateSetting("visibleSensorSections", [value: ["Battery", "Carbon Monoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"], type: "enum"])
-
-                input(name: "visibleSensorSections", type: "enum", title: bold("Select Sensor Types to Display"), options: ["Battery", "Carbon Monoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"], required: false, multiple: true, submitOnChange: true, width: 4, defaultValue: ["Temperature"], style:"margin-right: 100px")
+                if (visibleSensorSections == null) app.updateSetting("visibleSensorSections", options: sensorSectionsList(), defaultValue: ["Temperature"])
+                input(name: "visibleSensorSections", type: "enum", title: bold("Select Sensor Types to Display"), options: sensorSectionsList(), required: false, multiple: true, submitOnChange: true, width: 4, defaultValue: ["Temperature"], style:"margin-right: 100px")
                 input(name: "btnCollapseAllSensors", type: "button", title: "Collapse All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 25px")               
                 input(name: "btnExpandAllSensors", type: "button", title: "Expand All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 25px")               
                 paragraph line(1)
-                
-                
+                                
                 // Build group options once from named rows
                 def groupCount = customRowCount?.toInteger() ?: 0
                 def groupOptions = ["None": "None"]
@@ -208,7 +212,7 @@ def mainPage(){
                 
                 if (visibleSensorSections?.contains("Battery")) {
                     if (assignGroupBattery && assignGroupBattery != "None") { autoAssignDevicesToGroup(assignGroupBattery.toInteger(), myBattery, 39); app.updateSetting("assignGroupBattery", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideBattery', (state.hidden?.Battery ? "🔋 Battery ▶" : "🔋 Battery ▼"), 0)
+                    paragraph buttonLink('btnHideBattery', (state.hidden?.Battery ? "?? Battery ?" : "?? Battery ?"), 0)
                     if (!state.hidden?.Battery) {
                         input "myBattery", "capability.battery", title: "<b>Select Battery Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeBattery", type: "enum", title: bold("Only Report Low Battery"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -220,7 +224,7 @@ def mainPage(){
                 
                 if (visibleSensorSections?.contains("Carbon Monoxide")) {
                     if (assignGroupCarbonMonoxide && assignGroupCarbonMonoxide != "None") { autoAssignDevicesToGroup(assignGroupCarbonMonoxide.toInteger(), myCarbonMonoxide, 37); app.updateSetting("assignGroupCarbonMonoxide", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideCarbonMonoxide', (state.hidden?.CarbonMonoxide ? "☁️ Carbon Monoxide ▶" : "☁️ Carbon Monoxide ▼"), 0)
+                    paragraph buttonLink('btnHideCarbonMonoxide', (state.hidden?.CarbonMonoxide ? "?? Carbon Monoxide ?" : "?? Carbon Monoxide ?"), 0)
                     if (!state.hidden?.CarbonMonoxide) {
                         input "myCarbonMonoxide", "capability.carbonMonoxideDetector", title: "<b>Select Carbon Monoxide Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeCarbonMonoxide", type: "enum", title: bold("Only Report Detected CO"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -231,7 +235,7 @@ def mainPage(){
                 
                 if (visibleSensorSections?.contains("Contacts")) {
                     if (assignGroupContacts && assignGroupContacts != "None") { autoAssignDevicesToGroup(assignGroupContacts.toInteger(), myContacts, 31); app.updateSetting("assignGroupContacts", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideContacts', (state.hidden?.Contacts ? "🚪 Contacts ▶" : "🚪 Contacts ▼"), 0)
+                    paragraph buttonLink('btnHideContacts', (state.hidden?.Contacts ? "?? Contacts ?" : "?? Contacts ?"), 0)
                     if (!state.hidden?.Contacts) {
                         input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeContacts", type: "enum", title: bold("Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -242,7 +246,7 @@ def mainPage(){
                 
                 if (visibleSensorSections?.contains("Humidity")) {
                     if (assignGroupHumidity && assignGroupHumidity != "None") { autoAssignDevicesToGroup(assignGroupHumidity.toInteger(), myHumidity, 38); app.updateSetting("assignGroupHumidity", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideHumidity', (state.hidden?.Humidity ? "💦 Humidity ▶" : "💦 Humidity ▼"), 0)
+                    paragraph buttonLink('btnHideHumidity', (state.hidden?.Humidity ? "?? Humidity ?" : "?? Humidity ?"), 0)
                     if (!state.hidden?.Humidity) {
                         input "myHumidity", "capability.relativeHumidityMeasurement", title: "<b>Select Humidity Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeHumidity", type: "enum", title: bold("Only Report Humidity Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -258,7 +262,7 @@ def mainPage(){
                 
                 if (visibleSensorSections?.contains("Motion")) {
                     if (assignGroupMotion && assignGroupMotion != "None") { autoAssignDevicesToGroup(assignGroupMotion.toInteger(), myMotion, 34); app.updateSetting("assignGroupMotion", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideMotion', (state.hidden?.Motion ? "🏃 Motion ▶" : "🏃 Motion ▼"), 0)
+                    paragraph buttonLink('btnHideMotion', (state.hidden?.Motion ? "?? Motion ?" : "?? Motion ?"), 0)
                     if (!state.hidden?.Motion) {
                         input "myMotion", "capability.motionSensor", title: "<b>Select Motion Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeMotion", type: "enum", title: bold("Only Report Active Motion"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -269,7 +273,7 @@ def mainPage(){
                 
                 if (visibleSensorSections?.contains("Power")) {
                     if (assignGroupPower && assignGroupPower != "None") { autoAssignDevicesToGroup(assignGroupPower.toInteger(), myPower, 40); app.updateSetting("assignGroupPower", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHidePower', (state.hidden?.Power ? "⚡ Power ▶" : "⚡ Power ▼"), 0)
+                    paragraph buttonLink('btnHidePower', (state.hidden?.Power ? "? Power ?" : "? Power ?"), 0)
                     if (!state.hidden?.Power) {
                         input "myPower", "capability.powerMeter", title: "<b>Select Power Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangePower", type: "enum", title: bold("Only Report Active Devices"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -281,7 +285,7 @@ def mainPage(){
               
                 if (visibleSensorSections?.contains("Presence")) {
                     if (assignGroupPresence && assignGroupPresence != "None") { autoAssignDevicesToGroup(assignGroupPresence.toInteger(), myPresence, 35); app.updateSetting("assignGroupPresence", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHidePresence', (state.hidden?.Presence ? "🏠 Presence ▶" : "🏠 Presence ▼"), 0)
+                    paragraph buttonLink('btnHidePresence', (state.hidden?.Presence ? "?? Presence ?" : "?? Presence ?"), 0)
                     if (!state.hidden?.Presence) {
                         input "myPresence", "capability.presenceSensor", title: "<b>Select Presence Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangePresence", type: "enum", title: bold("Only Report Not Present"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -292,7 +296,7 @@ def mainPage(){
                 
                 if (visibleSensorSections?.contains("Smoke")) {
                     if (assignGroupSmoke && assignGroupSmoke != "None") { autoAssignDevicesToGroup(assignGroupSmoke.toInteger(), mySmoke, 36); app.updateSetting("assignGroupSmoke", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideSmoke', (state.hidden?.Smoke ? "🔥 Smoke ▶" : "🔥 Smoke ▼"), 0)
+                    paragraph buttonLink('btnHideSmoke', (state.hidden?.Smoke ? "?? Smoke ?" : "?? Smoke ?"), 0)
                     if (!state.hidden?.Smoke) {
                         input "mySmoke", "capability.smokeDetector", title: "<b>Select Smoke Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeSmoke", type: "enum", title: bold("Only Report Detected Smoke"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -306,7 +310,7 @@ def mainPage(){
                         autoAssignDevicesToGroup(assignGroupTemperature.toInteger(), myTemps, 32)
                         app.updateSetting("assignGroupTemperature", [value: "None", type: "enum"])
                     }
-                    paragraph buttonLink('btnHideTemperature', (state.hidden?.Temperature ? "🌡️ Temperature ▶" : "🌡️ Temperature ▼"), 0)
+                    paragraph buttonLink('btnHideTemperature', (state.hidden?.Temperature ? "??? Temperature ?" : "??? Temperature ?"), 0)
                     if (!state.hidden?.Temperature) {
                         input "myTemps", "capability.temperatureMeasurement", title: "<b>Select Temp Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeTemperature", type: "enum", title: bold("Only Report Temperatures Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -323,7 +327,7 @@ def mainPage(){
 
                 if (visibleSensorSections?.contains("Water")) {
                     if (assignGroupWater && assignGroupWater != "None") { autoAssignDevicesToGroup(assignGroupWater.toInteger(), myLeaks, 33); app.updateSetting("assignGroupWater", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideWater', (state.hidden?.Water ? "💧 Water ▶" : "💧 Water ▼"), 0)
+                    paragraph buttonLink('btnHideWater', (state.hidden?.Water ? "?? Water ?" : "?? Water ?"), 0)
                     if (!state.hidden?.Water) {
                         input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRangeWater", type: "enum", title: bold("Only Report Wet Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -335,8 +339,8 @@ def mainPage(){
 
             if (state.activeButtonA == 3){ //Start of Rename Devices Section
                 if (myDeviceRenameCount == null) app.updateSetting("myDeviceRenameCount", [value: "10", type: "enum"])
-
-                input name: "myDeviceRenameCount", title: "<b>Device Rename Count?</b>", type: "enum", options: ['0', '2', '4', '6', '8', '10', '12'], submitOnChange: true, defaultValue: 0, style: "width:12%"
+                input(name: "myDeviceRenameCount", title: "<b>Device Rename Count?</b>", type: "enum", options: ['0', '2', '4', '6', '8', '10', '12', '14', '16', '18', '20'], submitOnChange: true, defaultValue: "0", width: 2)
+                input(name: "appendTypeSensorSections", type: "enum", title: bold("Append Sensor Type to Duplicate Sensor Names"), options: sensorSectionsList(), required: false, multiple: true, submitOnChange: true, width: 4, defaultValue: [], style:"margin-right: 100px")
 
                 def renameCount = myDeviceRenameCount?.toInteger() ?: 0
                 if (renameCount > 0) {
@@ -403,7 +407,7 @@ def mainPage(){
                 myText += "<b>Shuttle Bar Color:</b> The color of the bar at the base of the SmartGrid that identifies the position in the polling cycle.<br>"
                 myText += "<b>Command Timeout:</b> The amount of time allowed to pass without a response from the Hub before a request is deemed to have failed.<br>"
                 myText += "When the polling process discovers an update is pending then the SmartGrid is refreshed and the table is outlined for <b>X</b> seconds using the Poll Update Duration value configured above.<br>"
-                myText += "<b>Note: </b> You can initiate a full refresh of the table at anytime regardless of the polling interval using the Refresh Icon <b>↻</b>."
+                myText += "<b>Note: </b> You can initiate a full refresh of the table at anytime regardless of the polling interval using the Refresh Icon <b>?</b>."
                 paragraph summary("Polling Help", myText)
                 paragraph red("<b>Important: The Polling Enabled\\Disabled and Poll Interval only apply to the first time a SmartGrid is run in a browser. After that you must change these settings using the Modal window which is accessible by holding a mouse or finger down within the SmartGrid for 4 seconds.</b>")
             }
@@ -618,7 +622,7 @@ def mainPage(){
                 input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["7.5", "10", "12.5", "15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "15", width: 2, style:"margin-right:25px")
                 input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right"], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
                 input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
-                input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "°F", style:"margin-right:25px")
+                input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "�F", style:"margin-right:25px")
                 input ("tempDecimalPlaces", "enum", title: "<b>Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, defaultValue: "0 Decimal Places", submitOnChange: true, width: 2, required: false, style:"margin-right:25px")
                 //input ("capitalizeStrings", "enum", title: "<b>Capitalize Variable Strings</b>", options: ["True", "False"], multiple: false, defaultValue: "False", submitOnChange: true, width: 2, required: false)
                 input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
@@ -667,7 +671,7 @@ def mainPage(){
                 input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;", newLine:false)
                 input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:20px;", newLine:false)
                 input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;", newLine:true)
-                input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+                input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/�K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
                 if (hideColumn5 == false) {
                     input(name: "column5Header", type: "string", title: bold("Column 5 Header"), required: false, defaultValue: "Control A/B", width: 2, submitOnChange: true)
                     input(name: "column5Width", type: "enum", title: bold("Column 5 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
@@ -797,7 +801,7 @@ def initialize() {
             // General
             invalidAttribute: ["N/A", "enum"], defaultDateTimeFormat: ["3", "enum"],
             defaultDurationFormat: ["21", "enum"], controlSize: ["15", "enum"],
-            tempUnits: ["°F", "enum"], sortHeaderHintAZ: ["#00FF00", "color"],
+            tempUnits: ["�F", "enum"], sortHeaderHintAZ: ["#00FF00", "color"],
             sortHeaderHintZA: ["#FF0000", "color"], tempDecimalPlaces: ["0 Decimal Places", "enum"],
             // Table Layout
             thp: ["5", "enum"], tvp: ["3", "enum"], tvpm: ["0", "enum"], tmt: ["0", "enum"],
@@ -839,7 +843,7 @@ def initialize() {
         firstTimeSettings.each { name, config -> app.updateSetting(name, [value: config[0].toString(), type: config[1]]) }
         
         if (state.hidden == null) state.hidden = [:]
-        ["Battery", "CarbonMonoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"].each { if (state.hidden[it] == null) state.hidden[it] = true }
+        sensorSectionsList().each { if (state.hidden[it.replace(" ", "")] == null) state.hidden[it.replace(" ", "")] = true }
                 
         // State variables for first time
         state.updatedSessionList = []
@@ -850,7 +854,7 @@ def initialize() {
         state.initialized = true
     }
     
-    // Post-release variable initialization — only set if null
+    // Post-release variable initialization � only set if null
     if (state.hidden == null) state.hidden = [Configure: false, Preview: false, Design: false]
     if (state.activeButtonA == null) state.activeButtonA = 1
     if (state.activeButtonB == null) state.activeButtonB = 21
@@ -859,12 +863,12 @@ def initialize() {
         def testParse = new JsonSlurper().parseText(state.customSortOrder ?: "[]")
         if (!(testParse instanceof List)) throw new Exception("Not a List")
     } catch (Exception e) {
-        log.warn("initialize: state.customSortOrder was corrupt ('${state.customSortOrder}') — resetting to empty. Error: $e")
+        log.warn("initialize: state.customSortOrder was corrupt ('${state.customSortOrder}') � resetting to empty. Error: $e")
         state.customSortOrder = JsonOutput.toJson([])
     }
     if (state.hidden.Preview == null) state.hidden.Preview = false
     
-    // Settings that default when null — [settingName: [value, type]]
+    // Settings that default when null � [settingName: [value, type]]
     def nullDefaults = [
         customRowCount: ["0", "enum"], isCustomSort: ["false", "enum"], isDragDrop: ["false", "bool"],
         defaultDateTimeFormat: ["0", "enum"], defaultDurationFormat: ["0", "enum"], controlSize: ["15", "enum"],
@@ -880,11 +884,11 @@ def initialize() {
         its1: ["80", "enum"], its2: ["80", "enum"], its3: ["80", "enum"],
         ita1: ["Center", "enum"], ita2: ["Center", "enum"], ita3: ["Center", "enum"],
         temperatureDecimalPlaces: ["0 Decimal Places", "enum"], capitalizeStrings: ["False", "enum"],
-        myDeviceRenameCount: ["0", "enum"], tempUnits: ["°F", "enum"],
+        myDeviceRenameCount: ["0", "enum"], tempUnits: ["�F", "enum"],
         hideColumn11: [true, "bool"], hideColumn12: [true, "bool"],
         // New variables section
         displayCustomRow: ["All", "enum"], myVariableCount: ["0", "enum"]
-        // customSortOrder intentionally omitted — managed exclusively by the parse-validation block above
+        // customSortOrder intentionally omitted � managed exclusively by the parse-validation block above
     ]
     nullDefaults.each { name, config ->
         if (settings[name] == null) app.updateSetting(name, [value: config[0].toString(), type: config[1]])
@@ -892,18 +896,15 @@ def initialize() {
     
     if (deviceStateMap == null) app.updateSetting("deviceStateMap", [value: defaultStateMap(), type: "text"])
     
-    // Version-gated updates — force certain changes on existing installs when code version advances
+    // Version-gated updates � force certain changes on existing installs when code version advances
     if (state.variablesVersion == null || state.variablesVersion < codeVersion) {
         state.variablesVersion = codeVersion
         
-        // customSortOrder seed removed from here — the parse-validation block above already handles
+        // customSortOrder seed removed from here � the parse-validation block above already handles
         // healing a missing or corrupt sort order safely without overwriting a valid existing one
         
         // myVariableCount is a new setting not present in older installs
-        if (settings.myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])
-        
-        // Force reset all onlyReportOutsideRange settings to False on upgrade so that all selected controls and sensors are displayed
-        ["Battery", "Carbon Monoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"].each { type -> app.updateSetting("onlyReportOutsideRange${type}", [value: "False", type: "enum"]) }
+        if (settings.myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])        
     }
     
     // Fix spelling mistake from older versions: "Seperator" -> "Separator"
@@ -912,7 +913,7 @@ def initialize() {
         if (rowType == "Seperator Row" || rowType == "Separator Row") {
             app.updateSetting("customRowType$i", [value: "Group Row", type: "enum"])
         }
-        // Fix old "Group Row" no-op update that was a placeholder — remove if truly not needed
+        // Fix old "Group Row" no-op update that was a placeholder � remove if truly not needed
         // (keeping it in case it guards against a future rename)
         if (rowType == "Group Row") {
             app.updateSetting("customRowType$i", [value: "Group Row", type: "enum"])
@@ -1034,7 +1035,7 @@ String getVariableText(var, dp) {
 
 //Perform any Device Renaming requested using the Device Name Modification Fields. Fill out an %varXX% variables.
 def getShortName(myDevice){
-	//log.info("Receiving Name: $myDevice")
+	if (!myDevice) return "Unknown"
 	def shortName = myDevice
     
     //Replaces any undesireable characters in the devicename - Case Sensitive
@@ -1047,7 +1048,6 @@ def getShortName(myDevice){
     }
     //Replaces any %varX% variables found.
     shortName = toHTML(replaceVarsInString(shortName))
-	//log.info("returning shortName: $shortName")
     return shortName
 }
 
@@ -1100,7 +1100,7 @@ def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
     
     // If the group row doesn't exist in the sort order yet, add it at the end
     if (insertAfterIndex == -1) {
-        if (isLogDebug) log.debug "autoAssign: Group row ${targetUID} not found — inserting it into sort order."
+        if (isLogDebug) log.debug "autoAssign: Group row ${targetUID} not found � inserting it into sort order."
         def groupEntry = [ID: targetID, UID: targetUID, row: sortOrder.size() + 1]
         sortOrder.add(groupEntry)
         insertAfterIndex = sortOrder.size() - 1
@@ -1124,7 +1124,6 @@ def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
 }
 
 
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  Device Data Collection and Preparation Functions
@@ -1136,7 +1135,6 @@ def getJSON() {
     if (isLogTrace) log.trace("<b>Entering: GetJSON</b>")
     def timeStart = now()
     def deviceAttributesList = []
-    cacheDeviceInfo()
     
     // Iterate through each device
     myDevices.each { device ->
@@ -1149,7 +1147,6 @@ def getJSON() {
         deviceData.put("switch", mySwitch)
         deviceType = cachedDevice?.type
         deviceData.put("type", deviceType)
-
         def deviceTypeHandlers = [
             1 : { d, dd -> def s = d.currentValue("switch"); def ic = getIcon(1, s); dd.icon = ic?.icon; dd.cl = ic?.class },
             2 : { d, dd -> def s = d.currentValue("switch"); def ic = getIcon(2, s); dd.level = d.currentValue("level")?.toInteger() ?: 100; dd.icon = ic?.icon; dd.cl = ic?.class },
@@ -1164,70 +1161,71 @@ def getJSON() {
             15: { d, dd -> def st = d.currentValue("windowShade"); def s = (st == "closed") ? "off" : "on"; def ic = getIcon(15, st); dd.position = d.currentValue("position"); dd.tilt = Math.round(d.currentValue("tilt") * 0.9); dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class },
             16: { d, dd -> def m = d.currentValue("mute"); def s = (m == "muted") ? "off" : "on"; def ic = getIcon(16, s); dd.switch = s; dd.volume = d.currentValue("volume"); dd.icon = ic?.icon; dd.cl = ic?.class }
         ]
-            def handler = deviceTypeHandlers[deviceType]
-            if (handler) { handler(device, deviceData) }
-            def deviceDetails = getDeviceInfo(device, deviceData.get("type"))
-            def deviceUID = "${device.getId()}-${deviceType}".toString()
-            if (hideColumn7 == false) { def src = getGroupInfoSource(deviceUID, 1) ; deviceData.put("i1", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
-            if (hideColumn8 == false) { def src = getGroupInfoSource(deviceUID, 2) ; deviceData.put("i2", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
-            if (hideColumn9 == false) { def src = getGroupInfoSource(deviceUID, 3) ; deviceData.put("i3", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
-            deviceAttributesList << deviceData
-        }
-
-        def sensorConfigs = [
-            31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeContacts == "False") return true; return val == "open" }],
-            32: [list: myTemps, attr: "temperature", iconAttrVal: { "temp" }, 
-                    processVal: { val -> float t = val as float; if (tempDecimalPlaces == "0 Decimal Places") return t.round(0).toInteger().toString() + tempUnits; 
-                    if (tempDecimalPlaces == "1 Decimal Place") return t.round(1).toString() + tempUnits; return t.toString() + tempUnits }, 
-                    condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeTemperature == "False") return true; float t = val as float; float tMin = minTemp.toFloat(); float tMax = maxTemp.toFloat(); return (t <= tMin || t >= tMax) }],
-            33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeWater == "False") return true; return val == "wet" }],
-            34: [list: myMotion, attr: "motion", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeMotion == "False") return true; return val == "active" }],
-            35: [list: myPresence, attr: "presence", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangePresence == "False") return true; return val == "not present" }],
-            36: [list: mySmoke, attr: "smoke", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeSmoke == "False") return true; return val == "detected" }],
-            37: [list: myCarbonMonoxide, attr: "carbonMonoxide", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeCarbonMonoxide == "False") return true; return val == "detected" }],
-            38: [list: myHumidity, attr: "humidity", iconAttrVal: { "humidity" }, processVal: { val -> float h = val as float; if (tempDecimalPlaces == "0 Decimal Places") return h.round(0).toInteger().toString() + "%"; 
-                        if (tempDecimalPlaces == "1 Decimal Place") return h.round(1).toString() + "%"; return h.toString() + "%" }, 
-                        condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeHumidity == "False") return true; float h = val as float; float hMin = minHumidity.toFloat(); float hMax = maxHumidity.toFloat(); return (h <= hMin || h >= hMax) }],
-            39: [list: myBattery, attr: "battery", iconAttrVal: { val -> float b = val as float
-                    if (b > 85) return "battery_android_6"; if (b > 70) return "battery_android_5"; if (b > 55) return "battery_android_4"; if (b > 40) return "battery_android_3"; if (b > 25) return "battery_android_2"; if (b > 10) return "battery_android_1"; return "battery_android_0" },
-                    processVal: { val -> float b = val as float; return b.round(0).toInteger().toString() + "%" },
-                    condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeBattery == "False") return true; float b = val as float; return b <= minBattery.toFloat() }],
-            40: [list: myPower, attr: "power", iconAttrVal: { val -> float p = val as float; return p > 0 ? "power_on" : "power_off" },
-                    processVal: { val -> float p = val as float; return p.round(0).toInteger().toString() + "W" },
-                    condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangePower == "False") return true; float p = val as float; return p >= minPower.toFloat() }],
-        ]
-
-sensorConfigs.each { type, cfg ->
-    cfg.list?.each { device ->
-        def deviceData = new LinkedHashMap()
-        def deviceID = device.getId().toString()
-        def deviceUID = "${deviceID}-${type}".toString()
-        deviceData.put("ID", deviceID)
-        deviceData.put("name", state.deviceList.find { it.ID == deviceID }?.name)
-        deviceData.put("type", type)
-        def rawVal = device.currentValue(cfg.attr)
-        def displayVal = (rawVal != null && cfg.processVal) ? cfg.processVal(rawVal) : (rawVal ?: invalidAttribute.toString())
-        deviceData.put("switch", displayVal)
-        def iconInfo = rawVal != null ? getIcon(type, cfg.iconAttrVal(rawVal)) : [icon: "error", class: "warn"]
-        deviceData.put("icon", iconInfo?.icon)
-        deviceData.put("cl", iconInfo?.class)
-        def deviceDetails = getDeviceInfo(device, type)
-        if (!hideColumn7) {
-    		def src = getGroupInfoSource(deviceUID, 1)
-    		deviceData.put("i1", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}")
-		}
-        if (!hideColumn8) {
-            def src = getGroupInfoSource(deviceUID, 2)
-            deviceData.put("i2", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}")
-        }
-        if (!hideColumn9) {
-            def src = getGroupInfoSource(deviceUID, 3)
-            deviceData.put("i3", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}")
-        }
-        def meetsCondition = (rawVal != null && cfg.condition) ? cfg.condition(rawVal) : true
-        if (meetsCondition) deviceAttributesList << deviceData
+        def handler = deviceTypeHandlers[deviceType]
+        if (handler) { handler(device, deviceData) }
+        def deviceDetails = getDeviceInfo(device, deviceData.get("type"))
+        def deviceUID = "${device.getId()}-${deviceType}".toString()
+        if (hideColumn7 == false) { def src = getGroupInfoSource(deviceUID, 1); deviceData.put("i1", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
+        if (hideColumn8 == false) { def src = getGroupInfoSource(deviceUID, 2); deviceData.put("i2", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
+        if (hideColumn9 == false) { def src = getGroupInfoSource(deviceUID, 3); deviceData.put("i3", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
+        deviceAttributesList << deviceData
     }
-}
+
+    def sensorConfigs = [
+        31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeContacts == "False") return true; return val == "open" }],
+        32: [list: myTemps, attr: "temperature", iconAttrVal: { "temp" },
+                processVal: { val -> float t = val as float; if (tempDecimalPlaces == "0 Decimal Places") return t.round(0).toInteger().toString() + tempUnits;
+                if (tempDecimalPlaces == "1 Decimal Place") return t.round(1).toString() + tempUnits; return t.toString() + tempUnits },
+                condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeTemperature == "False") return true; float t = val as float; float tMin = minTemp.toFloat(); float tMax = maxTemp.toFloat(); return (t <= tMin || t >= tMax) }],
+        33: [list: myLeaks, attr: "water", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeWater == "False") return true; return val == "wet" }],
+        34: [list: myMotion, attr: "motion", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeMotion == "False") return true; return val == "active" }],
+        35: [list: myPresence, attr: "presence", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangePresence == "False") return true; return val == "not present" }],
+        36: [list: mySmoke, attr: "smoke", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeSmoke == "False") return true; return val == "detected" }],
+        37: [list: myCarbonMonoxide, attr: "carbonMonoxide", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeCarbonMonoxide == "False") return true; return val == "detected" }],
+        38: [list: myHumidity, attr: "humidity", iconAttrVal: { "humidity" },
+                processVal: { val -> float h = val as float; if (tempDecimalPlaces == "0 Decimal Places") return h.round(0).toInteger().toString() + "%";
+                if (tempDecimalPlaces == "1 Decimal Place") return h.round(1).toString() + "%"; return h.toString() + "%" },
+                condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeHumidity == "False") return true; float h = val as float; float hMin = minHumidity.toFloat(); float hMax = maxHumidity.toFloat(); return (h <= hMin || h >= hMax) }],
+        39: [list: myBattery, attr: "battery", iconAttrVal: { val -> float b = val as float
+                if (b > 85) return "battery_android_6"; if (b > 70) return "battery_android_5"; if (b > 55) return "battery_android_4"; if (b > 40) return "battery_android_3"; if (b > 25) return "battery_android_2"; if (b > 10) return "battery_android_1"; return "battery_android_0" },
+                processVal: { val -> float b = val as float; return b.round(0).toInteger().toString() + "%" },
+                condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeBattery == "False") return true; float b = val as float; return b <= minBattery.toFloat() }],
+        40: [list: myPower, attr: "power", iconAttrVal: { val -> float p = val as float; return p > 0 ? "power_on" : "power_off" },
+                processVal: { val -> float p = val as float; return p.round(0).toInteger().toString() + "W" },
+                condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangePower == "False") return true; float p = val as float; return p >= minPower.toFloat() }],
+    ]
+
+    sensorConfigs.each { type, cfg ->
+        cfg.list?.each { device ->
+            def deviceData = new LinkedHashMap()
+            def deviceID = device.getId().toString()
+            def deviceUID = "${deviceID}-${type}".toString()
+            deviceData.put("ID", deviceID)
+            deviceData.put("name", state.deviceList.find { it.ID == deviceID && it.type == type }?.name)
+            deviceData.put("type", type)
+            def rawVal = device.currentValue(cfg.attr)
+            def displayVal = (rawVal != null && cfg.processVal) ? cfg.processVal(rawVal) : (rawVal ?: invalidAttribute.toString())
+            deviceData.put("switch", displayVal)
+            def iconInfo = rawVal != null ? getIcon(type, cfg.iconAttrVal(rawVal)) : [icon: "error", class: "warn"]
+            deviceData.put("icon", iconInfo?.icon)
+            deviceData.put("cl", iconInfo?.class)
+            def deviceDetails = getDeviceInfo(device, type)
+            if (!hideColumn7) {
+                def src = getGroupInfoSource(deviceUID, 1)
+                deviceData.put("i1", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}")
+            }
+            if (!hideColumn8) {
+                def src = getGroupInfoSource(deviceUID, 2)
+                deviceData.put("i2", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}")
+            }
+            if (!hideColumn9) {
+                def src = getGroupInfoSource(deviceUID, 3)
+                deviceData.put("i3", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}")
+            }
+            def meetsCondition = (rawVal != null && cfg.condition) ? cfg.condition(rawVal) : true
+            if (meetsCondition) deviceAttributesList << deviceData
+        }
+    }
 
     // Gather the data for the custom rows and group rows
     if (customRowCount.toInteger() > 0 && isCustomSort == "true") {
@@ -1281,38 +1279,38 @@ sensorConfigs.each { type, cfg ->
     state.JSON = JsonOutput.toJson(cleanedList)
 
     // Apply custom sort order if needed
-	if (isCustomSort == "true") {
-		def slurper2 = new JsonSlurper()
-		def list1 = slurper2.parseText(state.JSON)
-		def list2 = slurper2.parseText(state.customSortOrder ?: "[]")
-		def uidMap = list2.collectEntries { [(it.UID?.toString()): it.row] }
-		
-		// Find any UIDs not yet in the sort order and append them
-		def maxRow = list2 ? list2.max { it.row }?.row ?: 0 : 0
-		def newEntries = []
-		list1.each { item ->
-			def uid = "${item.ID}-${item.type}".toString()
-			if (!uidMap.containsKey(uid)) {
-				maxRow++
-				newEntries << [UID: uid, row: maxRow]
-				uidMap[uid] = maxRow
-				if (isLogDebug) log.debug("getJSON: Auto-appending unrecognized UID to sort order: $uid at row $maxRow")
-			}
-		}
-		if (newEntries) {
-			list2.addAll(newEntries)
-			state.customSortOrder = JsonOutput.toJson(list2)
-		}
-		
-		def mergedList = list1.collect { item ->
-			def uid = "${item.ID}-${item.type}".toString()
-			if (uidMap.containsKey(uid)) item.row = uidMap[uid]
-			return item
-		}
-		state.JSON = JsonOutput.prettyPrint(JsonOutput.toJson(mergedList))
-	}
+    if (isCustomSort == "true") {
+        def slurper2 = new JsonSlurper()
+        def list1 = slurper2.parseText(state.JSON)
+        def list2 = slurper2.parseText(state.customSortOrder ?: "[]")
+        def uidMap = list2.collectEntries { [(it.UID?.toString()): it.row] }
 
-    def timeElapsed = now() - timeStart  
+        // Find any UIDs not yet in the sort order and append them
+        def maxRow = list2 ? list2.max { it.row }?.row ?: 0 : 0
+        def newEntries = []
+        list1.each { item ->
+            def uid = "${item.ID}-${item.type}".toString()
+            if (!uidMap.containsKey(uid)) {
+                maxRow++
+                newEntries << [UID: uid, row: maxRow]
+                uidMap[uid] = maxRow
+                if (isLogDebug) log.debug("getJSON: Auto-appending unrecognized UID to sort order: $uid at row $maxRow")
+            }
+        }
+        if (newEntries) {
+            list2.addAll(newEntries)
+            state.customSortOrder = JsonOutput.toJson(list2)
+        }
+
+        def mergedList = list1.collect { item ->
+            def uid = "${item.ID}-${item.type}".toString()
+            if (uidMap.containsKey(uid)) item.row = uidMap[uid]
+            return item
+        }
+        state.JSON = JsonOutput.prettyPrint(JsonOutput.toJson(mergedList))
+    }
+
+    def timeElapsed = now() - timeStart
     if (isLogTrace) log.trace("Leaving: getJSON()" + timeElapsed / 1000 + " seconds.")
 }
 
@@ -1416,7 +1414,7 @@ def getDeviceInfo(device, type){
     def ID = device?.getId()
     def deviceName = device.getLabel()
     
-    // Resolve all active info sources once — avoids calling isInfoSource() repeatedly per device
+    // Resolve all active info sources once � avoids calling isInfoSource() repeatedly per device
     def activeSources = [info1Source, info2Source, info3Source] as Set
     if (isCustomSort == "true") {
         (1..customRowCount.toInteger()).each { i ->
@@ -1438,7 +1436,7 @@ def getDeviceInfo(device, type){
     if (hasSource("network")) network = getNetworkType(device?.getDeviceNetworkId())
     if (hasSource("deviceTypeName")) deviceTypeName = getDeviceTypeInfo(type)
     if (hasSource("battery") && device.hasCapability("Battery")) battery = device?.currentValue("battery") + "%"
-    if (hasSource("colorTemperature") && device.hasCapability("ColorTemperature")) colorTemperature = device?.currentValue("colorTemperature") + "°K"
+    if (hasSource("colorTemperature") && device.hasCapability("ColorTemperature")) colorTemperature = device?.currentValue("colorTemperature") + "�K"
     if (hasSource("temperature") && device.hasCapability("TemperatureMeasurement")) {
         def myTemp = device?.currentValue("temperature")
         temperature = Math.round(myTemp).toInteger().toString() + tempUnits
@@ -1654,6 +1652,9 @@ def compile(){
 	try{
 		if (isLogTrace) log.trace("<b>Entering: Compile</b>")
 		if (isLogDebug) log.debug("Running Compile")
+        
+        //Updated the device cache info with any changes. This is non-volatile info like device name, room, deviceID etc.
+		cacheDeviceInfo()
 			
         //Get the HTML template
         def html1 = parent.state.smartGridTemplate
@@ -1698,11 +1699,14 @@ def compile(){
         if (isLogDebug) log.debug "iFrame Row Column Span is: ${colspan}"
         content = content.replace('#iFrameColspan#', toHTML(colspan.toString()) )
         
-		//Column Headers
-		content = content.replace('#column3Header#', toHTML(column3Header) )	// Column 3 header text
-		content = content.replace('#column5Header#', toHTML(column5Header) )	// Column 5 header text
-		content = content.replace('#column6Header#', toHTML(column6Header) )	// Column 6 header text
-
+        //Column Headers
+        content = content.replace('#column1Header#', toHTML(replaceVarsInString(column1Header)) )
+        content = content.replace('#column2Header#', toHTML(replaceVarsInString(column2Header)) )
+        content = content.replace('#column3Header#', toHTML(replaceVarsInString(column3Header)) )
+		content = content.replace('#column4Header#', toHTML(replaceVarsInString(column4Header)) )
+		content = content.replace('#column5Header#', toHTML(replaceVarsInString(column5Header)) )
+		content = content.replace('#column6Header#', toHTML(replaceVarsInString(column6Header)) )
+        
 		//Forced Column Widths - If the columns are marked as hidden change the width to zero.
         [3, 4, 5, 6].each { i -> content = content.replace("#column${i}Width#", settings["hideColumn${i}"] ? '0' : settings["column${i}Width"].toString()) }
         	
@@ -1710,18 +1714,18 @@ def compile(){
 		content = content.replace('#crbc#', crbc )
 		content = content.replace('#crbc2#', crbc2 )
 		content = content.replace('#crtc#', crtc )
-		content = content.replace('#crts#', crts )
-
+        content = content.replace('#crts#', (crts.toFloat()/100).toString() )	// Custom Row Text Size - We use REM for this to break the inheritance from the tr - table row.
+		
 		//Info Columns
-		content = content.replace('#Info1#', toHTML(column7Header) )	// Info 1 Header Text
+		content = content.replace('#Info1#', toHTML(replaceVarsInString(column7Header) ) )	// Info 1 Header Text
 		content = content.replace('#its1#', its1 )	// Info 1 Text Size
 		content = content.replace('#ita1#', ita1 )	// Info 1 Text Alignment
 
-		content = content.replace('#Info2#', toHTML(column8Header) )	// Info 2 Header Text
+		content = content.replace('#Info2#', toHTML(replaceVarsInString(column8Header) ) )	// Info 2 Header Text
 		content = content.replace('#its2#', its2 )	// Info 2 Text Size
 		content = content.replace('#ita2#', ita2 )	// Info 2 Text Alignment
 
-		content = content.replace('#Info3#', toHTML(column9Header) )	// Info 3 Header Text
+		content = content.replace('#Info3#', toHTML(replaceVarsInString(column9Header) ) ) 	// Info 3 Header Text
 		content = content.replace('#its3#', its3 )	// Info 3 Text Size
 		content = content.replace('#ita3#', ita3 )	// Info 3 Text Alignment
 
@@ -1737,7 +1741,7 @@ def compile(){
 			content = content.replace('#tb#', mytb )	// Title Background Color// Display Title or not
 		}
 
-		content = content.replace('#hts#', hts )	// Header Text Size
+        content = content.replace('#hts#', (hts.toFloat()/100).toString() )	// Header Text Size - We use REM for this to break the inheritance from the tr - table row.
 		content = content.replace('#htc#', htc )	// Header Text Color
 		content = content.replace('#sortHeaderHintAZ#', sortHeaderHintAZ )
 		content = content.replace('#sortHeaderHintZA#', sortHeaderHintZA )
@@ -1759,9 +1763,8 @@ def compile(){
 
 		def myrbc = convertToHex8(rbc, rbo.toFloat())  //Calculate the new color including the opacity.
 		content = content.replace('#rbc#', myrbc )	// Row Background Color
-		content = content.replace('#rbs#', rbs )	// Row Background Color Selected
-        if ( highlightSelectedRows == "True" ) content = content.replace('#rbs#', rbs ) 
-		else content = content.replace('#rbs#', "00000000" ) 
+		if ( highlightSelectedRows == "True" ) content = content.replace('#rbs#', rbs ) // Row Background Color Selected
+		else content = content.replace('#rbs#', myrbc ) //Otherwise just set the background color to the default Row Background Color
 	
 		//Hide unwanted columns
 		(1..12).each { i -> content = content.replace("#hideColumn${i}#", settings["hideColumn${i}"] ? 'none' : 'table-cell') }
@@ -1882,11 +1885,12 @@ def cacheDeviceInfo(){
         [["WindowShade"], 14], [["WindowBlind"], 15],
         [["AudioVolume"], 16]
     ]
-    
+	
+    //Controls
     myDevices.each { device ->
         def deviceInfo = new LinkedHashMap()
         deviceInfo.put("ID", device.getId())
-        deviceInfo.put("name", getShortName(device.displayName))
+        deviceInfo.put("name", getShortName((device.getLabel() ?: device.getName()) ?: "Unknown"))
         capMap.each { caps, typeVal ->
             if (caps.every { device.hasCapability(it) }) deviceInfo.put("type", typeVal)
         }
@@ -1896,17 +1900,37 @@ def cacheDeviceInfo(){
     // Sensors
     def mySensorMap = [myContacts: 31, myTemps: 32, myLeaks: 33, myMotion: 34, myPresence: 35, mySmoke: 36, myCarbonMonoxide: 37, myHumidity: 38, myBattery: 39, myPower: 40]
     mySensorMap.each { sensorKey, type ->
-        this."$sensorKey".each { device ->
+        this."$sensorKey"?.each { device ->
             def deviceInfo = new LinkedHashMap()
             deviceInfo.put("ID", device.getId())
-            deviceInfo.put("name", getShortName(device.displayName))
+            deviceInfo.put("rawName", device.getLabel() ?: device.getName())
             deviceInfo.put("type", type)
             myDeviceList << deviceInfo
         }
-    }   
+    }
+
+    // Determine duplicates and append suffix to raw name before renaming
+    def multiTypeSensorTypes = [36, 37] as Set
+    def rawNameCounts = myDeviceList.findAll { it.type in multiTypeSensorTypes }.countBy { it.rawName }
+    
+    // Build the set of type codes that should have their sensor type name appended
+    def appendTypes = (appendTypeSensorSections ?: []).collect { sensorSectionToTypeMap()[it] }.findAll { it != null } as Set
+
+    def maps = createDeviceTypeMap()
+    myDeviceList.each { deviceInfo ->
+        // Controls already had getShortName() applied � skip them
+        if (!deviceInfo.containsKey("rawName")) return
+        def baseName = deviceInfo.rawName
+        if (deviceInfo.type in appendTypes) {
+            deviceInfo.name = getShortName("${baseName} (${maps.typeMap[deviceInfo.type]})")
+        } else {
+            deviceInfo.name = getShortName(baseName)
+        }
+        deviceInfo.remove("rawName")
+    }
+    
     state.deviceList = myDeviceList
 }
-
 //*******************************************************************************************************************************************************************************************
 //**************
 //**************  End of Compile Functions
@@ -2148,14 +2172,14 @@ def appButtonHandler(btn) {
 
 //Collapse or expand the visibility of the sensor sections
 def collapseAllSensors(collapsed) {
-    ["Battery", "CarbonMonoxide", "Contacts", "Humidity", "Motion", "Power", "Presence", "Smoke", "Temperature", "Water"].each { state.hidden[it] = collapsed }
+    sensorSectionsList().each { state.hidden[it.replace(" ", "")] = collapsed }
 }
 
 //Returns a formatted title for a section header based on whether the section is visible or not.
 def getSectionTitle(section) {
-	if (section == "Configure") { if (state.hidden.Configure == true) return sectionTitle("Configure ▶") else return sectionTitle("Configure ▼") }
-	if (section == "Preview") { if (state.hidden.Preview == true) return sectionTitle("Preview ▶") else return sectionTitle("Preview ▼") }
-	if (section == "Design") { if (state.hidden.Design == true) return sectionTitle("Design ▶") else return sectionTitle("Design ▼") }
+	if (section == "Configure") { if (state.hidden.Configure == true) return sectionTitle("Configure ?") else return sectionTitle("Configure ?") }
+	if (section == "Preview") { if (state.hidden.Preview == true) return sectionTitle("Preview ?") else return sectionTitle("Preview ?") }
+	if (section == "Design") { if (state.hidden.Design == true) return sectionTitle("Design ?") else return sectionTitle("Design ?") }
 }
 
 //*******************************************************************************************************************************************************************************************
@@ -2278,7 +2302,7 @@ def handler(evt) {
 //Deletes all event subscriptions.
 void deleteSubscription() {
     if (isLogTrace) log.trace("<b>Entering: deleteSubscription</b>")
-    if (isLogPublish) log.info("deleteSubscription: Deleted all subscriptions. To verify click on the App ⚙️ Symbol and look for the Event Subscriptions section.")
+    if (isLogPublish) log.info("deleteSubscription: Deleted all subscriptions. To verify click on the App ?? Symbol and look for the Event Subscriptions section.")
     unsubscribe()
 }
 

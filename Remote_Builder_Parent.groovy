@@ -35,14 +35,15 @@
 *  Version 1.1.4 - Shortened code by pointing to an external image for the Roku Remote shown in the introduction tab. Link points to post in Hubitat Community.
 *  Version 2.0.0 - Added remoteBuilderTemplate() function to hold the code for the Remote Builder template. This makes the Remote Builder code size more manageable.
 *  				 - Add sub-group sorting to the SmartGrid JS template. Added color coding for some numeric values to the template. SmartGrid Template changes.
+*  Version 2.0.1 - JS template modifications for SmartGrid
 *
-*  Gary Milne - 03/30/26 @ 2:11 PM
+*  Gary Milne - 05/26/26 @ 9:57 AM
 *
 **/
 
 import groovy.transform.Field
-@Field static final codeDescription = "<b>Remote Builder Parent v2.0.0 (03/30/26)</b>"
-@Field static final codeVersion = 200
+@Field static final codeDescription = "<b>Remote Builder Parent v2.0.1 (05/26/26)</b>"
+@Field static final codeVersion = 201
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -68,7 +69,6 @@ preferences {
 }
 
 def mainPage() {
-    //if (state.initialized == null ) initialize()
     if (state.initialized == null || state.variablesVersion == null || state.variablesVersion < codeVersion) initialize()
         
     dynamicPage(name: "mainPage") {
@@ -915,7 +915,7 @@ def buildSmartGridTemplate() {
 	/*  START OF TABLE CLASSES */
 	table {width: calc(100%); border-collapse: collapse; table-layout: auto; border: #bwo#px solid #bc#; margin: 0 auto;}
 	th, td { padding: #tvp#px #thp#px; text-align:center; vertical-align:middle; border: #bwi#px solid #bc#; transition:background-color 0.3s; user-select:none;}
-	th { background-color: #hbc#; font-weight: bold; font-size: #hts#%; color: #htc#; margin:1px; }
+	th { background-color: #hbc#; font-weight: bold; color: #htc#; margin:1px; font-size: #hts#rem; }
 	
 	.ascSort { border-bottom: #bwi#px solid #sortHeaderHintAZ#;}
 	.descSort { border-bottom: #bwi#px solid #sortHeaderHintZA#;}
@@ -924,7 +924,8 @@ def buildSmartGridTemplate() {
 	tr:hover { background-color: #rbs#;} 
     
 	.selected-row {	background-color: #rbs#;}
-	.custom-row-group {background-color: #crbc#; color:#crtc#; font-size: #crts#%;}
+	.custom-row-group {  background: linear-gradient(to bottom, #crbc#, #crbc2#); color: #crtc# !important; font-size: #crts#rem; }
+
 	//Drag and Drop Support
 	#isDragDropCSS#
 
@@ -964,7 +965,7 @@ def buildSmartGridTemplate() {
 	.toggle-switch.on::before { transform: translateX(calc(var(--control))); }
 
 	/* Column 5 - Control Group 1 - Level and Kelvin Sliders */
-	.control-container {display:flex;position: relative; width: 95%; display: flex; justify-content: center; align-items: center; background-color:#rbc#; margin:auto; }
+	.control-container {display:flex;position: relative; width: 95%; justify-content: center; align-items: center; background-color:#rbc#; margin:auto; }
 	.CT-slider, .level-slider, .blinds-slider, .shades-slider, .volume-slider, .tilt-slider { width: 90%; opacity:0.75; border-radius:0px; height:var(--control); outline: 2px solid #888; cursor: pointer;}
 	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value, .state-value {position:absolute; top:50%; transform:translateY(-50%); font-size:#rts#%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;color: #rtc#;}
 	.state-text {font-size:#rts#%; pointer-events:none; cursor:pointer;}
@@ -1105,7 +1106,6 @@ let pollingTimeoutID = null;	//Handle for the Polling Timeout
 const groupRow = 51;
 const deviceRow = 52;
 const iFrameRow = 53;
-const valve = 10;
 const stateMap = #deviceStateMap#;
 const intraGroupSortState = {};
 
@@ -1125,8 +1125,6 @@ let sortDirection = storedSortDirection || { activeColumn: 2, direction: 'asc' }
 let showSlider = ( localStorage.getItem(storageKey("showSlider")) === "A" || localStorage.getItem(storageKey("showSlider")) === "B" ) ? localStorage.getItem(storageKey("showSlider")) : "A";
 let lastCommand = "none";
 let isSliding = false;
-let pollingActive = true;
-let isWindowActive = true;
 
 // Use localStorage (instead of sessionStorage) for all settings
 let sessionID = localStorage.getItem(storageKey("sessionID"));
@@ -1229,14 +1227,6 @@ document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
 
 //***********************************************  Table Body  *************************************************************************
 //**************************************************************************************************************************************
-
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
 
 function showVariables(){
 	console.log("Session Storage Variables:");
@@ -1359,15 +1349,14 @@ function updateState() {
 //Formats the appearance of the Custom Rows. 51: Group Row, 52: Device Row, 53: iFrame Row  
 function updateRows() {
     document.querySelectorAll("#sortableTable tr").forEach(row => {
-        if (Number(row.dataset.type) === groupRow) {
-            row.style.background = "linear-gradient(to bottom, #crbc#, #crbc2#)";
-            [...row.cells].forEach((cell, i) => {
-                if (!cell) return;
-                if ([1, 2, 3].includes(i)) cell.classList.add(".custom-row-group");
-                if (i === 0) cell.innerHTML = "";
-                cell.style.borderRight = "2px solid transparent";
-            });
-        }
+    if (Number(row.dataset.type) === groupRow) {
+        row.classList.add("custom-row-group");
+        [...row.cells].forEach((cell, i) => {
+            if (!cell) return;
+            if (i === 0) cell.innerHTML = "";
+            cell.style.borderRight = "2px solid transparent";
+        });
+    }
 		//Remove the Selection box for anything of type >= 30, namely sensors or custom rows.
 		if (+row.dataset.type >= 30) {
             const cell = row.cells[0];
@@ -1955,57 +1944,6 @@ function intraGroupNumericSort(tbody, targetGroup) {
     });
 }
 
-
-// Track sort state per subgroup: 1=high-low, 2=low-high, 3=alpha-name
-function intraGroupNumericSortOld(tbody, targetGroup) {
-    const rows = Array.from(tbody.rows);
-    const segments = [];
-    let current = null;
-    rows.forEach(row => {
-        if (Number(row.dataset.type) === groupRow) {
-            current = { header: row, members: [], group: row.dataset.group };
-            segments.push(current);
-        } else if (current) {
-            current.members.push(row);
-        } else {
-            segments.push({ header: null, members: [row], group: null });
-        }
-    });
-
-    segments.forEach(seg => {
-        if (seg.group !== targetGroup || !seg.header) return;
-
-        intraGroupSortState[targetGroup] = ((intraGroupSortState[targetGroup] || 0) % 3) + 1;
-        const sortState = intraGroupSortState[targetGroup];
-
-        seg.members.sort((a, b) => {
-            if (sortState === 3) {
-                const nameA = a.cells[2]?.textContent.trim().toLowerCase() || '';
-                const nameB = b.cells[2]?.textContent.trim().toLowerCase() || '';
-                return nameA.localeCompare(nameB);
-            } else {
-                const valA = parseFloat(a.cells[3]?.textContent) || 0;
-                const valB = parseFloat(b.cells[3]?.textContent) || 0;
-                return sortState === 1 ? valB - valA : valA - valB;
-            }
-        });
-
-        const hintSpan = seg.header.querySelector('.sort-hint');
-        if (hintSpan) {
-            hintSpan.textContent = sortState === 1 ? ' ▼' : sortState === 2 ? ' ▲' : ' ⇅';
-        }
-
-        let insertRef = seg.header;
-        seg.members.forEach(row => {
-            insertRef.after(row);
-            insertRef = row;
-        });
-        
-        // If we are in DragDrop mode then save the new order if it is Alpha based on Name
-        if (sortState === 3  && isDragDrop ) saveRowOrder();
-    });
-}
-
 // Function to set or clear column header sorting classes
 function setColumnHeaders(applySorting = true) {
     const headers = document.querySelectorAll('#sortableTable thead th');
@@ -2109,13 +2047,6 @@ function refreshPage(timeout) {
 	    clearTimeout(pressTimer);
 	    pressTimer = null;
     }
-}
-
-//Converts RGB string to a Hex value
-function rgb2hex(rgbString) {
-    return '#' + rgbString.slice(4, -1).split(',').map(num => 
-        ('0' + parseInt(num.trim()).toString(16)).slice(-2)
-    ).join('');
 }
 
 // Add window beforeunload event listener for cleanup
