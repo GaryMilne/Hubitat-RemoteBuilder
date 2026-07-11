@@ -36,14 +36,15 @@
 *  Version 2.0.0 - Added remoteBuilderTemplate() function to hold the code for the Remote Builder template. This makes the Remote Builder code size more manageable.
 *  				 - Add sub-group sorting to the SmartGrid JS template. Added color coding for some numeric values to the template. SmartGrid Template changes.
 *  Version 2.0.1 - JS template modifications for SmartGrid
+*  Version 2.0.2 - JS template modifications for SmartGrid improvements
 *
-*  Gary Milne - 05/26/26 @ 9:57 AM
+*  Gary Milne - 07/11/26 @ 1:36 PM
 *
 **/
 
 import groovy.transform.Field
-@Field static final codeDescription = "<b>Remote Builder Parent v2.0.1 (05/26/26)</b>"
-@Field static final codeVersion = 201
+@Field static final codeDescription = "<b>Remote Builder Parent v2.0.2 (07/11/26)</b>"
+@Field static final codeVersion = 202
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -1244,6 +1245,16 @@ function loadTableFromJSON(data) {
     const saved = JSON.parse(sessionStorage.getItem(storageKey("checkboxStates"))) || {};
 
     data.forEach((d, i) => {
+        // Type 99 is a sentinel entry carrying refreshed header/title values — update the spans and skip row creation.
+        if (d.type === 99) {
+            ["hdrCol1","hdrCol2","hdrCol3","hdrCol4","hdrCol5","hdrCol6","hdrInfo1","hdrInfo2","hdrInfo3","hdrTitle"].forEach(function(k) {
+                var el = document.getElementById(k);
+                if (el && d[k] != null && el.innerHTML !== d[k]) el.innerHTML = d[k];
+            });
+            return;
+        }
+
+		//Process all of the regular device entries.
         let show = true;
         if (filterValues["filterSwitch"] === "onlyOn" && d.type >= 1 && d.type <= 5 && d.switch !== "on") show = false;
         if (filterValues["filterLock"] === "onlyUnlocked" && d.type === 11 && d.switch !== "off") show = false;

@@ -65,8 +65,10 @@
 *  Version 5.1.2 - Add ability to append sensor types to duplicate sensor names and thus de-dupe them for use with device rename.
 *  Version 5.1.3 - Add two additional time formats.
 *  Version 5.2.0 - Add ability to embed variable names in the header columns. Fix bugs in the handling of colors and text sizes in the Appearance tab. Fixed error with Highlight Selected Rows not working correctly.
+*  Version 5.2.1 - Changes to handle variable names embedded in a device\sensor name. 
+*  Version 5.3.0 - Changes to handle variable names embedded in a column header. Datetime Hub variables will be formatted using the formatTime function and the defaultDateTimeFormat.
 *
-*  Gary Milne - May 30th, 2026 @ 6:49 PM
+*  Gary Milne - July 11th, 2026 @ 1:40 PM
 *
 **/
 
@@ -95,10 +97,9 @@ static def opacity() { return ['1', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0
 static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'] }
 static def elementSize2() { return ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '11', '11.5', '12', '12.5', '13', '13.5', '14', '14.5', '15', '15.5', '16', '16.5', '17', '17.5', '18', '18.5', '19', '19.5','20'] }
 static def elementSizeMinor() { return ['0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'] }
-static def unitsMap() { return ['°F', ' °F', '°C', ' °C']}
+static def unitsMap() { return ['Â°F', 'Â Â°F', 'Â°C', 'Â Â°C']}
 static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: HH:mm", 3: "To: h:mm a", 4: "To: HH:mm:ss", 5: "To: h:mm:ss a", 6: "To: E HH:mm", 7: "To: E h:mm a", 8: "To: EEEE HH:mm", 9: "To: EEEE h:mm a", \
 								10: "To: MM-dd HH:mm", 11: "To: MM-dd h:mm a", 12: "To: MMMM dd HH:mm", 13: "To: MMMM dd h:mm a", 14: "To: yyyy-MM-dd HH:mm", 15: "To: dd-MM-yyyy h:mm a", 16: "To: MM-dd-yyyy h:mm a", 17: "To: E @ h:mm a", 18: "To: MMM dd HH:mm", 19: "To: MMM dd HH:mm a"] }
-static def dateFormatsList() { return dateFormatsMap().values() }
 static def hubProperties() { return ["sunrise", "sunrise1", "sunrise2", "sunset", "sunset1", "sunset2", "hubName", "hsmStatus", "currentMode", "firmwareVersionString", "uptime", "timeZone", "daylightSavingsTime", "currentTime", "currentTime1", "currentTime2"].sort() }
 static def defaultStateMap() { return '''{"open": "[m4]Open[/m4]", "closed": "[m2]Closed[/m2]", "active": "[m4]Active[/m4]", "inactive": "Idle", "wet": "[m3]WET![/m3]", "dry": "Dry", "present": "Present", "not present": "[m4]Away[/m4]", "detected": "[m3]ALERT![/m3]", "clear": "Clear", "tested": "[m1]Tested[/m1]"}''' }
 
@@ -118,12 +119,11 @@ static def sensorSectionToTypeMap() {
 static def sensorSectionsList() { return sensorSectionToTypeMap().keySet().sort() }
 static def durationFormatsMap() { return [21: "To: Elapsed Time (dd):hh:mm:ss", 22: "To: Elapsed Time (dd):hh:mm"] }
 static def durationFormatsList() { return durationFormatsMap().values() }
-static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
+static def invalidAttributeStrings() { return ["N/A", "n/a", "Â ", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["Default", "None", "battery", "colorMode", "colorName", "colorTemperature", "deviceTypeName", "energy", "healthStatus", "humidity", "ID", "lastActive", "lastActiveDuration", "lastInactive", "lastInactiveDuration", "lastSeen", "lastSeenElapsed", "network", "power", "roomName", "temperature"] }
-static def decimalPlaces() {return ["0 Decimal Places", "1 Decimal Place"]}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.2.0 (5/26/26)</b>"
-@Field static final codeVersion = 520
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.3.0 (7/11/26)</b>"
+@Field static final codeVersion = 530
 @Field static final moduleName = "SmartGrid"
 
 definition(
@@ -153,7 +153,7 @@ def mainPage(){
     //Compile the JS every time to accomodate UI change requests. This compile will NOT run during normal operation of the SmartGrid, only in the edit\design phase.
     compile()
 
-    dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff; margin-top:-3vh !important;'>Remote Builder - " + moduleName + " ?? </div>", uninstall: true, install: true, singleThreaded:false) {
+    dynamicPage(name: "mainPage", title: "<div style='text-align:center;color: #c61010; font-size:30px;text-shadow: 0 0 5px #FFF, 0 0 10px #FFF, 0 0 15px #FFF, 0 0 20px #49ff18, 0 0 30px #49FF18, 0 0 40px #49FF18, 0 0 55px #49FF18, 0 0 75px #ffffff; margin-top:-3vh !important;'>Remote Builder - " + moduleName + " ðŸ“± </div>", uninstall: true, install: true, singleThreaded:false) {
 
         section(hideable: true, hidden: state.hidden.Configure, title: buttonLink('btnHideConfigure', getSectionTitle("Configure"), 20)) {
             //Setup the Table Style
@@ -622,7 +622,7 @@ def mainPage(){
                 input(name: "controlSize", title: bold("Control Size"), type: "enum", options: ["7.5", "10", "12.5", "15", "17.5", "20", "22.5", "25", "27.5", "30"], submitOnChange: true, defaultValue: "15", width: 2, style:"margin-right:25px")
                 input (name: "ha", type: "enum", title: bold("Horizontal Alignment"), required: false, options: ["Stretch", "Left", "Center", "Right"], defaultValue: "Stretch", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
                 input(name: "invalidAttribute", title: bold("Invalid Attribute String"), type: "enum", options: invalidAttributeStrings(), submitOnChange: true, defaultValue: "N/A", width: 2, style:"margin-right:25px", newLine:true)
-                input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "°F", style:"margin-right:25px")
+                input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "Â°F", style:"margin-right:25px")
                 input ("tempDecimalPlaces", "enum", title: "<b>Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, defaultValue: "0 Decimal Places", submitOnChange: true, width: 2, required: false, style:"margin-right:25px")
                 //input ("capitalizeStrings", "enum", title: "<b>Capitalize Variable Strings</b>", options: ["True", "False"], multiple: false, defaultValue: "False", submitOnChange: true, width: 2, required: false)
                 input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
@@ -671,7 +671,7 @@ def mainPage(){
                 input(name: "hideColumn2", type: "bool", title: bold("Hide Column 2 - Icons?"), required: false, defaultValue: false, width:2, submitOnChange: true, style:"margin-top:40px;", newLine:false)
                 input(name: "column3Header", type: "string", title: bold("Column 3 Header"), required: false, defaultValue: "Name", width: 2, submitOnChange: true, style:"margin-top:20px;", newLine:false)
                 input(name: "hideColumn4", type: "bool", title: bold("Hide Column 4 - State?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px;", newLine:true)
-                input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
+                input(name: "hideColumn5", type: "bool", title: bold("Hide Column 5 - Control A/B - Level/Â°K?"), required: false, defaultValue: false, width:3, submitOnChange: true, style:"margin-top:40px", newLine:true)
                 if (hideColumn5 == false) {
                     input(name: "column5Header", type: "string", title: bold("Column 5 Header"), required: false, defaultValue: "Control A/B", width: 2, submitOnChange: true)
                     input(name: "column5Width", type: "enum", title: bold("Column 5 Width (px)"), options: columnWidth(), required: false, defaultValue: 100, submitOnChange: true, width: 2, style:"margin-right:25px")
@@ -801,7 +801,7 @@ def initialize() {
             // General
             invalidAttribute: ["N/A", "enum"], defaultDateTimeFormat: ["3", "enum"],
             defaultDurationFormat: ["21", "enum"], controlSize: ["15", "enum"],
-            tempUnits: ["°F", "enum"], sortHeaderHintAZ: ["#00FF00", "color"],
+            tempUnits: ["Â°F", "enum"], sortHeaderHintAZ: ["#00FF00", "color"],
             sortHeaderHintZA: ["#FF0000", "color"], tempDecimalPlaces: ["0 Decimal Places", "enum"],
             // Table Layout
             thp: ["5", "enum"], tvp: ["3", "enum"], tvpm: ["0", "enum"], tmt: ["0", "enum"],
@@ -816,10 +816,8 @@ def initialize() {
             column8Header: ["Duration", "text"], column9Header: ["Room", "text"],
             column11Header: ["Custom Sort", "text"],
             // Hidden Columns
-            hideColumn1: [false, "bool"], hideColumn2: [false, "bool"], hideColumn3: [false, "bool"],
-            hideColumn4: [false, "bool"], hideColumn5: [false, "bool"], hideColumn6: [false, "bool"],
-            hideColumn7: [true, "bool"], hideColumn8: [true, "bool"], hideColumn9: [true, "bool"],
-            hideColumn10: [true, "bool"], hideColumn11: [true, "bool"], hideColumn12: [true, "bool"],
+            hideColumn1: [false, "bool"], hideColumn2: [false, "bool"], hideColumn3: [false, "bool"], hideColumn4: [false, "bool"], hideColumn5: [false, "bool"], hideColumn6: [false, "bool"],
+            hideColumn7: [true, "bool"], hideColumn8: [true, "bool"], hideColumn9: [true, "bool"], hideColumn10: [true, "bool"], hideColumn11: [true, "bool"], hideColumn12: [true, "bool"],
             // Info Columns
             info1Source: ["lastActive", "enum"], its1: ["80", "enum"], ita1: ["Center", "enum"], info2Source: ["lastActiveDuration", "enum"], its2: ["80", "enum"], ita2: ["Center", "enum"], info3Source: ["roomName", "enum"], its3: ["80", "enum"], ita3: ["Center", "enum"],
             // Title
@@ -854,7 +852,7 @@ def initialize() {
         state.initialized = true
     }
     
-    // Post-release variable initialization — only set if null
+    // Post-release variable initialization â€” only set if null
     if (state.hidden == null) state.hidden = [Configure: false, Preview: false, Design: false]
     if (state.activeButtonA == null) state.activeButtonA = 1
     if (state.activeButtonB == null) state.activeButtonB = 21
@@ -863,12 +861,12 @@ def initialize() {
         def testParse = new JsonSlurper().parseText(state.customSortOrder ?: "[]")
         if (!(testParse instanceof List)) throw new Exception("Not a List")
     } catch (Exception e) {
-        log.warn("initialize: state.customSortOrder was corrupt ('${state.customSortOrder}') — resetting to empty. Error: $e")
+        log.warn("initialize: state.customSortOrder was corrupt ('${state.customSortOrder}') â€” resetting to empty. Error: $e")
         state.customSortOrder = JsonOutput.toJson([])
     }
     if (state.hidden.Preview == null) state.hidden.Preview = false
     
-    // Settings that default when null — [settingName: [value, type]]
+    // Settings that default when null â€” [settingName: [value, type]]
     def nullDefaults = [
         customRowCount: ["0", "enum"], isCustomSort: ["false", "enum"], isDragDrop: ["false", "bool"],
         defaultDateTimeFormat: ["0", "enum"], defaultDurationFormat: ["0", "enum"], controlSize: ["15", "enum"],
@@ -884,11 +882,11 @@ def initialize() {
         its1: ["80", "enum"], its2: ["80", "enum"], its3: ["80", "enum"],
         ita1: ["Center", "enum"], ita2: ["Center", "enum"], ita3: ["Center", "enum"],
         temperatureDecimalPlaces: ["0 Decimal Places", "enum"], capitalizeStrings: ["False", "enum"],
-        myDeviceRenameCount: ["0", "enum"], tempUnits: ["°F", "enum"],
+        myDeviceRenameCount: ["0", "enum"], tempUnits: ["Â°F", "enum"],
         hideColumn11: [true, "bool"], hideColumn12: [true, "bool"],
         // New variables section
         displayCustomRow: ["All", "enum"], myVariableCount: ["0", "enum"]
-        // customSortOrder intentionally omitted — managed exclusively by the parse-validation block above
+        // customSortOrder intentionally omitted â€” managed exclusively by the parse-validation block above
     ]
     nullDefaults.each { name, config ->
         if (settings[name] == null) app.updateSetting(name, [value: config[0].toString(), type: config[1]])
@@ -896,12 +894,10 @@ def initialize() {
     
     if (deviceStateMap == null) app.updateSetting("deviceStateMap", [value: defaultStateMap(), type: "text"])
     
-    // Version-gated updates — force certain changes on existing installs when code version advances
+    // Version-gated updates â€” force certain changes on existing installs when code version advances
     if (state.variablesVersion == null || state.variablesVersion < codeVersion) {
+        publishSubscribe()
         state.variablesVersion = codeVersion
-        
-        // customSortOrder seed removed from here — the parse-validation block above already handles
-        // healing a missing or corrupt sort order safely without overwriting a valid existing one
         
         // myVariableCount is a new setting not present in older installs
         if (settings.myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])        
@@ -913,8 +909,8 @@ def initialize() {
         if (rowType == "Seperator Row" || rowType == "Separator Row") {
             app.updateSetting("customRowType$i", [value: "Group Row", type: "enum"])
         }
-        // Fix old "Group Row" no-op update that was a placeholder — remove if truly not needed
-        // (keeping it in case it guards against a future rename)
+        // Fix old "Group Row" no-op update that was a placeholder â€” remove if truly not needed
+        // (keeping it in case it guards against a future rename) - Will remove at later date
         if (rowType == "Group Row") {
             app.updateSetting("customRowType$i", [value: "Group Row", type: "enum"])
         }
@@ -992,9 +988,7 @@ String getVariableText(var, dp) {
     }
 
     // Check Device Attribute
-    if (settings["variableSource${dev}"] == "Device Attribute" &&
-        settings["myDevice${dev}"] != null &&
-        settings["myAttribute${var}"] != null) {
+    if (settings["variableSource${dev}"] == "Device Attribute" && settings["myDevice${dev}"] != null && settings["myAttribute${var}"] != null) {
         def rawValue = settings["myDevice${dev}"]?.currentValue(settings["myAttribute${var}"])
         myValue = (rawValue != null) ? rawValue : invalidAttribute.toString()
         
@@ -1007,16 +1001,24 @@ String getVariableText(var, dp) {
     }
     
     // Check Hub Variable
-    if (settings["variableSource${dev}"] == "Hub Variable" &&
-        settings["myHubVariable${var}"] != null) {
+    if (settings["variableSource${dev}"] == "Hub Variable" && settings["myHubVariable${var}"] != null) {
         def myMap = getGlobalVar(settings["myHubVariable${var}"])
-        myValue = myMap?.value?.toString() ?: invalidAttribute.toString()
+        //Check to see if it is a datetime format. If it is we will format it using the defaultDateTimeFormat
+        if (myMap?.type == "datetime") {
+            def rawValue = myMap?.value
+            if (rawValue != null) {
+                myValue = formatTime(rawValue, defaultDateTimeFormat.toInteger())
+            } else {
+                myValue = invalidAttribute.toString()
+            }
+        } else {
+            myValue = myMap?.value?.toString() ?: invalidAttribute.toString()
+        }
         if (isLogDebug) log.debug("getVariableText(Hub Variable - $var) - Hub Var: ${settings["myHubVariable${var}"]} = $myValue")
     }
 
     // Check Hub Property
-    if (settings["variableSource${dev}"] == "Hub Property" &&
-        settings["myHubProperty${var}"] != null) {
+    if (settings["variableSource${dev}"] == "Hub Property" && settings["myHubProperty${var}"] != null) {
         myValue = getHubProperty(settings["myHubProperty${var}"])
         if (isLogDebug) log.debug("getVariableText(Hub Property - $var) - Hub Property: ${settings["myHubProperty${var}"]} = $myValue")
     }
@@ -1100,7 +1102,7 @@ def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
     
     // If the group row doesn't exist in the sort order yet, add it at the end
     if (insertAfterIndex == -1) {
-        if (isLogDebug) log.debug "autoAssign: Group row ${targetUID} not found — inserting it into sort order."
+        if (isLogDebug) log.debug "autoAssign: Group row ${targetUID} not found â€” inserting it into sort order."
         def groupEntry = [ID: targetID, UID: targetUID, row: sortOrder.size() + 1]
         sortOrder.add(groupEntry)
         insertAfterIndex = sortOrder.size() - 1
@@ -1142,7 +1144,7 @@ def getJSON() {
         def deviceID = device.getId().toString()
         def cachedDevice = state.deviceList.find { it.ID == deviceID }
         deviceData.put("ID", device.getId())
-        deviceData.put("name", cachedDevice?.name)
+        deviceData.put("name", getShortName(cachedDevice?.rawLabel ?: "Unknown"))
         def mySwitch = device.currentValue("switch")
         deviceData.put("switch", mySwitch)
         deviceType = cachedDevice?.type
@@ -1170,7 +1172,6 @@ def getJSON() {
         if (hideColumn9 == false) { def src = getGroupInfoSource(deviceUID, 3); deviceData.put("i3", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
         deviceAttributesList << deviceData
     }
-
     def sensorConfigs = [
         31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeContacts == "False") return true; return val == "open" }],
         32: [list: myTemps, attr: "temperature", iconAttrVal: { "temp" },
@@ -1194,14 +1195,14 @@ def getJSON() {
                 processVal: { val -> float p = val as float; return p.round(0).toInteger().toString() + "W" },
                 condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangePower == "False") return true; float p = val as float; return p >= minPower.toFloat() }],
     ]
-
     sensorConfigs.each { type, cfg ->
         cfg.list?.each { device ->
             def deviceData = new LinkedHashMap()
             def deviceID = device.getId().toString()
             def deviceUID = "${deviceID}-${type}".toString()
             deviceData.put("ID", deviceID)
-            deviceData.put("name", state.deviceList.find { it.ID == deviceID && it.type == type }?.name)
+            def cachedSensor = state.deviceList.find { it.ID == deviceID && it.type == type }
+            deviceData.put("name", getShortName(cachedSensor?.rawLabel ?: "Unknown"))
             deviceData.put("type", type)
             def rawVal = device.currentValue(cfg.attr)
             def displayVal = (rawVal != null && cfg.processVal) ? cfg.processVal(rawVal) : (rawVal ?: invalidAttribute.toString())
@@ -1226,7 +1227,6 @@ def getJSON() {
             if (meetsCondition) deviceAttributesList << deviceData
         }
     }
-
     // Gather the data for the custom rows and group rows
     if (customRowCount.toInteger() > 0 && isCustomSort == "true") {
         (1..customRowCount.toInteger()).each { i ->
@@ -1267,24 +1267,20 @@ def getJSON() {
             deviceAttributesList << deviceData
         }
     }
-
     // Strip nulls and empty strings from device rows only
     def cleanedList = deviceAttributesList.collect { device ->
         def type = device.type as Integer
         if (type >= 51) return device
         device.findAll { k, v -> v != null && v != "" }
     }
-
     // Save compact JSON
     state.JSON = JsonOutput.toJson(cleanedList)
-
     // Apply custom sort order if needed
     if (isCustomSort == "true") {
         def slurper2 = new JsonSlurper()
         def list1 = slurper2.parseText(state.JSON)
         def list2 = slurper2.parseText(state.customSortOrder ?: "[]")
         def uidMap = list2.collectEntries { [(it.UID?.toString()): it.row] }
-
         // Find any UIDs not yet in the sort order and append them
         def maxRow = list2 ? list2.max { it.row }?.row ?: 0 : 0
         def newEntries = []
@@ -1301,7 +1297,6 @@ def getJSON() {
             list2.addAll(newEntries)
             state.customSortOrder = JsonOutput.toJson(list2)
         }
-
         def mergedList = list1.collect { item ->
             def uid = "${item.ID}-${item.type}".toString()
             if (uidMap.containsKey(uid)) item.row = uidMap[uid]
@@ -1309,6 +1304,24 @@ def getJSON() {
         }
         state.JSON = JsonOutput.prettyPrint(JsonOutput.toJson(mergedList))
     }
+
+    // Append the type-99 header entry AFTER all sorting and processing is complete so it bypasses
+    // null-stripping, UID mapping, and custom sort logic â€” preventing it from appearing as a table row.
+    def finalList = new JsonSlurper().parseText(state.JSON)
+    def headerData = new LinkedHashMap()
+    headerData.put("type", 99)
+    headerData.put("hdr1",  toHTML(replaceVarsInString(column1Header ?: "")))
+    headerData.put("hdr2",  toHTML(replaceVarsInString(column2Header ?: "")))
+    headerData.put("hdr3",  toHTML(replaceVarsInString(column3Header ?: "")))
+    headerData.put("hdr4",  toHTML(replaceVarsInString(column4Header ?: "")))
+    headerData.put("hdr5",  toHTML(replaceVarsInString(column5Header ?: "")))
+    headerData.put("hdr6",  toHTML(replaceVarsInString(column6Header ?: "")))
+    headerData.put("hdr7", toHTML(replaceVarsInString(column7Header ?: "")))
+    headerData.put("hdr8", toHTML(replaceVarsInString(column8Header ?: "")))
+    headerData.put("hdr9", toHTML(replaceVarsInString(column9Header ?: "")))
+    headerData.put("hdrTitle", (tt == "?") ? "" : toHTML(replaceVarsInString(tt ?: "")))
+    finalList << headerData
+    state.JSON = JsonOutput.toJson(finalList)
 
     def timeElapsed = now() - timeStart
     if (isLogTrace) log.trace("Leaving: getJSON()" + timeElapsed / 1000 + " seconds.")
@@ -1393,28 +1406,12 @@ def getIcon(type, deviceState) {
     return result ?: [icon: "error", class: "warn"]
 }
 
-def isInfoSource(source) {
-    if (info1Source == source) return true
-    if (info2Source == source) return true
-    if (info3Source == source) return true
-    
-    for (int i = 1; i <= customRowCount.toInteger(); i++) {
-        if (settings["customRowType${i}"] == "Group Row") {
-            if (settings["info1SourceGroup${i}"] == source) return true
-            if (settings["info2SourceGroup${i}"] == source) return true
-            if (settings["info3SourceGroup${i}"] == source) return true
-        }
-    }
-    return false
-}
-
 def getDeviceInfo(device, type){
     def lastActiveEvent, lastInactiveEvent, lastActive, lastInactive, lastActiveInstant, lastInactiveInstant, lastActiveDuration, lastSeen, lastSeenElapsed
     def roomName, colorName, colorMode, power, healthStatus, energy, network, colorTemperature, deviceTypeName, lastActivity, battery, temperature, humidity
     def ID = device?.getId()
-    def deviceName = device.getLabel()
-    
-    // Resolve all active info sources once — avoids calling isInfoSource() repeatedly per device
+        
+    // Resolve all active info sources once
     def activeSources = [info1Source, info2Source, info3Source] as Set
     if (isCustomSort == "true") {
         (1..customRowCount.toInteger()).each { i ->
@@ -1436,7 +1433,7 @@ def getDeviceInfo(device, type){
     if (hasSource("network")) network = getNetworkType(device?.getDeviceNetworkId())
     if (hasSource("deviceTypeName")) deviceTypeName = getDeviceTypeInfo(type)
     if (hasSource("battery") && device.hasCapability("Battery")) battery = device?.currentValue("battery") + "%"
-    if (hasSource("colorTemperature") && device.hasCapability("ColorTemperature")) colorTemperature = device?.currentValue("colorTemperature") + "°K"
+    if (hasSource("colorTemperature") && device.hasCapability("ColorTemperature")) colorTemperature = device?.currentValue("colorTemperature") + "Â°K"
     if (hasSource("temperature") && device.hasCapability("TemperatureMeasurement")) {
         def myTemp = device?.currentValue("temperature")
         temperature = Math.round(myTemp).toInteger().toString() + tempUnits
@@ -1557,16 +1554,9 @@ def setDeviceColor(device, hexColor) {
     device.setColor([hue: HSV[0], saturation: HSV[1], level: HSV[2]])
 }
 
-// Iterate over each device in myDevices and check if ID matches. If it does match return that device.
+// Find the device that matches the ID.
 def findDeviceById(ID) {
-    def foundDevice = null  // Variable to store the found device
-    myDevices.each { device ->
-        if (device.getId() == ID) {
-            foundDevice = device
-            return foundDevice
-        }
-    }
-    return foundDevice
+    return myDevices?.find { it.getId() == ID }
 }
 
 //*******************************************************************************************************************************************************************************************
@@ -1580,6 +1570,23 @@ def findDeviceById(ID) {
 
 def formatTime(timeValue, int format) {
     if (timeValue == "N/A") return 0
+    
+    // Handle ISO 8601 string format (e.g. "1960-12-11T08:30:00.000-0600")
+    if (getObjectClassName(timeValue) == "java.lang.String") {
+        try {
+            def isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+            timeValue = isoFormat.parse(timeValue).getTime()
+        } catch (Exception e1) {
+            try {
+                // Fallback: try without milliseconds
+                def isoFormat = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
+                timeValue = isoFormat.parse(timeValue).getTime()
+            } catch (Exception e2) {
+                return "N/A"
+            }
+        }
+    }
+    
     def myLongTime = (getObjectClassName(timeValue) == "java.sql.Timestamp") ? timeValue.getTime() : timeValue
     if (new Date(myLongTime) == null) return "N/A"
     if (format == 0) return myLongTime
@@ -1664,7 +1671,6 @@ def compile(){
 		
 		def localContent
 		def cloudContent
-
 		//Sets the size of the controls within the SmartGrid
 		content = content.replace('#controlSize#', controlSize.toString() )
 		
@@ -1677,7 +1683,6 @@ def compile(){
 		if (ha == "Left") content = content.replace('#ha#', "flex-start" )
 		if (ha == "Center") content = content.replace('#ha#', "center" )
 		if (ha == "Right") content = content.replace('#ha#', "flex-end" )
-
 		//Table Padding
 		content = content.replace('#tpad#', tpad )
 		content = content.replace('#thp#', thp )
@@ -1698,14 +1703,14 @@ def compile(){
 		def colspan = visibleColumnCount - ( (hideColumn1 != true) ? 1 : 0 ) - ( (hideColumn2 != true) ? 1 : 0 ) - ( (hideColumn11 != true) ? 1 : 0 ) - ( (hideColumn12 != true) ? 1 : 0 )
         if (isLogDebug) log.debug "iFrame Row Column Span is: ${colspan}"
         content = content.replace('#iFrameColspan#', toHTML(colspan.toString()) )
-        
-        //Column Headers
-        content = content.replace('#column1Header#', toHTML(replaceVarsInString(column1Header)) )
-        content = content.replace('#column2Header#', toHTML(replaceVarsInString(column2Header)) )
-        content = content.replace('#column3Header#', toHTML(replaceVarsInString(column3Header)) )
-		content = content.replace('#column4Header#', toHTML(replaceVarsInString(column4Header)) )
-		content = content.replace('#column5Header#', toHTML(replaceVarsInString(column5Header)) )
-		content = content.replace('#column6Header#', toHTML(replaceVarsInString(column6Header)) )
+                
+        //Column Headers - wrapped in ID'd spans so the header refresh script can live-update embedded variables.
+        content = content.replace('#column1Header#', "<span id='hdr1'>" + toHTML(replaceVarsInString(column1Header)) + "</span>" )
+        content = content.replace('#column2Header#', "<span id='hdr2'>" + toHTML(replaceVarsInString(column2Header)) + "</span>" )
+        content = content.replace('#column3Header#', "<span id='hdr3'>" + toHTML(replaceVarsInString(column3Header)) + "</span>" )
+		content = content.replace('#column4Header#', "<span id='hdr4'>" + toHTML(replaceVarsInString(column4Header)) + "</span>" )
+		content = content.replace('#column5Header#', "<span id='hdr5'>" + toHTML(replaceVarsInString(column5Header)) + "</span>" )
+		content = content.replace('#column6Header#', "<span id='hdr6'>" + toHTML(replaceVarsInString(column6Header)) + "</span>" )
         
 		//Forced Column Widths - If the columns are marked as hidden change the width to zero.
         [3, 4, 5, 6].each { i -> content = content.replace("#column${i}Width#", settings["hideColumn${i}"] ? '0' : settings["column${i}Width"].toString()) }
@@ -1717,22 +1722,19 @@ def compile(){
         content = content.replace('#crts#', (crts.toFloat()/100).toString() )	// Custom Row Text Size - We use REM for this to break the inheritance from the tr - table row.
 		
 		//Info Columns
-		content = content.replace('#Info1#', toHTML(replaceVarsInString(column7Header) ) )	// Info 1 Header Text
+		content = content.replace('#Info1#', "<span id='hdr7'>" + toHTML(replaceVarsInString(column7Header)) + "</span>" )	// Info 1 Header Text
 		content = content.replace('#its1#', its1 )	// Info 1 Text Size
 		content = content.replace('#ita1#', ita1 )	// Info 1 Text Alignment
-
-		content = content.replace('#Info2#', toHTML(replaceVarsInString(column8Header) ) )	// Info 2 Header Text
+		content = content.replace('#Info2#', "<span id='hdr8'>" + toHTML(replaceVarsInString(column8Header)) + "</span>" )	// Info 2 Header Text
 		content = content.replace('#its2#', its2 )	// Info 2 Text Size
 		content = content.replace('#ita2#', ita2 )	// Info 2 Text Alignment
-
-		content = content.replace('#Info3#', toHTML(replaceVarsInString(column9Header) ) ) 	// Info 3 Header Text
+		content = content.replace('#Info3#', "<span id='hdr9'>" + toHTML(replaceVarsInString(column9Header)) + "</span>" ) 	// Info 3 Header Text
 		content = content.replace('#its3#', its3 )	// Info 3 Text Size
 		content = content.replace('#ita3#', ita3 )	// Info 3 Text Alignment
-
 		if (tt == "?") { content = content.replace('#titleDisplay#', 'none' ) }
 		else {
 			content = content.replace('#titleDisplay#', 'block' )	// Display Title or not
-			content = content.replace('#tt#', toHTML(replaceVarsInString(tt)) )	// Title Text
+			content = content.replace('#tt#', "<span id='hdrTitle'>" + toHTML(replaceVarsInString(tt)) + "</span>" )	// Title Text
 			content = content.replace('#ts#', ts )	// Title Size
 			content = content.replace('#tp#', tp )	// Title Padding
 			content = content.replace('#ta#', ta )	// Title Alignment
@@ -1740,7 +1742,6 @@ def compile(){
 			def mytb = convertToHex8(tb, to.toFloat())  //Calculate the new color including the opacity.
 			content = content.replace('#tb#', mytb )	// Title Background Color// Display Title or not
 		}
-
         content = content.replace('#hts#', (hts.toFloat()/100).toString() )	// Header Text Size - We use REM for this to break the inheritance from the tr - table row.
 		content = content.replace('#htc#', htc )	// Header Text Color
 		content = content.replace('#sortHeaderHintAZ#', sortHeaderHintAZ )
@@ -1760,7 +1761,6 @@ def compile(){
 		content = content.replace('#hbc#', myhbc )	// Header Background Color
 		content = content.replace('#rts#', rts )	// Row Text Size
 		content = content.replace('#rtc#', rtc )	// Row Text Color
-
 		def myrbc = convertToHex8(rbc, rbo.toFloat())  //Calculate the new color including the opacity.
 		content = content.replace('#rbc#', myrbc )	// Row Background Color
 		if ( highlightSelectedRows == "True" ) content = content.replace('#rbs#', rbs ) // Row Background Color Selected
@@ -1768,7 +1768,6 @@ def compile(){
 	
 		//Hide unwanted columns
 		(1..12).each { i -> content = content.replace("#hideColumn${i}#", settings["hideColumn${i}"] ? 'none' : 'table-cell') }
-
 		content = content.replace('#BrowserTitle#', myRemoteName)
 		content = content.replace('#pollInterval#', (pollInterval.toInteger() * 1000).toString() )
 		content = content.replace('#pollUpdateColorSuccess#', pollUpdateColorSuccess)
@@ -1780,7 +1779,6 @@ def compile(){
 	
 		if (isPolling == "Enabled") content = content.replace('#isPolling#', "true")
 		if (isPolling == "Disabled") content = content.replace('#isPolling#', "false")
-
 		content = content.replace('#shuttleColor#', shuttleColor)
 		content = content.replace('#shuttleHeight#', shuttleHeight)
 	
@@ -1799,30 +1797,27 @@ def compile(){
 		 		
 		//Put the proper statement in for the Materials Font. It's done this way because the cleaning of comments catches the // in https://
 		content = content.replace('#MaterialsFont#', "<link href='https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined' rel='stylesheet'>")
-
 		myWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 )
 		content = content.replace('#maxWidth#', myWidth.toString() )
     
     	//Mark tags
 		['markTag', 'm1Tag', 'm2Tag', 'm3Tag', 'm4Tag', 'm5Tag'].each { tag -> content = content.replace("#${tag}#", settings[tag].toString()) }
         content = content.replace('#deviceStateMap#', toHTML(deviceStateMap.toString()) )
-        
-		if ( localEndpointState == "Enabled" ) localContent = content 
+
+        if ( localEndpointState == "Enabled" ) localContent = content 
 		if ( localEndpointState == "Disabled" ) localContent = "Local Endpoint Disabled" 
 		if ( cloudEndpointState == "Enabled" ) cloudContent = content 
 		if ( cloudEndpointState == "Disabled" ) cloudContent = "Cloud Endpoint Disabled" 
 	
 		localContent = localContent.replace("#URL#", state.localEndpointData )
 		localContent = localContent.replace("#URL1#", state.localEndpointPoll )
-
 		cloudContent = cloudContent.replace("#URL#", state.cloudEndpointData )
 		cloudContent = cloudContent.replace("#URL1#", state.cloudEndpointPoll )
-
+		
 		// Saves a copy of this finalized HTML\CSS\SVG\SCRIPT so that it does not have to be re-calculated. Everything else is done via the loading of JSON data.
 		state.compiledLocal = localContent
 		state.compiledCloud = cloudContent
 		state.compiledSize = state.compiledLocal.size()
-
 		def now = new Date()
 		state.compiledDataTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
 		if (isLogTrace) log.trace("<b>Leaving: Compile</b>")
@@ -1890,7 +1885,9 @@ def cacheDeviceInfo(){
     myDevices.each { device ->
         def deviceInfo = new LinkedHashMap()
         deviceInfo.put("ID", device.getId())
-        deviceInfo.put("name", getShortName((device.getLabel() ?: device.getName()) ?: "Unknown"))
+        def label = (device.getLabel() ?: device.getName()) ?: "Unknown"
+		deviceInfo.put("rawLabel", label)
+		deviceInfo.put("name", getShortName(label))
         capMap.each { caps, typeVal ->
             if (caps.every { device.hasCapability(it) }) deviceInfo.put("type", typeVal)
         }
@@ -1903,7 +1900,7 @@ def cacheDeviceInfo(){
         this."$sensorKey"?.each { device ->
             def deviceInfo = new LinkedHashMap()
             deviceInfo.put("ID", device.getId())
-            deviceInfo.put("rawName", device.getLabel() ?: device.getName())
+            deviceInfo.put("rawLabel", device.getLabel() ?: device.getName())
             deviceInfo.put("type", type)
             myDeviceList << deviceInfo
         }
@@ -1918,15 +1915,18 @@ def cacheDeviceInfo(){
 
     def maps = createDeviceTypeMap()
     myDeviceList.each { deviceInfo ->
-        // Controls already had getShortName() applied — skip them
+        // Controls already had getShortName() applied â€” skip them
         if (!deviceInfo.containsKey("rawName")) return
         def baseName = deviceInfo.rawName
         if (deviceInfo.type in appendTypes) {
-            deviceInfo.name = getShortName("${baseName} (${maps.typeMap[deviceInfo.type]})")
+            //deviceInfo.name = getShortName("${baseName} (${maps.typeMap[deviceInfo.type]})")
+            def resolvedLabel = (deviceInfo.type in appendTypes) ? "${baseName} (${maps.typeMap[deviceInfo.type]})" : baseName
+			deviceInfo.put("rawLabel", resolvedLabel)
+			deviceInfo.name = getShortName(resolvedLabel)
         } else {
             deviceInfo.name = getShortName(baseName)
         }
-        deviceInfo.remove("rawName")
+        deviceInfo.remove("rawLabel")
     }
     
     state.deviceList = myDeviceList
@@ -2177,9 +2177,9 @@ def collapseAllSensors(collapsed) {
 
 //Returns a formatted title for a section header based on whether the section is visible or not.
 def getSectionTitle(section) {
-	if (section == "Configure") { if (state.hidden.Configure == true) return sectionTitle("Configure ?") else return sectionTitle("Configure ?") }
-	if (section == "Preview") { if (state.hidden.Preview == true) return sectionTitle("Preview ?") else return sectionTitle("Preview ?") }
-	if (section == "Design") { if (state.hidden.Design == true) return sectionTitle("Design ?") else return sectionTitle("Design ?") }
+	if (section == "Configure") { if (state.hidden.Configure == true) return sectionTitle("Configure â–¶") else return sectionTitle("Configure â–¼") }
+	if (section == "Preview") { if (state.hidden.Preview == true) return sectionTitle("Preview â–¶") else return sectionTitle("Preview â–¼") }
+	if (section == "Design") { if (state.hidden.Design == true) return sectionTitle("Design â–¶") else return sectionTitle("Design â–¼") }
 }
 
 //*******************************************************************************************************************************************************************************************
@@ -2198,41 +2198,54 @@ def getSectionTitle(section) {
 
 //This function removes all existing subscriptions for this app and replaces them with new ones corresponding to the devices and attributes being monitored.
 void publishSubscribe() {
-	
     if (isLogTrace) log.trace("<b>Entering: publishSubscribe</b>")
-	if (isLogPublish) log.info("<b>Creating subscriptions for Tile: $myRemote with description: $myRemoteName.</b>")
-	
+    if (isLogPublish) log.info("<b>Creating subscriptions for Tile: $myRemote with description: $myRemoteName.</b>")
+    
     //Remove all existing subscriptions
     unsubscribe()
     
-	// List of attributes you want to subscribe to
-	def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature","valve","lock","speed","door","windowShade","position", "tilt", "mute","volume","contact","water","motion","presence","smoke","carbonMonoxide", "battery", "power"]
-	deleteSubscription()
-	
-	// Configure subscriptions to devices
-	[myDevices, myContacts, myTemps, myLeaks, myMotion, myPresence, mySmoke, myCarbonMonoxide, myHumidity, myBattery, myPower].each { deviceList ->
-    	deviceList?.each { device ->
-        	attributesToSubscribe.each { attribute ->
-            	if (device.hasAttribute(attribute)) subscribe(device, attribute, handler)
-        	}
-    	}
-	}
-	
-	// Configure subscriptions to variables
-	for (int i = 1; i <= myVariableCount.toInteger(); i++) {
-		if (settings["variableSource${i}"] == "Device Attribute") {
-			if ( settings["myDevice${i}"]?.hasAttribute(settings["myAttribute${i}"]) ) {
-				subscribe(settings["myDevice${i}"], settings["myAttribute${i}"], handler)	} 
-				//if (isLogDebug) log.debug("Attribute Subscribed")
-		}	
-		
-		if (settings["variableSource${i}"] == "Hub Variable") {
-			if (isLogDebug) log.debug ("It's a Hub variable")
-			variable = settings["myHubVariable${i}"].toString()
-			subscribe(location, "variable:$variable", "handler")
-		}	
-	}
-			
+    // List of attributes you want to subscribe to
+    def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature", "valve", "lock", "speed", "door", "windowShade", "position", "tilt", "mute", "volume", "contact", "water", "motion", "presence", "smoke", "carbonMonoxide", "battery", "power"]
+    deleteSubscription()
+    
+    // Configure subscriptions to devices
+    [myDevices, myContacts, myTemps, myLeaks, myMotion, myPresence, mySmoke, myCarbonMonoxide, myHumidity, myBattery, myPower].each { deviceList ->
+        deviceList?.each { device ->
+            attributesToSubscribe.each { attribute ->
+                if (device.hasAttribute(attribute)) subscribe(device, attribute, handler)
+            }
+        }
+    }
+    
+    // Configure subscriptions to variables
+    for (int i = 1; i <= myVariableCount.toInteger(); i++) {
+        if (settings["variableSource${i}"] == "Device Attribute") {
+            def varDevice = settings["myDevice${i}"]
+            if (varDevice == null) continue
+            (1..5).each { j ->
+                def attrIndex = i * 10 + j
+                def varAttr = settings["myAttribute${attrIndex}"]
+                if (varAttr && varDevice.hasAttribute(varAttr)) {
+                    subscribe(varDevice, varAttr, handler)
+                    if (isLogDebug) log.debug("Subscribed variable ${i} slot ${j}: device=${varDevice}, attr=${varAttr}")
+                }
+            }
+        }
+        if (settings["variableSource${i}"] == "Hub Variable") {
+            (1..5).each { j ->
+                def attrIndex = i * 10 + j
+                def varName = settings["myHubVariable${attrIndex}"]
+                if (varName) {
+                    subscribe(location, "variable:${varName}", "handler")
+                    if (isLogDebug) log.debug("Subscribed hub variable ${i} slot ${j}: ${varName}")
+                }
+            }
+        }
+    }
+    
+    //Ensure any changes are incorporated in the compiled version.
+    compile()
+    
     //Now we call the publishRemote routine to push the new information to the device attribute.
     publishRemote()
 }
@@ -2281,10 +2294,6 @@ def handler(evt) {
 	
     //Handles the initialization of new variables added in code updates.
     initialize()
-	
-	//Change the flag used by the polling process to indicate a change has been detected.
-	if (isLogDebug) log.debug("fromHub: Changing isPollUpdate to true.")
-	state.isPollUpdate = true
 	state.updatedSessionList = []
     
     if (isLogPublish) log.info("<b>handler: Event received from Device:${evt.device}  -  Attribute:${evt.name}  -  Value:${evt.value}</b>")
