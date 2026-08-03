@@ -5,19 +5,14 @@
 *  Description: Used in conjunction with child apps to generate tabular reports on device data and publishes them to a dashboard.
 *
 *  Copyright 2025 Gary J. Milne  
-*  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
-*  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
-*  for the specific language governing permissions and limitations under the License.
+*  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+*  See the License for the specific language governing permissions and limitations under the License.
 
 *  License:
-*  You are free to use this software in an un-modified form. Software cannot be modified or redistributed.
-*  You may use the code for educational purposes or for use within other applications as long as they are unrelated to the 
-*  production of tabular data in HTML form, unless you have the prior consent of the author.
-*  You are granted a license to use Remote Builder in its standard configuration without limits.
+*  You are free to use this software in an un-modified form. Software cannot be modified or redistributed.  You may use the code for educational purposes or for use within other applications as long as they are unrelated to the 
+*  production of tabular data in HTML form, unless you have the prior consent of the author. You are granted a license to use Remote Builder in its standard configuration without limits.
 *  Use of Remote Builder Advanced (which includes SmartGrid) requires a license key that must be issued to you by the original developer. TileBuilderApp@gmail.com
-*
-*  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-*  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+*  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
 
 *  Authors Notes:
 *  For more information on Remote Builder check out these resources.
@@ -27,61 +22,20 @@
 *  Remote Builder - SmartGrid - Hard launch announcement https://community.hubitat.com/t/release-smartgrid-create-grids-of-controls-that-you-can-access-from-anywhere/148457
 *
 *  Remote Builder - SmartGrid - ChangeLog - See prior releases for older changelog info
-*  Version 4.0.0 - Add Modal window to acccess dynamic settings. Added selection boxes to display All Switches, Only ON and Only Off : Enable\Disable Polling : PollInterval. Others may follow.
-*  				   Changed the Section layouts into a single Horizontal menu to create more visible space for the "Design SmartGrid" section. Reorganized the SmartGrid formatting menus to be a little easier to use. Added color schemes.
-*  				   Enable Drag and Drop Support with Custom Sort. Add Custom Rows. Add variables.
-*  Version 4.0.1 - Implement beforeunload function to clean up memory on exit. Remove Selection Boxes for Custom Rows. Pause polling indicator during slider actions. Change shuttle animation to use less CPU. 
-*  Version 4.0.2 - Added some logging to the publishRemote function.
-*  Version 4.0.3 - Internal Only: Remove checkBoxes for Custom Rows and Sensors. Add A/B Configuration info under Endpoints Help. Add Control C column as option for Text is Custom Rows. 
-*  Version 4.0.4 - Remove submitOnChange for all text boxes in Custom Rows and add Apply Changes button for better navigation. Expanded variables to have multiple variables per Source.
-*  Version 4.1.0 - Created a separate tab for Device Renaming. Added Hub Properties as Variables. Added Capitalization option for Variable Data and adherence to global Decimal Places. Added formatting for [mark] tag and added optional [m1] tag on Experimental tab.
-*  Version 4.2.0 - Adds logic to stop the animation and polling when the Applet is not visible. This is tested on Windows Chrome, Android Chrome and iOS Chrome.
-*  Version 4.2.1 - Spelling of the %varXX% variables indicates the number of decimal places required. %varXX% = 0dp, %VarXX% = 1dp, %vArXX% = 2dp, %vaRXX% = 3dp. - No public release.
-*  Version 4.3.0 - Added collapsible groups.
-*  Version 4.4.0 - Added replaceable values for the State column to support other languages.  For example 'open' could be mapped to 'abierto' or open could be enhanced with HTML tags'[b]Abierto'. 
-*	    		   Moved Experimental settings to new Advanced Tab.  Added tags M2 and M3 for easy modification. Added logic for Motion and Presence sensors.
-*				   Added logic for Smoke and CO detection.  Added Tags for M4 and M5.  Added logic to replace any variables using recognized state words with the equivalent value from the stateMap.
-*  				   Fixed bug with duplicate entries in the state.updatedSessionList.
-*  Version 4.5.0 - Remove all code relative to Pinned Rows.
-*  Version 4.5.1 - Adds the UID (deviceNumber and deviceType) to create a Unique ID to allow the same device to appear on multiple rows. This is in preparation for a code update later that will expect the presence of a UID for sort order.
-*  Version 4.5.2 - Adds iFrame container rows as an option.
-*  Version 4.5.3 - First Public Release after hubitat bug fix - Removed from list of known issues.
-*  Version 5.0.0 - Completes implemention of UID as the sort key when manually sorting. This allows to attributes of the same device to be sorted independantly.
-*  				 - Moves the HTML\CSS\JS template to the parent so shorten codebase for easier editing and navigation.
-*  				 - Condensed several functions for efficiency: initialize(), getDeviceInfo(), compile(), handleSwitch(), getHubProperty(), formatTime(), applyTheme(), cacheDeviceInfo(), getDuration(). Application size reduced to 2088 lines from 3707.
-* 				 - Fixed range for temp sensors. Added Humidity sensors. Increased variables and rename devices to 12. Added default formatting (N/A) for attributes when appropriate. 
-*				 - Added sorting to SubGroups when all of the values in the state column are numeric. Otherwise they sort Alpha based on device name.
-*				 - Added user configurable color coding to temperature and humidity data.
-*				 - Added battery and power sensors with some filtering.
-*				 - Added bulk assignment to groups by sensor type. Added filtering for all sensor types.
-*				 - Added customize Info1 - Info3 columns by Group if desired. Implemented new defaultStateMap to improve visibility for abnormal conditions.
-*				 - Added collapsible sections to the Sensors tab. Added Drag and Drop and Save Custom Sort buttons to the Controls and Sensors Tabs. Renamed Custom Rows tab to Group & Sort tab.
-*  Version 5.0.1 - Fixed logic error in Custom Sort order. Made some cosmetic changes to the designer screen for improved usability.
-*  Version 5.0.2 - Fixed error in custom sort order when groups were empty.
-*  Version 5.0.3 - Fixed initialization error with the [mark] tags.
-*  Version 5.1.0 - Fixed a couple of small UI issues including using "Enable Groups and Custom Sort" to hide irrelevant controls.
-*				   Fixed issue with loss of manual sort order under certain conditions. Removed capitalizeStrings function in favor of the attribute mapping on the Advanced tab.
-*				   Added additional device types to the lastActive and lastInactive queries. Added humidity as an info source. Cleanup up getDeviceInfo to make fewer calls to the hub API's
-*  Version 5.1.2 - Add ability to append sensor types to duplicate sensor names and thus de-dupe them for use with device rename.
-*  Version 5.1.3 - Add two additional time formats.
-*  Version 5.2.0 - Add ability to embed variable names in the header columns. Fix bugs in the handling of colors and text sizes in the Appearance tab. Fixed error with Highlight Selected Rows not working correctly.
-*  Version 5.2.1 - Changes to handle variable names embedded in a device\sensor name. 
-*  Version 5.3.0 - Changes to handle variable names embedded in a column header. Datetime Hub variables will be formatted using the formatTime function and the defaultDateTimeFormat.
+*  Version 6.0.0 - Adds Thermostats as a supported Control type. Separates Fans into 3 speed and 5 speed. Add several Theme styles. Adds Alternate Row Colors. Adds experimental u1 & u2 tags under experimental for more formatting choices.
+*  Version 6.0.2 - Pre-release fixes
 *
-*  Gary Milne - July 11th, 2026 @ 1:40 PM
+*  Native Supported Sensor Types: Battery, CarbonMonoxideDetector, ContactSensor, HumidityMeasurement, MotionSensor, PowerMeter, PresenceSensor, SmokeDetector, TemperatureMeasurement, WaterSensor
+*  Sensors Supported via Variables: AccelerationSensor, AirQuality, CarbonDioxideMeasurement, EnergyMeter, IlluminanceMeasurement, PressureMeasurement, ShockSensor, SignalStrength, SleepSensor, SoundPressureLevel, SoundSensor, UltravioletIndex, VoltageMeasurement
+*  Known Issues: Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
+*  Ideas for future releases: 1) Add Media Control, 2) Remove blank fields from the data payload.
 *
-**/
-
-/* Known Issues 
-Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
+*  Gary Milne - July 30th, 2026 @ 4:35PM
 */
 
-/* Ideas for future releases
-Upgrade to handle 5 speed fans
-Add support for Thermostats - OR - Create a standalone digital Thermostat control that can be embedded with a URL.
-Add Media Control
-Remove blank fields from the data payload.
-*/
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 6.0.2 (7/30/26)</b>"
+@Field static final codeVersion = 602
+@Field static final moduleName = "SmartGrid"
 
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
@@ -97,14 +51,14 @@ static def opacity() { return ['1', '0.9', '0.8', '0.7', '0.6', '0.5', '0.4', '0
 static def elementSize() { return ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'] }
 static def elementSize2() { return ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '11', '11.5', '12', '12.5', '13', '13.5', '14', '14.5', '15', '15.5', '16', '16.5', '17', '17.5', '18', '18.5', '19', '19.5','20'] }
 static def elementSizeMinor() { return ['0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1'] }
-static def unitsMap() { return ['°F', ' °F', '°C', ' °C']}
+static def unitsMap() { return ['°F', ' °F', '°C', ' °C', '°']}
 static def dateFormatsMap() { return [1: "To: yyyy-MM-dd HH:mm:ss.SSS", 2: "To: HH:mm", 3: "To: h:mm a", 4: "To: HH:mm:ss", 5: "To: h:mm:ss a", 6: "To: E HH:mm", 7: "To: E h:mm a", 8: "To: EEEE HH:mm", 9: "To: EEEE h:mm a", \
 								10: "To: MM-dd HH:mm", 11: "To: MM-dd h:mm a", 12: "To: MMMM dd HH:mm", 13: "To: MMMM dd h:mm a", 14: "To: yyyy-MM-dd HH:mm", 15: "To: dd-MM-yyyy h:mm a", 16: "To: MM-dd-yyyy h:mm a", 17: "To: E @ h:mm a", 18: "To: MMM dd HH:mm", 19: "To: MMM dd HH:mm a"] }
 static def hubProperties() { return ["sunrise", "sunrise1", "sunrise2", "sunset", "sunset1", "sunset2", "hubName", "hsmStatus", "currentMode", "firmwareVersionString", "uptime", "timeZone", "daylightSavingsTime", "currentTime", "currentTime1", "currentTime2"].sort() }
 static def defaultStateMap() { return '''{"open": "[m4]Open[/m4]", "closed": "[m2]Closed[/m2]", "active": "[m4]Active[/m4]", "inactive": "Idle", "wet": "[m3]WET![/m3]", "dry": "Dry", "present": "Present", "not present": "[m4]Away[/m4]", "detected": "[m3]ALERT![/m3]", "clear": "Clear", "tested": "[m1]Tested[/m1]"}''' }
 
 static def createDeviceTypeMap() {
-    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 12: "Fan", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 31: "Contact", 32:"Temperature", 33:"Leak", 34:"Motion", 35:"Presence", 36:"Smoke", 37:"Carbon Monoxide", 38:"Humidity", 39:"Battery", 40:"Power", 51:"Group Row", 52:"Device Row", 53:"iFrame Row" ]
+    def typeMap = [ 1: "Switch", 2: "Dimmer", 3: "RGB", 4: "CT", 5: "RGBW", 10: "Valve", 11:"Lock", 13: "Garage Door", 14: "Shade", 15: "Blind", 16: "Volume", 17: "Fan3", 18: "Fan5", 19: "Thermostat", 31: "Contact", 32:"Temperature", 33:"Leak", 34:"Motion", 35:"Presence", 36:"Smoke", 37:"Carbon Monoxide", 38:"Humidity", 39:"Battery", 40:"Power", 51:"Group Row", 52:"Device Row", 53:"iFrame Row" ]
     // Create the inverse map for name-to-number lookups
     def nameToNumberMap = typeMap.collectEntries { key, value -> [value, key] }
     return [typeMap: typeMap, nameToNumberMap: nameToNumberMap]
@@ -118,13 +72,36 @@ static def sensorSectionToTypeMap() {
 }
 static def sensorSectionsList() { return sensorSectionToTypeMap().keySet().sort() }
 static def durationFormatsMap() { return [21: "To: Elapsed Time (dd):hh:mm:ss", 22: "To: Elapsed Time (dd):hh:mm"] }
-static def durationFormatsList() { return durationFormatsMap().values() }
 static def invalidAttributeStrings() { return ["N/A", "n/a", " ", "-", "--", "?", "??"] }
 static def devicePropertiesList() { return ["Default", "None", "battery", "colorMode", "colorName", "colorTemperature", "deviceTypeName", "energy", "healthStatus", "humidity", "ID", "lastActive", "lastActiveDuration", "lastInactive", "lastInactiveDuration", "lastSeen", "lastSeenElapsed", "network", "power", "roomName", "temperature"] }
+
+def sensorSectionConfig() {
+    return [
+        Battery: [ icon: "&#128267;", stateVar: "myBattery", cap: "capability.battery", typeCode: 39, onlyReportLabel: "Only Report Low Battery", 
+				extraInputs: { input(name: "minBattery", title: "<b>Low Battery</b>", type: "string", submitOnChange: true, width: 1, defaultValue: "50", newLine: true, style:"margin-right: 10px") } ],
+        "Carbon Monoxide": [ icon: "&#9729;&#65039;", stateVar: "myCarbonMonoxide", cap: "capability.carbonMonoxideDetector", typeCode: 37, onlyReportLabel: "Only Report Detected CO"],
+        Contacts: [icon: "&#128682;", stateVar: "myContacts", cap: "capability.contactSensor", typeCode: 31, onlyReportLabel: "Only Report Open Contacts"],
+        Humidity: [icon: "&#128166;", stateVar: "myHumidity", cap: "capability.relativeHumidityMeasurement", typeCode: 38, onlyReportLabel: "Only Report Humidity Outside Range",
+				extraInputs: { input(name: "minHumidity", title: "<b>Low Humidity</b>", type: "string", submitOnChange: true, width: 1, defaultValue: "50", newLine: true, style:"margin-right: 10px")
+                input(name: "minHumidityColor", type: "color", title: bold("Low Humidity Color"), required: false, defaultValue: "#D4B483", submitOnChange: true, width: 1, style:"margin-right: 100px")
+                input(name: "maxHumidity", title: bold("High Humidity"), type: "string", submitOnChange: true, width: 1, defaultValue: "90", newLine: false, style:"margin-right: 10px")
+                input(name: "maxHumidityColor", type: "color", title: bold("High Humidity Color"), required: false, defaultValue: "#5B8DB8", submitOnChange: true, width: 1, style:"margin-right: 100px")
+                input(name: "normalHumidityColor", type: "color", title: bold("Normal Humidity Color"), required: false, defaultValue: "#66BB6A", submitOnChange: true, width: 1) } ],
+        Motion: [icon: "&#127939;", stateVar: "myMotion", cap: "capability.motionSensor", typeCode: 34, onlyReportLabel: "Only Report Active Motion"],
+        Power: [icon: "&#9889;", stateVar: "myPower", cap: "capability.powerMeter", typeCode: 40, onlyReportLabel: "Only Report Active Devices", 
+				extraInputs: {input(name: "minPower", title: "<b>Low Power</b>", type: "string", submitOnChange: true, width: 1, defaultValue: "0", newLine: true, style:"margin-right: 10px") }],
+        Presence: [icon: "&#127968;", stateVar: "myPresence", cap: "capability.presenceSensor", typeCode: 35, onlyReportLabel: "Only Report Not Present"],
+        Smoke: [icon: "&#128293;", stateVar: "mySmoke", cap: "capability.smokeDetector", typeCode: 36,onlyReportLabel: "Only Report Detected Smoke"],
+        Temperature: [ icon: "&#127777;&#65039;", stateVar: "myTemps", cap: "capability.temperatureMeasurement", typeCode: 32, onlyReportLabel: "Only Report Temperatures Outside Range",
+            	extraInputs: {input(name: "minTemp", title: "<b>Low Temp</b>", type: "string", submitOnChange: true, width: 1, defaultValue: "50", newLine: true, style:"margin-right: 10px")
+                input(name: "minTempColor", type: "color", title: bold("Low Temp Color"), required: false, defaultValue: "#5BC8F5", submitOnChange: true, width: 1, style:"margin-right: 100px")
+                input(name: "maxTemp", title: bold("High Temp"), type: "string", submitOnChange: true, width: 1, defaultValue: "90", newLine: false, style:"margin-right: 10px")
+                input(name: "maxTempColor", type: "color", title: bold("High Temp Color"), required: false, defaultValue: "#FF4500", submitOnChange: true, width: 1, style:"margin-right: 100px")
+                input(name: "normalTempColor", type: "color", title: bold("Normal Temp Color"), required: false, defaultValue: "#81C784", submitOnChange: true, width: 1) } ],
+        Water: [icon: "&#128167;", stateVar: "myLeaks", cap: "capability.waterSensor", typeCode: 33, onlyReportLabel: "Only Report Wet Sensors" ]
+    ]
+}
 							   
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 5.3.0 (7/11/26)</b>"
-@Field static final codeVersion = 530
-@Field static final moduleName = "SmartGrid"
 
 definition(
 	    name: "Remote Builder - SmartGrid",
@@ -166,11 +143,12 @@ def mainPage(){
 
             if (state.activeButtonA == 1){ //Start of Controls Section
                 // Input for selecting filter criteria
-                input(name: "filter", type: "enum", title: bold("Filter Controls (optional)"), options: ["All Selectable Controls", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "All Selectable Controls", submitOnChange: true, width: 2, style:"margin-right: 100px")
+                input(name: "filter", type: "enum", title: bold("Filter Controls (optional)"), options: ["All Selectable Controls", "Thermostats", "Power Meters", "Switches", "Color Temperature Devices", "Color Devices", "Dimmable Devices", "Valves", "Fans", "Locks", "Garage Doors", "Shades & Blinds"].sort(), required: false, defaultValue: "All Selectable Controls", submitOnChange: true, width: 2, style:"margin-right: 100px")
                 def filterOptions = [
-                    "All Selectable Controls": [capability: "capability.powerMeter, capability.switch, capability.valve, capability.lock, capability.garageDoorControl, capability.doorControl, capability.fanControl, capability.audioVolume, capability.windowShade, capability.windowBlind", title: "<b>Select Controls</b>"],
-                    "Power Meters": [capability: "capability.powerMeter", title: "<b>Select Power Meter Devices</b>"], "Switches": [capability: "capability.switch", title: "<b>Select Switch Devices</b>"], "Color Temperature Devices": [capability: "capability.colorTemperature", title: "<b>Select Color Temperature Devices</b>"],
-                    "Color Devices": [capability: "capability.colorControl", title: "<b>Select Color Devices</b>"], "Dimmable Devices": [capability: "capability.switchLevel", title: "<b>Select Dimmable Devices</b>"], "Valves": [capability: "capability.valve", title: "<b>Select Valves</b>"], "Fans": [capability: "capability.fanControl", title: "<b>Select Fans</b>"],
+                    "All Selectable Controls": [capability: "capability.powerMeter, capability.switch, capability.valve, capability.lock, capability.garageDoorControl, capability.doorControl, capability.fanControl, capability.audioVolume, capability.windowShade, capability.windowBlind, capability.thermostat", title: "<b>Select Controls</b>"],
+                    "Thermostats": [capability: "capability.thermostat", title: "<b>Select Thermostats</b>"], "Power Meters": [capability: "capability.powerMeter", title: "<b>Select Power Meter Devices</b>"], "Switches": [capability: "capability.switch", title: "<b>Select Switch Devices</b>"], 
+                    "Color Temperature Devices": [capability: "capability.colorTemperature", title: "<b>Select Color Temperature Devices</b>"], "Color Devices": [capability: "capability.colorControl", title: "<b>Select Color Devices</b>"], 
+                    "Dimmable Devices": [capability: "capability.switchLevel", title: "<b>Select Dimmable Devices</b>"], "Valves": [capability: "capability.valve", title: "<b>Select Valves</b>"], "Fans": [capability: "capability.fanControl", title: "<b>Select Fans</b>"],
                     "Garage Doors": [capability: "capability.garageDoorControl", title: "<b>Select Garage Doors</b>"], "Locks": [capability: "capability.lock", title: "<b>Select Locks</b>"], "Shades & Blinds": [capability: "capability.windowShade, capability.windowBlind", title: "<b>Select Shades & Blinds</b>"]
                 ]
                 // Apply switch-case logic based on the filter value
@@ -185,8 +163,8 @@ def mainPage(){
             if (state.activeButtonA == 2){ //Start of Sensors Section
                 if (visibleSensorSections == null) app.updateSetting("visibleSensorSections", options: sensorSectionsList(), defaultValue: ["Temperature"])
                 input(name: "visibleSensorSections", type: "enum", title: bold("Select Sensor Types to Display"), options: sensorSectionsList(), required: false, multiple: true, submitOnChange: true, width: 4, defaultValue: ["Temperature"], style:"margin-right: 100px")
-                input(name: "btnCollapseAllSensors", type: "button", title: "Collapse All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 25px")               
-                input(name: "btnExpandAllSensors", type: "button", title: "Expand All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 25px")               
+                input(name: "btnCollapseAllSensors", type: "button", title: "Collapse All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 12px")               
+                input(name: "btnExpandAllSensors", type: "button", title: "Expand All", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top: 12px")               
                 paragraph line(1)
                                 
                 // Build group options once from named rows
@@ -202,7 +180,6 @@ def mainPage(){
                             def nameText = rawName?.toString()
                                                ?.replaceAll(/\[.*?\]/, "")
                                                ?.trim()
-
                             // Only skip if truly empty after cleaning
                             if (!nameText) nameText = "Group ${i}"
                             groupOptions["${i}"] = nameText
@@ -210,128 +187,21 @@ def mainPage(){
                     }
                 }
                 
-                if (visibleSensorSections?.contains("Battery")) {
-                    if (assignGroupBattery && assignGroupBattery != "None") { autoAssignDevicesToGroup(assignGroupBattery.toInteger(), myBattery, 39); app.updateSetting("assignGroupBattery", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideBattery', (state.hidden?.Battery ? "?? Battery ?" : "?? Battery ?"), 0)
-                    if (!state.hidden?.Battery) {
-                        input "myBattery", "capability.battery", title: "<b>Select Battery Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeBattery", type: "enum", title: bold("Only Report Low Battery"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupBattery", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input (name: "minBattery", title: "<b>Low Battery</b>", type: "string", submitOnChange:true, width:1, defaultValue: "50", newLine:true, style:"margin-right: 10px")
+                // Data driven approach to generating the list of Sensors Dialog.
+                sensorSectionConfig().each { sectionName, cfg ->
+                    if (!visibleSensorSections?.contains(sectionName)) return
+                    def assignKey = "assignGroup${sectionName}"
+                    def sensorVar = this."${cfg.stateVar}"
+                    if (settings[assignKey] && settings[assignKey] != "None") {
+                        autoAssignDevicesToGroup(settings[assignKey].toInteger(), sensorVar, cfg.typeCode)
+                        app.updateSetting(assignKey, [value: "None", type: "enum"])
                     }
-                    paragraph line(1)
-                }
-                
-                if (visibleSensorSections?.contains("Carbon Monoxide")) {
-                    if (assignGroupCarbonMonoxide && assignGroupCarbonMonoxide != "None") { autoAssignDevicesToGroup(assignGroupCarbonMonoxide.toInteger(), myCarbonMonoxide, 37); app.updateSetting("assignGroupCarbonMonoxide", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideCarbonMonoxide', (state.hidden?.CarbonMonoxide ? "?? Carbon Monoxide ?" : "?? Carbon Monoxide ?"), 0)
-                    if (!state.hidden?.CarbonMonoxide) {
-                        input "myCarbonMonoxide", "capability.carbonMonoxideDetector", title: "<b>Select Carbon Monoxide Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeCarbonMonoxide", type: "enum", title: bold("Only Report Detected CO"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupCarbonMonoxide", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-                
-                if (visibleSensorSections?.contains("Contacts")) {
-                    if (assignGroupContacts && assignGroupContacts != "None") { autoAssignDevicesToGroup(assignGroupContacts.toInteger(), myContacts, 31); app.updateSetting("assignGroupContacts", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideContacts', (state.hidden?.Contacts ? "?? Contacts ?" : "?? Contacts ?"), 0)
-                    if (!state.hidden?.Contacts) {
-                        input "myContacts", "capability.contactSensor", title: "<b>Select Contact Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeContacts", type: "enum", title: bold("Only Report Open Contacts"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupContacts", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-                
-                if (visibleSensorSections?.contains("Humidity")) {
-                    if (assignGroupHumidity && assignGroupHumidity != "None") { autoAssignDevicesToGroup(assignGroupHumidity.toInteger(), myHumidity, 38); app.updateSetting("assignGroupHumidity", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideHumidity', (state.hidden?.Humidity ? "?? Humidity ?" : "?? Humidity ?"), 0)
-                    if (!state.hidden?.Humidity) {
-                        input "myHumidity", "capability.relativeHumidityMeasurement", title: "<b>Select Humidity Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeHumidity", type: "enum", title: bold("Only Report Humidity Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupHumidity", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input (name: "minHumidity", title: "<b>Low Humidity</b>", type: "string", submitOnChange:true, width:1, defaultValue: "50", newLine:true, style:"margin-right: 10px")
-                        input (name: "minHumidityColor", type: "color", title: bold("Low Humidity Color"), required: false, defaultValue: "#D4B483", submitOnChange: true, width:1, style:"margin-right: 100px")
-                        input (name: "maxHumidity", title: bold("High Humidity"), type: "string", submitOnChange:true, width:1, defaultValue: "90", newLine:false, style:"margin-right: 10px")
-                        input (name: "maxHumidityColor", type: "color", title: bold("High Humidity Color"), required: false, defaultValue: "#5B8DB8", submitOnChange: true, width:1, style:"margin-right: 100px")
-                        input (name: "normalHumidityColor", type: "color", title: bold("Normal Humidity Color"), required: false, defaultValue: "#66BB6A", submitOnChange: true, width:1)
-                    }
-                    paragraph line(1)
-                }
-                
-                if (visibleSensorSections?.contains("Motion")) {
-                    if (assignGroupMotion && assignGroupMotion != "None") { autoAssignDevicesToGroup(assignGroupMotion.toInteger(), myMotion, 34); app.updateSetting("assignGroupMotion", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideMotion', (state.hidden?.Motion ? "?? Motion ?" : "?? Motion ?"), 0)
-                    if (!state.hidden?.Motion) {
-                        input "myMotion", "capability.motionSensor", title: "<b>Select Motion Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeMotion", type: "enum", title: bold("Only Report Active Motion"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupMotion", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-                
-                if (visibleSensorSections?.contains("Power")) {
-                    if (assignGroupPower && assignGroupPower != "None") { autoAssignDevicesToGroup(assignGroupPower.toInteger(), myPower, 40); app.updateSetting("assignGroupPower", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHidePower', (state.hidden?.Power ? "? Power ?" : "? Power ?"), 0)
-                    if (!state.hidden?.Power) {
-                        input "myPower", "capability.powerMeter", title: "<b>Select Power Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangePower", type: "enum", title: bold("Only Report Active Devices"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupPower", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input (name: "minPower", title: "<b>Low Power</b>", type: "string", submitOnChange:true, width:1, defaultValue: "0", newLine:true, style:"margin-right: 10px")
-                    }
-                    paragraph line(1)
-                }
-              
-                if (visibleSensorSections?.contains("Presence")) {
-                    if (assignGroupPresence && assignGroupPresence != "None") { autoAssignDevicesToGroup(assignGroupPresence.toInteger(), myPresence, 35); app.updateSetting("assignGroupPresence", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHidePresence', (state.hidden?.Presence ? "?? Presence ?" : "?? Presence ?"), 0)
-                    if (!state.hidden?.Presence) {
-                        input "myPresence", "capability.presenceSensor", title: "<b>Select Presence Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangePresence", type: "enum", title: bold("Only Report Not Present"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupPresence", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-                
-                if (visibleSensorSections?.contains("Smoke")) {
-                    if (assignGroupSmoke && assignGroupSmoke != "None") { autoAssignDevicesToGroup(assignGroupSmoke.toInteger(), mySmoke, 36); app.updateSetting("assignGroupSmoke", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideSmoke', (state.hidden?.Smoke ? "?? Smoke ?" : "?? Smoke ?"), 0)
-                    if (!state.hidden?.Smoke) {
-                        input "mySmoke", "capability.smokeDetector", title: "<b>Select Smoke Detectors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeSmoke", type: "enum", title: bold("Only Report Detected Smoke"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupSmoke", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                    }
-                    paragraph line(1)
-                }
-                
-                if (visibleSensorSections?.contains("Temperature")) {
-                    if (assignGroupTemperature && assignGroupTemperature != "None") {
-                        autoAssignDevicesToGroup(assignGroupTemperature.toInteger(), myTemps, 32)
-                        app.updateSetting("assignGroupTemperature", [value: "None", type: "enum"])
-                    }
-                    paragraph buttonLink('btnHideTemperature', (state.hidden?.Temperature ? "??? Temperature ?" : "??? Temperature ?"), 0)
-                    if (!state.hidden?.Temperature) {
-                        input "myTemps", "capability.temperatureMeasurement", title: "<b>Select Temp Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeTemperature", type: "enum", title: bold("Only Report Temperatures Outside Range"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupTemperature", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input (name: "minTemp", title: "<b>Low Temp</b>", type: "string", submitOnChange:true, width:1, defaultValue: "50", newLine:true, style:"margin-right: 10px")
-                        input (name: "minTempColor", type: "color", title: bold("Low Temp Color"), required: false, defaultValue: "#5BC8F5", submitOnChange: true, width:1, style:"margin-right: 100px")
-                        input (name: "maxTemp", title: bold("High Temp"), type: "string", submitOnChange:true, width:1, defaultValue: "90", newLine:false, style:"margin-right: 10px")
-                        input (name: "maxTempColor", type: "color", title: bold("High Temp Color"), required: false, defaultValue: "#FF4500", submitOnChange: true, width:1, style:"margin-right: 100px")
-                        input (name: "normalTempColor", type: "color", title: bold("Normal Temp Color"), required: false, defaultValue: "#81C784", submitOnChange: true, width:1)
-                    }
-                    paragraph line(1)
-                }
-                
-
-                if (visibleSensorSections?.contains("Water")) {
-                    if (assignGroupWater && assignGroupWater != "None") { autoAssignDevicesToGroup(assignGroupWater.toInteger(), myLeaks, 33); app.updateSetting("assignGroupWater", [value: "None", type: "enum"]) }
-                    paragraph buttonLink('btnHideWater', (state.hidden?.Water ? "?? Water ?" : "?? Water ?"), 0)
-                    if (!state.hidden?.Water) {
-                        input "myLeaks", "capability.waterSensor", title: "<b>Select Water Sensors</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
-                        input(name: "onlyReportOutsideRangeWater", type: "enum", title: bold("Only Report Wet Sensors"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
-                        input(name: "assignGroupWater", type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                    paragraph buttonLink("btnHide${sectionName}", (state.hidden?."${sectionName}" ? "${cfg.icon} ${sectionName} &#9654;" : "${cfg.icon} ${sectionName} &#9660;"), 0)
+                    if (!state.hidden?."${sectionName}") {
+                        input cfg.stateVar, cfg.cap, title: "<b>Select ${sectionName} Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
+                        input(name: "onlyReportOutsideRange${sectionName}", type: "enum", title: bold(cfg.onlyReportLabel), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        input(name: assignKey, type: "enum", title: bold("Assign to Group"), options: groupOptions, defaultValue: "None", submitOnChange: true, width: 2, style:"margin-right:50px")
+                        cfg.extraInputs?.call()
                     }
                     paragraph line(1)
                 }
@@ -358,7 +228,7 @@ def mainPage(){
             if (state.activeButtonA == 5){ //Start of Endpoints Section
                 input(name: "localEndpointState", type: "enum", title: bold("Local Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Enabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
                 input(name: "cloudEndpointState", type: "enum", title: bold("Cloud Endpoint State"), options: ["Disabled", "Enabled"], required: false, defaultValue: "Disabled", submitOnChange: true, width: 2, style:"margin-right: 20px")
-                input(name: "rebuildEndpoints", type: "button", title: "Rebuild Endpoints", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:25px; margin-left:20px")
+                input(name: "rebuildEndpoints", type: "button", title: "Rebuild Endpoints", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:12px; margin-left:20px")
                 paragraph line(1)
 
                 paragraph "<a href='${state.localEndpoint}' target=_blank><b>Local Endpoint</b></a>: ${state.localEndpoint} "
@@ -473,7 +343,6 @@ def mainPage(){
                         def slurper = new groovy.json.JsonSlurper()
                         def sortOrder = slurper.parseText(state.customSortOrder ?: "[]")
                         def separators = sortOrder.findAll { it.containsKey("UID") && it.UID?.toString().endsWith("-51") }.sort { it.row }
-                        //def separators = sortOrder.findAll { it.UID?.toString().endsWith("-51") }.sort { it.row }
                         def rowOptions = ["All": "All"]
                         (1..customRowCount.toInteger()).each { i ->
                             def nameText = settings["myNameText${i}"]?.toString() ?.replaceAll(/\[.*?\]/, "")?.trim() ?: "Row ${i}"
@@ -581,16 +450,16 @@ def mainPage(){
             input(name: "tilePreviewWidth", type: "enum", title: bold("Max Width (x200px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
             input(name: "tilePreviewHeight", type: "enum", title: bold("Preview Height (x190px)"), options: [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8], required: false, defaultValue: 2, submitOnChange: true, style: "width:12%;margin-right:25px")
             input(name: "tilePreviewBackground", type: "color", title: bold("Preview Background Color"), required: false, defaultValue: "#000000", width: 2, submitOnChange: true, style: "margin-right:25px")
-            if (myRemoteName != null && myRemote != null && state.deviceList != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-top:20px;margin-right:25px")
-            else input(name: "cannotPublish", type: "button", title: "Publish & Subscribe", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: false, width: 2, style:"margin-top:20px;margin-right:25px")
+            if (myRemoteName != null && myRemote != null && state.deviceList != null) input(name: "publishSubscribe", type: "button", title: "Publish and Subscribe", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-top:12px;margin-right:25px")
+            else input(name: "cannotPublish", type: "button", title: "Publish & Subscribe", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: false, width: 2, style:"margin-top:12px;margin-right:25px")
             
             if (isCustomSort == "true"){
-                if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
-                else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
-                if (isDragDrop) { input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "green", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+                if (isDragDrop) input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "orange", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 12px;")
+                else input(name: "EnableDragDrop", type: "button", title: "Enable Drag & Drop", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 12px;")
+                if (isDragDrop) { input(name: "saveCustomSort", type: "button", title: " Save  Custom  Sort ", backgroundColor: "green", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 12px;")
                                  paragraph red("<b>When Drag and Drop is enabled all devices are temporarily made visible. You can click on the section header Title to sort the contents of a section.</b>")
                                 }
-                else input(name: "saveCustomSort", type: "button", title: "Save  Custom  Sort", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 25px;")
+                else input(name: "saveCustomSort", type: "button", title: "Save  Custom  Sort", backgroundColor: "#D3D3D3", textColor: "white", submitOnChange: true, width: 1, style:"margin-left: 25px; margin-top: 12px;")
             }
             
             myMaxWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 ) + 3 * 2
@@ -625,6 +494,8 @@ def mainPage(){
                 input ("tempUnits", "enum", title: "<b>Temperature Units</b>", options: unitsMap(), multiple: false, submitOnChange: true, width: 2, required: false, defaultValue: "°F", style:"margin-right:25px")
                 input ("tempDecimalPlaces", "enum", title: "<b>Decimal Places</b>", options: ["0 Decimal Places", "1 Decimal Place"], multiple: false, defaultValue: "0 Decimal Places", submitOnChange: true, width: 2, required: false, style:"margin-right:25px")
                 //input ("capitalizeStrings", "enum", title: "<b>Capitalize Variable Strings</b>", options: ["True", "False"], multiple: false, defaultValue: "False", submitOnChange: true, width: 2, required: false)
+                input(name: "thermDisplay", type: "enum", title: bold("Thermostat Display"), defaultValue: "1", width: 2, submitOnChange: true, options: ["1":"Mode • Setpoint • State", "2":"Mode • Setpoint", "3":"Mode • State", "4":"State", "5":"State • Setpoint"], newLine:true, style:"margin-right:25px")
+                input(name: "thermTempDisplay", type: "enum", title: bold("Thermostat Temp"), defaultValue: "1", width: 2, submitOnChange: true, options: ["1":"Temperature", "2":"Temperature|Humidity"])
                 input(name: "sortHeaderHintAZ", type: "color", title: bold("Sort Header Hint A-Z"), required: false, defaultValue: "#00FF00", submitOnChange: true, width: 2, style:"margin-right:25px", newLine: true)
                 input(name: "sortHeaderHintZA", type: "color", title: bold("Sort Header Hint Z-A"), required: false, defaultValue: "#FF0000", submitOnChange: true, width: 2, style:"margin-right:25px")
             }
@@ -644,6 +515,12 @@ def mainPage(){
                 input(name: "rtc", type: "color", title: bold2("Device Row Text Color", rtc), required: false, defaultValue: "#000000", submitOnChange: true, width:2)
                 input(name: "rbc", type: "color", title: bold2("Device Row Background Color", rbc), required: false, defaultValue: "#b6d7f1", submitOnChange: true, width:2)
                 input(name: "rbo", type: "enum", title: bold("Device Row Background Opacity"), options: opacity(), required: false, defaultValue: "1", submitOnChange: true, width:2)
+                input(name: "sfw", type: "enum", title: bold("State Font Weight"), options: ["Normal","Bold"], required: false, defaultValue: "Normal", submitOnChange: true, width:2)
+                input (name: "isAlternateRows", type: "enum", title: bold("Use Alternate Row Colors?"), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, newLine:true, style:"margin-right:25px; margin-left:20px;")
+                if (isAlternateRows == "True"){
+                    input (name: "ratc", type: "color", title: bold2("Alt. Device Row Text Color", ratc), required: false, defaultValue: "#000000", submitOnChange: true, width: 2)
+                    input (name: "rabc", type: "color", title: bold2("Alt. Device Row Background Color", rabc), required: false, defaultValue: "#E9F5CF", submitOnChange: true, width: 2)
+                }   
                 paragraph line(2)
                 input(name: "highlightSelectedRows", type: "enum", title: bold("Highlight Selected Rows"), options: ["True", "False"], required: false, defaultValue: "True", submitOnChange: true, width: 2, newLine: true, style:"margin-right:25px; margin-left:20px")
                 if (highlightSelectedRows == "True") input(name: "rbs", type: "color", title: bold2("Selected Row Background Color", rbs), required: false, defaultValue: "#fdf09b", submitOnChange: true, width:2)
@@ -652,8 +529,8 @@ def mainPage(){
                 input (name: "bwo", type: "enum", title: bold('Border Width - Outer'), options: elementSize2(), required: false, defaultValue: '2.5', width: 2, submitOnChange: true, style:"margin-right:25px;")
                 input (name: "bwi", type: "enum", title: bold('Border Width - Inner'), options: elementSize2(), required: false, defaultValue: '2', width: 2, submitOnChange: true)
                 paragraph line(2)
-                input (name: "theme", type: "enum", title: bold('Select Color Theme'), options: ['Blue','Green','Orange', 'Brown', 'Purple', 'Pink', 'Mono'], required: false, defaultValue: 'Blue', width: 2, submitOnChange: true)
-                input (name: "applyTheme", type: "button", title: "Apply Theme", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left:20px;margin-top:25px;")
+                input (name: "theme", type: "enum", title: bold('Select Color Theme'), options: ['Blue','Brown','Green','Grey','Modern','Mono','Orange','Pink','Purple','Rose','Sand'].sort(), required: false, defaultValue: 'Blue', width: 2, submitOnChange: true)
+                input (name: "applyTheme", type: "button", title: "Apply Theme", backgroundColor: "#27ae61", textColor: "white", submitOnChange: true, width: 2, style:"margin-left:20px;margin-top:12px;")
             }
 
             if (state.activeButtonB == 23){ //Title
@@ -742,7 +619,15 @@ def mainPage(){
             }
 
             if (state.activeButtonB == 27){ //Experimental
-                paragraph "<b>You will find experimental settings here if there are any.<b>"
+                if (u1Tag == null) app.updateSetting("u1Tag", [value: "font-size:0.6em !important;", type: "text"])
+                if (u2Tag == null) app.updateSetting("u2Tag", [value: "font-size:0.8em !important;", type: "text"])
+                
+                paragraph "<b>You will find experimental settings here if there are any.</b>"
+                def part1 = "<b>Here you can configure some CSS style tags that are user specific. Use them to make any text appear different. </b> Use something like: [u1]Header Title[/u1] to change the size for example.</b><br>"
+                def part2 = "You often do not need to add the closing tags but if you have any formatting issues you can add them. To restore the default value for a tag just delete the contents of the field.<br>"
+                paragraph part1 + part2
+				input (name: "u1Tag", type: "text", title: bold("Enter or Edit a String for the CSS formatting of the <mark> [u1] </mark> HTML tag."), required: false, newLine: false, defaultValue: "font-size:0.6em !important;", width:6, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
+                input (name: "u2Tag", type: "text", title: bold("Enter or Edit a String for the CSS formatting of the <mark> [u2] </mark> HTML tag."), required: false, newLine: false, defaultValue: "font-size:0.8em !important;", width:6, submitOnChange:true, style: "border-radius: 0.3em; outline: 2px solid #000000")
             }
             paragraph line(1)
             paragraph "<b>Important: You must do a " + red("Publish and Subscribe") + " for SmartGrid to receive updates and work correctly in polling mode or to update automatically in the above window!</b><br>"
@@ -762,13 +647,7 @@ def mainPage(){
     }
 }
 
-
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Standard System Elements
-//**************
-//*******************************************************************************************************************************************************************************************
-
+//***************************************************  Standard System Elements  *****************************************************
 //Configures all of the default settings values. This allows us to have some parts of the settings not be visible but still have their values initialized.
 //We do this to avoid errors that might occur if a particular setting were referenced but had not been initialized.
 def initialize() {
@@ -786,8 +665,7 @@ def initialize() {
         state.cloudEndpointData = "${getFullApiServerUrl()}/tb/data?access_token=${state.accessToken}"
         state.localEndpointPoll = "${getFullLocalApiServerUrl()}/tb/poll?access_token=${state.accessToken}"
         state.cloudEndpointPoll = "${getFullApiServerUrl()}/tb/poll?access_token=${state.accessToken}"
-        
-        
+                
         // All first-time settings in one map: [settingName: [value, type]]
         def firstTimeSettings = [
             // Polling
@@ -826,8 +704,7 @@ def initialize() {
             // Header
             hts: ["100", "enum"], htc: ["#ffffff", "color"], hbc: ["#2375b8", "color"], hbo: ["1", "enum"],
             // Rows
-            rts: ["90", "enum"], rtc: ["#000000", "color"], rbc: ["#cccccc", "color"], rbo: ["1", "enum"],
-            highlightSelectedRows: ["True", "enum"], rbs: ["#FFE18F", "color"],
+            rts: ["90", "enum"], rtc: ["#000000", "color"], rbc: ["#cccccc", "color"], rbo: ["1", "enum"], sfw: ["Normal", "enum"], ratc: ["#000000", "color"], rabc: ["#cccccc", "color"], isAlternateRows: ["True", "enum"], highlightSelectedRows: ["True", "enum"], rbs: ["#FFE18F", "color"],
             // Borders
             bc: ["#000000", "color"], bwo: ["4", "enum"], bwi: ["2", "enum"], tpad: ["3", "enum"],
             // Publishing
@@ -885,7 +762,15 @@ def initialize() {
         myDeviceRenameCount: ["0", "enum"], tempUnits: ["°F", "enum"],
         hideColumn11: [true, "bool"], hideColumn12: [true, "bool"],
         // New variables section
-        displayCustomRow: ["All", "enum"], myVariableCount: ["0", "enum"]
+        displayCustomRow: ["All", "enum"], myVariableCount: ["0", "enum"],
+        column3Width: ["200", "enum"], column4Width: ["100", "enum"],
+        minBattery: ["50", "text"], minPower: ["0", "text"], minHumidity: ["50", "text"], maxHumidity: ["90", "text"], minTemp: ["50", "text"], maxTemp: ["90", "text"],
+        onlyReportOutsideRangeContacts: ["False", "enum"], onlyReportOutsideRangeTemperature: ["False", "enum"], onlyReportOutsideRangeWater: ["False", "enum"],
+        onlyReportOutsideRangeMotion: ["False", "enum"], onlyReportOutsideRangePresence: ["False", "enum"], onlyReportOutsideRangeSmoke: ["False", "enum"], 
+        onlyReportOutsideRangeCarbonMonoxide: ["False", "enum"], onlyReportOutsideRangeHumidity: ["False", "enum"],
+        onlyReportOutsideRangeBattery: ["False", "enum"], onlyReportOutsideRangePower: ["False", "enum"],
+        thermDisplay: ["1", "enum"], thermTempDisplay: ["1", "enum"], sfw: ["Normal", "enum"], isAlternateRows: ["False", "enum"],
+        ratc: ["#000000", "color"], rabc: ["#cccccc", "color"]
         // customSortOrder intentionally omitted — managed exclusively by the parse-validation block above
     ]
     nullDefaults.each { name, config ->
@@ -900,63 +785,62 @@ def initialize() {
         state.variablesVersion = codeVersion
         
         // myVariableCount is a new setting not present in older installs
-        if (settings.myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])        
-    }
+        if (settings.myVariableCount == null) app.updateSetting("myVariableCount", [value: "0", type: "enum"])
+        
+        //New Settings being introduced with version 6.
+        if (settings.thermDisplay == null) app.updateSetting("thermDisplay", [value: "1", type: "enum"])        
+        if (settings.thermTempDisplay == null) app.updateSetting("thermTempDisplay", [value: "1", type: "enum"])        
+        if (settings.sfw == null) app.updateSetting("sfw", [value: "Normal", type: "enum"])        
+        if (settings.isAlternateRows == null) app.updateSetting("isAlternateRows", [value: "False", type: "enum"])        
+		if (settings.ratc == null) app.updateSetting("ratc", [value: "#000000", type: "color"])
+		if (settings.rabc == null) app.updateSetting("rabc", [value: "#cccccc", type: "color"])
+	}
     
     // Fix spelling mistake from older versions: "Seperator" -> "Separator"
     (1..customRowCount.toInteger()).each { i ->
         def rowType = settings["customRowType$i"]?.toString()
-        if (rowType == "Seperator Row" || rowType == "Separator Row") {
-            app.updateSetting("customRowType$i", [value: "Group Row", type: "enum"])
-        }
-        // Fix old "Group Row" no-op update that was a placeholder — remove if truly not needed
-        // (keeping it in case it guards against a future rename) - Will remove at later date
-        if (rowType == "Group Row") {
-            app.updateSetting("customRowType$i", [value: "Group Row", type: "enum"])
-        }
+        if (rowType == "Seperator Row" || rowType == "Separator Row") { app.updateSetting("customRowType$i", [value: "Group Row", type: "enum"]) }
     }
 }
 
-//Sets the basic table colors.  //Blue is the default.
 def applyTheme() {
     def themes = [
-        Blue:   [crbc:"#b6d7f1", crbc2:"#2375b8", crtc:"#000000", htc:"#ffffff", hbc:"#2375b8", rtc:"#000000", rbc:"#cccccc"],
-        Green:  [crbc:"#c8e6c9", crbc2:"#388e3c", crtc:"#000000", htc:"#ffffff", hbc:"#388e3c", rtc:"#000000", rbc:"#d6e8d4"],
-        Orange: [crbc:"#ffe0b2", crbc2:"#f57c00", crtc:"#000000", htc:"#ffffff", hbc:"#f57c00", rtc:"#000000", rbc:"#ffddaa"],
-        Brown:  [crbc:"#d7ccc8", crbc2:"#5d4037", crtc:"#000000", htc:"#ffffff", hbc:"#5d4037", rtc:"#000000", rbc:"#dacea4"],
-        Purple: [crbc:"#e1bee7", crbc2:"#7b1fa2", crtc:"#000000", htc:"#ffffff", hbc:"#7b1fa2", rtc:"#000000", rbc:"#d9b8db"],
-        Pink:   [crbc:"#fce4ec", crbc2:"#f8bbd0", crtc:"#333333", htc:"#333333", hbc:"#f48fb1", rtc:"#333333", rbc:"#c6dee2"],
-        Mono:   [crbc:"#E0E0E0", crbc2:"#393939", crtc:"#212121", htc:"#FFFFFF", hbc:"#4b4949", rtc:"#000000", rbc:"#d1d1d1"]
+        Blue:   [crbc:"#b6d7f1", crbc2:"#2375b8", crtc:"#000000", htc:"#ffffff", hbc:"#2375b8", rtc:"#000000", rbc:"#cccccc", ratc:"#000000", rabc:"#cccccc"],
+        Green:  [crbc:"#c8e6c9", crbc2:"#388e3c", crtc:"#000000", htc:"#ffffff", hbc:"#388e3c", rtc:"#000000", rbc:"#d6e8d4", ratc:"#000000", rabc:"#d6e8d4"],
+        Orange: [crbc:"#ffe0b2", crbc2:"#f57c00", crtc:"#000000", htc:"#ffffff", hbc:"#f57c00", rtc:"#000000", rbc:"#ffddaa", ratc:"#000000", rabc:"#ffddaa"],
+        Brown:  [crbc:"#d7ccc8", crbc2:"#5d4037", crtc:"#000000", htc:"#ffffff", hbc:"#5d4037", rtc:"#000000", rbc:"#dacea4", ratc:"#000000", rabc:"#dacea4"],
+        Purple: [crbc:"#e1bee7", crbc2:"#7b1fa2", crtc:"#000000", htc:"#ffffff", hbc:"#7b1fa2", rtc:"#000000", rbc:"#d9b8db", ratc:"#000000", rabc:"#d9b8db"],
+        Pink:   [crbc:"#fce4ec", crbc2:"#f8bbd0", crtc:"#333333", htc:"#333333", hbc:"#f48fb1", rtc:"#333333", rbc:"#c6dee2", ratc:"#333333", rabc:"#c6dee2"],
+        Mono:   [crbc:"#E0E0E0", crbc2:"#393939", crtc:"#212121", htc:"#ffffff", hbc:"#4b4949", rtc:"#000000", rbc:"#d1d1d1", ratc:"#000000", rabc:"#d1d1d1"],
+        Modern: [crbc:"#e8d5b7", crbc2:"#a0784a", crtc:"#333333", htc:"#ffffff", hbc:"#a47d50", rtc:"#333333", rbc:"#fdf6ec",  ratc:"#333333", rabc:"#f9f9f9"],
+        Sand:   [crbc:"#f0e6c8", crbc2:"#b8973e", crtc:"#3d2f00", htc:"#ffffff", hbc:"#c9a84c", rtc:"#3d2f00", rbc:"#fffde7",  ratc:"#3d2f00", rabc:"#fdf5c0"],
+        Rose:   [crbc:"#d4a0a0", crbc2:"#9e5e5e", crtc:"#3b1f1f", htc:"#ffffff", hbc:"#b07070", rtc:"#000000", rbc:"#f5e0e0",  ratc:"#000000", rabc:"#e1bcbc"],
+        Grey:   [crbc:"#d0d5db", crbc2:"#7a8694", crtc:"#1a1a1a", htc:"#ffffff", hbc:"#8e99a4", rtc:"#1a1a1a", rbc:"#f8f9fa",  ratc:"#1a1a1a", rabc:"#eceef0"]
     ]
+
     def t = themes[settings.theme?.toString()] ?: themes.Blue
     t.each { k, v -> app.updateSetting(k, [value: v, type: "color"]) }
-    
-    // Non-color settings
-    [crts:"100", hts:"100", hbo:"1", rts:"90", rbo:"1", its1:"80", its2:"80", its3:"80",
-     ita1:"Center", ita2:"Center", ita3:"Center", bwo:"4", bwi:"2", tpad:"3",
-     tvp:"3", thp:"5", highlightSelectedRows:"True"].each { k, v -> app.updateSetting(k, [value: v, type: "enum"]) }
-    
-    app.updateSetting("bc", [value: "#000000", type: "color"])
-    app.updateSetting("rbs", [value: "#DCE775", type: "color"])
+    def isAdditionalSettings = settings.theme?.toString() in ["Modern", "Sand", "Rose", "Grey"]
+
+    // Common to both styles
+    def commonSettings = [crts:"100", hbo:"1", rts:"90", rbo:"1", its1:"80", its2:"80", its3:"80", ita1:"Center", ita2:"Center", ita3:"Center", highlightSelectedRows:"True"]
+
+    // Style-specific overrides
+    def specificSettings = isAdditionalSettings ? [hts:"95", bwo:"0", bwi:"1", tpad:"6", tvp:"6", thp:"8", bc:"#e0e0e0", rbs:"#e8f0fe"] : [hts:"100", bwo:"4", bwi:"2", tpad:"3", tvp:"3", thp:"5", bc:"#000000", rbs:"#DCE775"]
+
+    (commonSettings + specificSettings).each { k, v ->
+        def type = v.startsWith("#") ? "color" : "enum"
+        app.updateSetting(k, [value: v, type: type])
+    }
 }
 
 def updated(){
     if(!state?.isInstalled) { state?.isInstalled = true }
 }
-
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End Standard System Elements
-//**************
-//*******************************************************************************************************************************************************************************************
+//***********************************************  End Standard System Elements  *************************************************
 
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Start Device Renaming and Variable Substitution
-//**************
-//*******************************************************************************************************************************************************************************************
-
+//******************************************  Start Device Renaming and Variable Substitution  *******************************************
 // Replace %var11% - %var105% variables that may be found in device/group strings or device names with actual values.
 def replaceVarsInString(str) {
     if (!str) return ""
@@ -968,9 +852,7 @@ def replaceVarsInString(str) {
         if (dp == null) return fullMatch // Unrecognized casing
         def i = varNum.toInteger()
         def replacement = getVariableText(i, dp)
-
-        //log.info("REPLACEMENT for %${varLabel}${varNum}% is: $replacement with DP=$dp")
-        return replacement ?: fullMatch // fallback to original if null/empty
+		return replacement ?: fullMatch // fallback to original if null/empty
     }
 }
 
@@ -1081,12 +963,8 @@ def getHubProperty(hubPropertyName) {
     }
 }
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End Device Renaming and Variable Substitution
-//**************
-//*******************************************************************************************************************************************************************************************
 
+//***************************************  Device --> User Group Assignement  ****************************************
 //Assigns a list of Devices to one of the User created Groups
 def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
     if (deviceList == null || deviceList.isEmpty()) {
@@ -1114,9 +992,7 @@ def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
     // Re-find after removal
     insertAfterIndex = sortOrder.findIndexOf { it.UID?.toString() == targetUID }
     
-    def newEntries = deviceList.collect { device ->
-        [ID: device.id.toString(), UID: "${device.id}-${sensorTypeCode}".toString()]
-    }
+    def newEntries = deviceList.collect { device -> [ID: device.id.toString(), UID: "${device.id}-${sensorTypeCode}".toString()] }
     
     sortOrder.addAll(insertAfterIndex + 1, newEntries)
     sortOrder.eachWithIndex { entry, idx -> entry.row = idx + 1 }
@@ -1126,12 +1002,7 @@ def autoAssignDevicesToGroup(groupNumber, deviceList, sensorTypeCode) {
 }
 
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Device Data Collection and Preparation Functions
-//**************
-//*******************************************************************************************************************************************************************************************
-
+//***************************************  Device Data Collection and Preparation Functions  ****************************************
 // Gets the state of the various lights that are being tracked and puts them into a JSON format for inclusion with the script 
 def getJSON() {
     if (isLogTrace) log.trace("<b>Entering: GetJSON</b>")
@@ -1144,7 +1015,7 @@ def getJSON() {
         def deviceID = device.getId().toString()
         def cachedDevice = state.deviceList.find { it.ID == deviceID }
         deviceData.put("ID", device.getId())
-        deviceData.put("name", getShortName(cachedDevice?.rawLabel ?: "Unknown"))
+        deviceData.put("name", getShortName(cachedDevice?.rawName ?: "Unknown"))
         def mySwitch = device.currentValue("switch")
         deviceData.put("switch", mySwitch)
         deviceType = cachedDevice?.type
@@ -1157,11 +1028,24 @@ def getJSON() {
             5 : { d, dd -> def s = d.currentValue("switch"); def ic = getIcon(5, s); dd.level = d.currentValue("level")?.toInteger() ?: 100; dd.CT = d.currentValue("colorTemperature")?.toInteger() ?: 2000; def hsv = [hue: d.currentValue("hue") ?: 100, saturation: d.currentValue("saturation") ?: 100, value: dd.level]; dd.color = getHEXfromHSV(hsv); dd.colorMode = d.currentValue("colorMode"); dd.icon = ic?.icon; dd.cl = ic?.class },
             10: { d, dd -> def v = d.currentValue("valve"); def s = (v == "open") ? "on" : "off"; def ic = getIcon(10, s); dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class },
             11: { d, dd -> def l = d.currentValue("lock"); def s = (l == "locked") ? "on" : "off"; def ic = getIcon(11, s); dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class },
-            12: { d, dd -> def sp = d.currentValue("speed"); def s = (sp == "off") ? "off" : "on"; def ic = getIcon(12, sp); dd.speed = sp; dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class },
             13: { d, dd -> def dr = d.currentValue("door"); def s = (dr == "closed") ? "on" : "off"; def ic = getIcon(13, dr); dd.door = dr; dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class },
             14: { d, dd -> def st = d.currentValue("windowShade"); def pos = d.currentValue("position"); def s = (st == "closed") ? "off" : "on"; def ic = getIcon(14, st); dd.windowShade = st; dd.position = pos; dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class },
             15: { d, dd -> def st = d.currentValue("windowShade"); def s = (st == "closed") ? "off" : "on"; def ic = getIcon(15, st); dd.position = d.currentValue("position"); dd.tilt = Math.round(d.currentValue("tilt") * 0.9); dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class },
-            16: { d, dd -> def m = d.currentValue("mute"); def s = (m == "muted") ? "off" : "on"; def ic = getIcon(16, s); dd.switch = s; dd.volume = d.currentValue("volume"); dd.icon = ic?.icon; dd.cl = ic?.class }
+            16: { d, dd -> def m = d.currentValue("mute"); def s = (m == "muted") ? "off" : "on"; def ic = getIcon(16, s); dd.switch = s; dd.volume = d.currentValue("volume"); dd.icon = ic?.icon; dd.cl = ic?.class },
+            17: { d, dd -> def sp = d.currentValue("speed"); def s = (sp == "off") ? "off" : "on"; def ic = getIcon(17, sp); dd.speed = sp; dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class; dd.speeds = 3 },
+            18: { d, dd -> def sp = d.currentValue("speed"); def s = (sp == "off") ? "off" : "on"; def ic = getIcon(18, sp); dd.speed = sp; dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class; dd.speeds = 5 },
+            19: { d, dd ->
+                    def m           = (d.currentValue("thermostatMode") ?: "off").toLowerCase()
+                    def os          = (d.currentValue("thermostatOperatingState") ?: "idle").toLowerCase()
+                    def iconState   = (os == "idle" && m == "off") ? "off" : (os == "idle" && m == "emergency heat") ? "emergency heat" : os
+                    def ic          = getIcon(19, iconState)
+                    def rawTemp     = d.currentValue("temperature")
+                    def formattedTemp = rawTemp != null ? (tempDecimalPlaces == "0 Decimal Places" ? (rawTemp as float).round(0).toInteger().toString() + tempUnits : (rawTemp as float).round(1).toString() + tempUnits) : invalidAttribute.toString()
+                    dd.thermostatMode    = m
+                    dd.thermostatFanMode = d.currentValue("thermostatFanMode") ?: "auto" ; dd.heatingSetpoint = d.currentValue("heatingSetpoint") ; dd.coolingSetpoint = d.currentValue("coolingSetpoint")
+                	dd.temperature = formattedTemp ; dd.operatingState = os ; dd.switch = m ; dd.icon = ic?.icon ; dd.cl = ic?.class
+                	if (d.hasCapability("RelativeHumidityMeasurement")) dd.humidity = d.currentValue("humidity")
+                },
         ]
         def handler = deviceTypeHandlers[deviceType]
         if (handler) { handler(device, deviceData) }
@@ -1202,7 +1086,7 @@ def getJSON() {
             def deviceUID = "${deviceID}-${type}".toString()
             deviceData.put("ID", deviceID)
             def cachedSensor = state.deviceList.find { it.ID == deviceID && it.type == type }
-            deviceData.put("name", getShortName(cachedSensor?.rawLabel ?: "Unknown"))
+            deviceData.put("name", getShortName(cachedSensor?.rawName ?: "Unknown"))
             deviceData.put("type", type)
             def rawVal = device.currentValue(cfg.attr)
             def displayVal = (rawVal != null && cfg.processVal) ? cfg.processVal(rawVal) : (rawVal ?: invalidAttribute.toString())
@@ -1310,15 +1194,8 @@ def getJSON() {
     def finalList = new JsonSlurper().parseText(state.JSON)
     def headerData = new LinkedHashMap()
     headerData.put("type", 99)
-    headerData.put("hdr1",  toHTML(replaceVarsInString(column1Header ?: "")))
-    headerData.put("hdr2",  toHTML(replaceVarsInString(column2Header ?: "")))
-    headerData.put("hdr3",  toHTML(replaceVarsInString(column3Header ?: "")))
-    headerData.put("hdr4",  toHTML(replaceVarsInString(column4Header ?: "")))
-    headerData.put("hdr5",  toHTML(replaceVarsInString(column5Header ?: "")))
-    headerData.put("hdr6",  toHTML(replaceVarsInString(column6Header ?: "")))
-    headerData.put("hdr7", toHTML(replaceVarsInString(column7Header ?: "")))
-    headerData.put("hdr8", toHTML(replaceVarsInString(column8Header ?: "")))
-    headerData.put("hdr9", toHTML(replaceVarsInString(column9Header ?: "")))
+    //Loop through each of the 9 column headers
+	(1..9).each { i -> headerData.put("hdr${i}", toHTML(replaceVarsInString(settings["column${i}Header"] ?: ""))) }
     headerData.put("hdrTitle", (tt == "?") ? "" : toHTML(replaceVarsInString(tt ?: "")))
     finalList << headerData
     state.JSON = JsonOutput.toJson(finalList)
@@ -1328,17 +1205,13 @@ def getJSON() {
 }
 
 def getGroupInfoSource(deviceUID, infoColumn) {
-    if (!isCustomSort || isCustomSort == "false") {
-        return settings["info${infoColumn}Source"]
-    }
+    if (!isCustomSort || isCustomSort == "false") { return settings["info${infoColumn}Source"] }
     
     def slurper = new groovy.json.JsonSlurper()
     def sortOrder = slurper.parseText(state.customSortOrder ?: "[]")
     
     def deviceEntry = sortOrder.find { it.UID == deviceUID }
-    if (!deviceEntry) {
-        return settings["info${infoColumn}Source"]
-    }
+    if (!deviceEntry) { return settings["info${infoColumn}Source"] }
     def deviceRow = deviceEntry.row
     
     def separatorEntry = sortOrder.findAll { entry ->
@@ -1346,9 +1219,7 @@ def getGroupInfoSource(deviceUID, infoColumn) {
         uid?.endsWith("-51") && entry.row < deviceRow
     }.max { it.row }
     
-    if (!separatorEntry) {
-        return settings["info${infoColumn}Source"]
-    }
+    if (!separatorEntry) { return settings["info${infoColumn}Source"] }
     
     def separatorUID = separatorEntry.UID?.toString()
     def parts = separatorUID.tokenize("-")
@@ -1362,6 +1233,8 @@ def getGroupInfoSource(deviceUID, infoColumn) {
 
 // Return the appropriate icon and class to match the type and deviceState
 def getIcon(type, deviceState) {
+    //Make sure all of the Thermostat returned values are lower case.
+    if (type == 19) deviceState = deviceState?.toLowerCase()
 	def icons = [
         1  : [on: [icon: "toggle_on", class: "on"], off: [icon: "toggle_off", class: "off"]],
         2  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
@@ -1370,15 +1243,15 @@ def getIcon(type, deviceState) {
         5  : [on: [icon: "lightbulb", class: "on"], off: [icon: "light_off", class: "off"]],
         10 : [on: [icon: "water_pump", class: "on"], off: [icon: "valve", class: "off"]],
         11 : [on: [icon: "lock", class: "good"], off: [icon: "lock_open", class: "bad"]],
-        12 : [on: [icon: "mode_fan", class: "spinning"], off: [icon: "mode_fan_off", class: "off"], low: [icon: "mode_fan", class: "spin-low"], medium: [icon: "mode_fan", class: "spin-medium"], high: [icon: "mode_fan", class: "spin-high"]],
+        // 12 is the former fan and is unused at present
         13 : [closed: [icon: "garage_door", class: "good"], open: [icon: "garage", class: "warn"], opening: [icon: "arrow_upward", class: "blinking"], closing: [icon: "arrow_downward", class: "blinking"]],
         14 : [open: [icon: "window_closed", class: "on"], closed: [icon: "roller_shades_closed", class: "off"], opening: [icon: "arrow_upward", class: "blinking"], closing: [icon: "arrow_downward", class: "blinking"], 'partially open': [icon: "roller_shades", class: "partial"]],
         15 : [open: [icon: "window_closed", class: "on"], closed: [icon: "blinds_closed", class: "off"], opening: [icon: "arrow_upward", class: "blinking"], closing: [icon: "arrow_downward", class: "blinking"], 'partially open': [icon: "blinds", class: "on"]],
         16 : [on: [icon: "volume_up", class: "on"], off: [icon: "volume_off", class: "off"]],
-        20 : [on: [icon: "mode_cool", class: "cooling"], off: [icon: "mode_cool_off", class: "inactive"]],
-        21 : [on: [icon: "mode_heat", class: "heating"], off: [icon: "mode_heat_off", class: "inactive"]],
-        22 : [on: [icon: "mode_dual", class: "dual-mode"], off: [icon: "mode_dual_off", class: "inactive"]],
-        23 : [on: [icon: "emergency_heat", class: "emergency"], off: [icon: "emergency_heat", class: "inactive"]],
+        17 : [on: [icon: "mode_fan", class: "on"], off: [icon: "mode_fan_off", class: "off"], low: [icon: "mode_fan", class: "spin-low"], medium: [icon: "mode_fan", class: "spin-medium"], high: [icon: "mode_fan", class: "spin-high"]],
+		18 : [on: [icon: "mode_fan", class: "on"], off: [icon: "mode_fan_off", class: "off"], low: [icon: "mode_fan", class: "spin-low"], "medium-low": [icon: "mode_fan", class: "spin-medium-low"], medium: [icon: "mode_fan", class: "spin-medium"], "medium-high": [icon: "mode_fan", class: "spin-medium-high"], high: [icon: "mode_fan", class: "spin-high"]],
+        19 : [cooling: [icon: "mode_cool", class: "cooling"], heating: [icon: "mode_heat", class: "heating"], 'fan only': [icon: "mode_fan", class: "spin-medium"], idle: [icon: "thermostat_auto", class: "inactive"], off: [icon: "power_off", class: "inactive"], 'pending cool': [icon: "mode_cool", class: "cooling"], 'pending heat': [icon: "mode_heat", class: "heating"], 'emergency': [icon: "emergency_heat", class: "bad"]],
+        
         // Sensors start at 31
         31 : [open: [icon: "expand_content", class: "warn"], closed: [icon: "collapse_content", class: "off"]],
 		32 : [temp: [icon: "device_thermostat", class: "off"]],
@@ -1390,9 +1263,9 @@ def getIcon(type, deviceState) {
         38 : [humidity: [icon: "humidity_percentage", class: "off"]],
         39 : [ battery_android_6 : [icon: "battery_android_6", class: "good"], battery_android_5 : [icon: "battery_android_5", class: "good"], battery_android_4 : [icon: "battery_android_4", class: "warn"], battery_android_3 : [icon: "battery_android_3", class: "warn"],
             	battery_android_2 : [icon: "battery_android_2", class: "bad"], battery_android_1 : [icon: "battery_android_1", class: "bad"], battery_android_0 : [icon: "battery_android_0", class: "bad"],],
-        //40 : [power: [icon: "bolt", class: "off"] ],
         40 : [ power_on  : [icon: "bolt", class: "on"], power_off : [icon: "bolt", class: "off"],],
-		//Custom Devices start at 51
+		
+        //Custom Devices start at 51
         51 : [groupRow: [icon: "atr", class: "group"] ],
 		52 : [deviceRow: [icon: "info", class: "off"] ],
         53 : [iFrameRow: [icon: "iframe", class: "off"] ]
@@ -1443,17 +1316,23 @@ def getDeviceInfo(device, type){
         humidity = Math.round(myHumid).toInteger().toString() + "%"
     }
     if (hasSource("lastActive") || hasSource("lastActiveDuration") || hasSource("lastInactive") || hasSource("lastInactiveDuration")) {
-        def ec = [ 1:["switch","on","off"], 2:["switch","on","off"], 3:["switch","on","off"], 4:["switch","on","off"], 5:["switch","on","off"],
-                   10:["valve","open","closed"], 11:["lock","locked","unlocked"], 12:["speed","!off","off"], 13:["door","!closed","closed"],
-                   14:["windowShade","open","!open"], 15:["windowShade","open","!open"], 31:["contact","open","closed"], 33:["water","wet","dry"], 34:["motion","active","inactive"],
-                   35:["presence","not present","present"], 36:["smoke","!clear","clear"], 37:["carbonMonoxide","!clear","clear"] ]
+        def ec = [ 1:["switch","on","off"], 2:["switch","on","off"], 3:["switch","on","off"], 4:["switch","on","off"], 5:["switch","on","off"], 10:["valve","open","closed"], 11:["lock","locked","unlocked"], 13:["door","!closed","closed"], 
+					14:["windowShade","open","!open"], 15:["windowShade","open","!open"], 17:["speed","!off","off"], 18:["speed","!off","off"], 19:["thermostatOperatingState","heating|cooling","!(heating|cooling)"], 31:["contact","open","closed"], 33:["water","wet","dry"], 
+					34:["motion","active","inactive"], 35:["presence","not present","present"], 36:["smoke","!clear","clear"], 37:["carbonMonoxide","!clear","clear"] ]
         def cfg = ec[type]
         if (cfg) {
             def events = device.events(max: 500)
             def findEvent = { val ->
-                def negate = val.startsWith("!")
-                def match = negate ? val.substring(1) : val
-                events.findAll { it.name == cfg[0] && (negate ? it?.value != match : it?.value == match) }.sort { -it.date.time }?.with { it.isEmpty() ? null : it.first() }
+                def groupNegate = val.startsWith("!(") && val.endsWith(")")
+                def conditions = groupNegate ? val[2..-2].split("\\|") : val.split("\\|")
+                events.findAll { ev ->
+                    def matches = conditions.any { cond ->
+                        def negate = cond.startsWith("!")
+                        def match = negate ? cond.substring(1) : cond
+                        ev.name == cfg[0] && (negate ? ev?.value != match : ev?.value == match)
+                    }
+                    groupNegate ? !matches : matches
+                }.sort { -it.date.time }?.with { it.isEmpty() ? null : it.first() }
             }
             lastActiveEvent = findEvent(cfg[1])
             lastInactiveEvent = findEvent(cfg[2])
@@ -1484,9 +1363,8 @@ def getDeviceInfo(device, type){
         }
     }
     
-    return [lastActive: lastActive, lastInactive: lastInactive, lastInactiveInstant: lastInactiveInstant, lastActiveInstant: lastActiveInstant, lastActiveDuration: lastActiveDuration,
-            lastInactiveDuration: lastInactiveDuration, roomName: roomName, colorName: colorName, colorMode: colorMode, power: power, healthStatus: healthStatus,
-            energy: energy, ID: ID, network: network, deviceTypeName: deviceTypeName, lastSeen: lastSeen, lastSeenElapsed: lastSeenElapsed, battery: battery, 
+    return [lastActive: lastActive, lastInactive: lastInactive, lastInactiveInstant: lastInactiveInstant, lastActiveInstant: lastActiveInstant, lastActiveDuration: lastActiveDuration, lastInactiveDuration: lastInactiveDuration, roomName: roomName, 
+            colorName: colorName, colorMode: colorMode, power: power, healthStatus: healthStatus, energy: energy, ID: ID, network: network, deviceTypeName: deviceTypeName, lastSeen: lastSeen, lastSeenElapsed: lastSeenElapsed, battery: battery, 
             temperature: temperature, humidity: humidity, colorTemperature: colorTemperature].collectEntries { key, value -> [key, value != null ? value : invalidAttribute.toString()] }
 }
 
@@ -1512,12 +1390,12 @@ def applyChangesToDevices(changes) {
     if (isLogTrace) log.trace("<b>Entering: applyChangesToDevices</b>")
     if (isLogDeviceInfo) log.debug("Changes are: $changes")
 
-    // Define a map of actions
-    def commandMap = [ 'switch' : { ID, type, newValue -> handleSwitch(ID, type, newValue) }, 'level' : { ID, _, newValue -> ID.setLevel(newValue, 0.4) }, 'volume' : { ID, _, newValue -> ID.setVolume(newValue) },
-        'position': { ID, _, newValue -> ID.setPosition(newValue) }, 'tilt' : { ID, _, newValue -> ID.setTiltLevel(Math.round(newValue * (100 / 90))) }, 'speed' : { ID, _, newValue -> ID.setSpeed(newValue) },
-        'name'    : { ID, _, newValue -> ID.setLabel(newValue) }, 'CT' : { ID, _, newValue -> ID.setColorTemperature(newValue, null, 0.2) }, 'color' : { ID, _, newValue -> setDeviceColor(ID, newValue) }
+    // Define a map of actions Note: 'speed' handles all fan types (17=3-speed, 18=5-speed) generically via setSpeed()
+    def commandMap = [ 'switch' : { ID, type, newValue -> handleSwitch(ID, type, newValue) }, 'level' : { ID, _, newValue -> ID.setLevel(newValue, 0.4) }, 'volume' : { ID, _, newValue -> ID.setVolume(newValue) }, 'position': { ID, _, newValue -> ID.setPosition(newValue) }, 
+		'tilt' : { ID, _, newValue -> ID.setTiltLevel(Math.round(newValue * (100 / 90))) }, 'speed' : { ID, _, newValue -> ID.setSpeed(newValue) }, 'name'    : { ID, _, newValue -> ID.setLabel(newValue) }, 'CT' : { ID, _, newValue -> ID.setColorTemperature(newValue, null, 0.2) }, 
+		'color' : { ID, _, newValue -> setDeviceColor(ID, newValue) }, 'thermostatMode'  : { ID, _, newValue -> ID.setThermostatMode(newValue) }, 'heatingSetpoint' : { ID, _, newValue -> ID.setHeatingSetpoint(newValue) }, 
+		'coolingSetpoint' : { ID, _, newValue -> ID.setCoolingSetpoint(newValue) }, 'thermostatFanMode': { ID, _, newValue -> ID.setThermostatFanMode(newValue) }
     ]
-
     // Iterate over changes
     changes.each { change ->
         def device = findDeviceById(change.ID)
@@ -1526,7 +1404,6 @@ def applyChangesToDevices(changes) {
             change.changes.each { key, values ->
                 def newValue = values[1] // Get the new value for each property
                 def command = commandMap[key]
-
                 if (command) { command(device, type, newValue) } 
 				else { if (isLogDebug) log.warn("Unhandled change: $key") }
             }
@@ -1541,9 +1418,10 @@ def handleSwitch(device, type, newValue) {
         case [1,2,3,4,5]: on ? device.on() : device.off(); break
         case 10: case [14,15]: on ? device.open() : device.close(); break
         case 11: on ? device.lock() : device.unlock(); break
-        case 12: on ? device.setSpeed("on") : device.setSpeed("off"); break
         case 13: on ? device.close() : device.open(); break
         case 16: on ? device.unmute() : device.mute(); break
+        case [17,18]: on ? device.setSpeed("on") : device.setSpeed("off"); break
+		case 19: on ? device.setThermostatMode("auto") : device.setThermostatMode("off"); break
     }
 }
 
@@ -1559,15 +1437,10 @@ def findDeviceById(ID) {
     return myDevices?.find { it.getId() == ID }
 }
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Time and Date Related Functions
-//**************
-//*******************************************************************************************************************************************************************************************
 
+//***************************************************  Time and Date Related Functions  *************************************************
 //This is derived from the formatTime function used in Grid but in this case the only Time format received is from Events which are always "java.sql.Timestamp" or from lastActivity which are of type Long.
 //Receives a time as an event timestamp and converts it into one of many alternate time formats.
-
 def formatTime(timeValue, int format) {
     if (timeValue == "N/A") return 0
     
@@ -1639,20 +1512,10 @@ def getDuration(long lastActiveEvent, long lastInactiveEvent) {
     }
     return [lastActiveDuration: lastActiveDuration, lastInactiveDuration: lastInactiveDuration]
 }
-
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End of Time and Date Related Functions
-//**************
-//*******************************************************************************************************************************************************************************************
+//******************************************  End of Time and Date Related Functions  ***********************************************
 
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Compile Time Functions
-//**************
-//*******************************************************************************************************************************************************************************************
-
+//***************************************************  Compile Time Functions  ******************************************************
 //Compress the fixed components text output and generate the version that will be used by the browser.
 def compile(){
 	//Assign the device types
@@ -1746,41 +1609,35 @@ def compile(){
 		content = content.replace('#htc#', htc )	// Header Text Color
 		content = content.replace('#sortHeaderHintAZ#', sortHeaderHintAZ )
 		content = content.replace('#sortHeaderHintZA#', sortHeaderHintZA )
-        content = content.replace('#maxTemp#', maxTemp ?: "90")
-        content = content.replace('#minTemp#', minTemp ?: "50")
-        content = content.replace('#maxTempColor#', maxTempColor ?: "#FF4500")
-        content = content.replace('#minTempColor#', minTempColor ?: "#5BC8F5")
-        content = content.replace('#normalTempColor#', normalTempColor ?: "#81C784")
-        content = content.replace('#maxHumidity#', maxHumidity ?: "90")
-        content = content.replace('#minHumidity#', minHumidity ?: "50")
-        content = content.replace('#maxHumidityColor#', maxHumidityColor ?: "#5B8DB8")
-        content = content.replace('#minHumidityColor#', minHumidityColor ?: "#D4B483")
-        content = content.replace('#normalHumidityColor#', normalHumidityColor ?: "#66BB6A")
+        
+        //Configure Min Max colors for temps and humidity.
+        [maxTemp: maxTemp ?: "90", minTemp: minTemp ?: "50", maxTempColor: maxTempColor ?: "#FF4500", minTempColor: minTempColor ?: "#5BC8F5", normalTempColor: normalTempColor ?: "#81C784", maxHumidity: maxHumidity ?: "90", 
+			minHumidity: minHumidity ?: "50", maxHumidityColor: maxHumidityColor ?: "#5B8DB8", minHumidityColor: minHumidityColor ?: "#D4B483", normalHumidityColor: normalHumidityColor ?: "#66BB6A"].each { k, v -> content = content.replace("#${k}#", v) }
         
 		def myhbc = convertToHex8(hbc, hbo.toFloat())  //Calculate the new color including the opacity.
 		content = content.replace('#hbc#', myhbc )	// Header Background Color
 		content = content.replace('#rts#', rts )	// Row Text Size
+        content = content.replace('#sfw#', sfw )	// State Font Weight
 		content = content.replace('#rtc#', rtc )	// Row Text Color
 		def myrbc = convertToHex8(rbc, rbo.toFloat())  //Calculate the new color including the opacity.
 		content = content.replace('#rbc#', myrbc )	// Row Background Color
 		if ( highlightSelectedRows == "True" ) content = content.replace('#rbs#', rbs ) // Row Background Color Selected
 		else content = content.replace('#rbs#', myrbc ) //Otherwise just set the background color to the default Row Background Color
-	
+        
+        //Configure Alternate Row Colors when selected.
+        if (isAlternateRows == "True" ) content = content.replace('#AlternateRowHTML#', "tr:nth-child(even):not(.custom-row-group) { background-color: " + rabc + "; color: " + ratc + " }" )
+        	
 		//Hide unwanted columns
 		(1..12).each { i -> content = content.replace("#hideColumn${i}#", settings["hideColumn${i}"] ? 'none' : 'table-cell') }
 		content = content.replace('#BrowserTitle#', myRemoteName)
 		content = content.replace('#pollInterval#', (pollInterval.toInteger() * 1000).toString() )
-		content = content.replace('#pollUpdateColorSuccess#', pollUpdateColorSuccess)
-		content = content.replace('#pollUpdateColorFail#', pollUpdateColorFail)
-		content = content.replace('#pollUpdateColorPending#', pollUpdateColorPending)
-		
+
+        //Polling Settings
+        ['pollUpdateColorSuccess', 'pollUpdateColorFail', 'pollUpdateColorPending', 'shuttleColor', 'shuttleHeight'].each { k -> content = content.replace("#${k}#", settings[k].toString()) }
 		content = content.replace('#pollUpdateDuration#', (pollUpdateDuration.toInteger() * 1000).toString() )
 		content = content.replace('#commandTimeout#', (commandTimeout.toInteger() * 1000).toString() )
-	
 		if (isPolling == "Enabled") content = content.replace('#isPolling#', "true")
 		if (isPolling == "Disabled") content = content.replace('#isPolling#', "false")
-		content = content.replace('#shuttleColor#', shuttleColor)
-		content = content.replace('#shuttleHeight#', shuttleHeight)
 	
 		//Drag & Drop - Custom Sort
 		if (isDragDrop == true) {	//This is a boolean variable so it uses true\false.
@@ -1799,11 +1656,17 @@ def compile(){
 		content = content.replace('#MaterialsFont#', "<link href='https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined' rel='stylesheet'>")
 		myWidth = ( (tilePreviewWidth.toFloat() * 210) - 10 )
 		content = content.replace('#maxWidth#', myWidth.toString() )
-    
+        
+        //Thermostat and Temperature Preferences
+        content = content.replace('#thermDisplay#', thermDisplay ?: "1")
+        content = content.replace("#thermTempDisplay#", thermTempDisplay ?: "1")
+        content = content.replace("#tempUnits#", tempUnits ?: "°F")
+		content = content.replace("#invalidAttribute#", invalidAttribute.toString() ?: "N/A")
+            
     	//Mark tags
-		['markTag', 'm1Tag', 'm2Tag', 'm3Tag', 'm4Tag', 'm5Tag'].each { tag -> content = content.replace("#${tag}#", settings[tag].toString()) }
+		['markTag', 'm1Tag', 'm2Tag', 'm3Tag', 'm4Tag', 'm5Tag', 'u1Tag', 'u2Tag'].each { tag -> content = content.replace("#${tag}#", settings[tag].toString()) }
         content = content.replace('#deviceStateMap#', toHTML(deviceStateMap.toString()) )
-
+        
         if ( localEndpointState == "Enabled" ) localContent = content 
 		if ( localEndpointState == "Disabled" ) localContent = "Local Endpoint Disabled" 
 		if ( cloudEndpointState == "Enabled" ) cloudContent = content 
@@ -1853,7 +1716,7 @@ def condense(String input) {
     if (isLogDebug) log.debug ("Condense: After HTML\\CSS\\SVG comments removed: " + input.size() + " bytes." )
 	
 	input = input.replaceAll(/\/\/[^\n\r]*/, "")
-	//if (isLogDebug) log.debug ("Condense: After all comments with leading \\\\ are removed: " + input.size() + " bytes." )
+	if (isLogDebug) log.debug ("Condense: After all comments with leading \\\\ are removed: " + input.size() + " bytes." )
     
     //Replace any comments in the SCRIPT section that will be between \* and *\  Note: Comments beginning with \\ will not be removed.
     input = input.replaceAll(/(?s)\/\*.*?\*\//, "")
@@ -1870,26 +1733,39 @@ def cacheDeviceInfo(){
     if (isLogTrace) log.trace(red("In Cache Device Info"))
     def myDeviceList = []
     
-    // Capability-to-type mapping, ordered so higher-priority types overwrite lower ones
+    // Capability-to-type mapping, ordered so higher-priority types overwrite lower ones. Type 12 is intentionally unassigned. Fans are detected later as type 17 (3-speed) or 18 (5-speed).
     def capMap = [
-        [["Switch"], 1], [["SwitchLevel"], 2],
-        [["ColorTemperature"], 3], [["ColorControl"], 4],
-        [["ColorControl", "ColorTemperature"], 5],
-        [["Valve"], 10], [["Lock"], 11], [["FanControl"], 12],
-        [["GarageDoorControl"], 13], [["DoorControl"], 13],
-        [["WindowShade"], 14], [["WindowBlind"], 15],
-        [["AudioVolume"], 16]
+        [["Switch"], 1], [["SwitchLevel"], 2], [["ColorTemperature"], 3], [["ColorControl"], 4], [["ColorControl", "ColorTemperature"], 5],
+        [["Valve"], 10], [["Lock"], 11], [["GarageDoorControl"], 13], [["DoorControl"], 13],
+        [["WindowShade"], 14], [["WindowBlind"], 15], [["AudioVolume"], 16], [["Thermostat"], 19]
     ]
 	
-    //Controls
+    // Controls
     myDevices.each { device ->
         def deviceInfo = new LinkedHashMap()
         deviceInfo.put("ID", device.getId())
         def label = (device.getLabel() ?: device.getName()) ?: "Unknown"
-		deviceInfo.put("rawLabel", label)
-		deviceInfo.put("name", getShortName(label))
-        capMap.each { caps, typeVal ->
-            if (caps.every { device.hasCapability(it) }) deviceInfo.put("type", typeVal)
+        deviceInfo.put("rawName", label)
+        deviceInfo.put("name", getShortName(label))
+        
+        // FanControl is handled separately to distinguish 3-speed (17) from 5-speed (18). Type 12 is unassigned. Presence of "medium-low" in supported speeds indicates 5-speed.
+        if (device.hasCapability("FanControl")) {
+            def is5Speed = false
+            try {
+                def speedsJson = device.currentValue("supportedFanSpeeds")
+                if (speedsJson) {
+                    def speeds = new groovy.json.JsonSlurper().parseText(speedsJson)
+                    is5Speed = speeds.contains("medium-low")
+                }
+            } catch (Exception e) {
+                if (isLogDebug) log.debug("cacheDeviceInfo: Could not determine fan speeds for '${label}' — defaulting to 3-speed")
+            }
+            if (isLogDebug) log.debug("cacheDeviceInfo: Fan '${label}' is ${is5Speed ? '5-speed' : '3-speed'}")
+            deviceInfo.put("type", is5Speed ? 18 : 17)
+        } else {
+            capMap.each { caps, typeVal ->
+                if (caps.every { device.hasCapability(it) }) deviceInfo.put("type", typeVal)
+            }
         }
         myDeviceList << deviceInfo
     }
@@ -1900,57 +1776,44 @@ def cacheDeviceInfo(){
         this."$sensorKey"?.each { device ->
             def deviceInfo = new LinkedHashMap()
             deviceInfo.put("ID", device.getId())
-            deviceInfo.put("rawLabel", device.getLabel() ?: device.getName())
+            deviceInfo.put("rawName", device.getLabel() ?: device.getName())
             deviceInfo.put("type", type)
             myDeviceList << deviceInfo
         }
     }
-
+    
     // Determine duplicates and append suffix to raw name before renaming
     def multiTypeSensorTypes = [36, 37] as Set
     def rawNameCounts = myDeviceList.findAll { it.type in multiTypeSensorTypes }.countBy { it.rawName }
     
     // Build the set of type codes that should have their sensor type name appended
     def appendTypes = (appendTypeSensorSections ?: []).collect { sensorSectionToTypeMap()[it] }.findAll { it != null } as Set
-
     def maps = createDeviceTypeMap()
+   
     myDeviceList.each { deviceInfo ->
         // Controls already had getShortName() applied — skip them
         if (!deviceInfo.containsKey("rawName")) return
         def baseName = deviceInfo.rawName
         if (deviceInfo.type in appendTypes) {
-            //deviceInfo.name = getShortName("${baseName} (${maps.typeMap[deviceInfo.type]})")
-            def resolvedLabel = (deviceInfo.type in appendTypes) ? "${baseName} (${maps.typeMap[deviceInfo.type]})" : baseName
-			deviceInfo.put("rawLabel", resolvedLabel)
-			deviceInfo.name = getShortName(resolvedLabel)
+            def resolvedLabel = "${baseName} (${maps.typeMap[deviceInfo.type]})"
+            deviceInfo.put("rawName", resolvedLabel)
+            deviceInfo.name = getShortName(resolvedLabel)
         } else {
             deviceInfo.name = getShortName(baseName)
         }
-        deviceInfo.remove("rawLabel")
-    }
-    
+	}
     state.deviceList = myDeviceList
 }
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End of Compile Functions
-//**************
-//*******************************************************************************************************************************************************************************************
+//***************************************************  End of Compile Functions  ***************************************************
 
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Endpoint Activity Handling
-//**************
-//*******************************************************************************************************************************************************************************************
-
+//***************************************************  Endpoint Activity Handling  *************************************************
 //This delivers the applet content.
 def showApplet() {
 	if (isLogTrace) log.trace("<b>Entering: showApplet</b>")
     def isLocal = false
     def isCloud = false
     
-	//Make sure the
 	def host = request.headers?.Host?.first()
 	def protocol = request.headers?.'X-hubitat-scheme'?.first()
 	
@@ -2009,11 +1872,10 @@ def toHub() {
 		// Convert the updated object back to a JSON string for storage into the state variable.
 		state.customSortOrder = JsonOutput.toJson(myCustomSortOrder)
 		if (isLogDebug) log.debug(dodgerBlue("New Sort Order is: $state.customSortOrder"))
-		return // Nothing further to do.
+		return
 	}
 	
-	//If the app is reporting a device state change if will now be processed
-    // Map the second group by 'ID' for easier comparison
+	//If the app is reporting a device state change if will now be processed. Map the second group by 'ID' for easier comparison
 	def group2Map = group2.findAll { it instanceof Map && it.ID != null } .collectEntries { [(it.ID): it] }
     
     // Find changes
@@ -2055,12 +1917,18 @@ def toHub() {
     log.info ("Changes are: $changes")
 
 	// Print changes for each device one at a time
-	changes.each { change ->
-        def myDeviceName = findDeviceById(change.ID)
-    	def key = change.changes.keySet().first()  // Get the key of the change (since there's only one)
-    	def values = change.changes[key]           // Get the old and new values
-    	if (isLogActions) log.info dodgerBlue("<b>Action: ${myDeviceName} (ID: ${change.ID}): $key: ${values[0]} ---> ${values[1]} </b>")
-	}
+    changes.each { change ->
+        if (change.type == 19 && change.changes.containsKey("thermostatMode")) {
+            def device = findDeviceById(change.ID)
+            if (device) {
+                //Always send the setPoint even if it has not changed because this is evaluated by the thermostat to determine the mode if Auto is selected.
+                def heatSP = device.currentValue("heatingSetpoint")
+                def coolSP = device.currentValue("coolingSetpoint")
+                if (heatSP != null) change.changes["heatingSetpoint"] = [heatSP, heatSP]
+                if (coolSP != null) change.changes["coolingSetpoint"] = [coolSP, coolSP]
+            }
+        }
+    }
 
     // Apply all the changes to the devices.
     applyChangesToDevices(changes)
@@ -2105,20 +1973,10 @@ def poll() {
     result = render(contentType: "application/json", data: result, status: 200)
     return result
 }
-
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End of Endpoint Activity Handling
-//**************
-//*******************************************************************************************************************************************************************************************
+//***********************************************  End of Endpoint Activity Handling  ****************************************************
 
 
-
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Screen UI and Management Functions
-//**************
-//*******************************************************************************************************************************************************************************************
+//******************************************  Screen UI and Management Functions  ********************************************************
 //This is the standard button handler that receives the click of any button control.
 def appButtonHandler(btn) {
 	if (isLogTrace) log.trace("<b>Entering: appButtonHandler: Clicked on button: $btn</b>")
@@ -2177,25 +2035,14 @@ def collapseAllSensors(collapsed) {
 
 //Returns a formatted title for a section header based on whether the section is visible or not.
 def getSectionTitle(section) {
-	if (section == "Configure") { if (state.hidden.Configure == true) return sectionTitle("Configure ▶") else return sectionTitle("Configure ▼") }
-	if (section == "Preview") { if (state.hidden.Preview == true) return sectionTitle("Preview ▶") else return sectionTitle("Preview ▼") }
-	if (section == "Design") { if (state.hidden.Design == true) return sectionTitle("Design ▶") else return sectionTitle("Design ▼") }
+    def arrow = state.hidden[section] ? "&#9654;" : "&#9660;"
+    return sectionTitle("${section} ${arrow}")
 }
-
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End Screen UI and Management Functions
-//**************
-//*******************************************************************************************************************************************************************************************
+//**************************************************  End Screen UI and Management Functions  **************************************************
 
 
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Publishing Functions
-//**************
-//*******************************************************************************************************************************************************************************************
-
+//**********************************************************  Publishing Functions  ************************************************************
 //This function removes all existing subscriptions for this app and replaces them with new ones corresponding to the devices and attributes being monitored.
 void publishSubscribe() {
     if (isLogTrace) log.trace("<b>Entering: publishSubscribe</b>")
@@ -2205,7 +2052,8 @@ void publishSubscribe() {
     unsubscribe()
     
     // List of attributes you want to subscribe to
-    def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature", "valve", "lock", "speed", "door", "windowShade", "position", "tilt", "mute", "volume", "contact", "water", "motion", "presence", "smoke", "carbonMonoxide", "battery", "power"]
+    def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature", "valve", "lock", "speed", "door", "windowShade", "position", "tilt", "mute", "volume", "contact", "water", "motion", 
+                                 "presence", "smoke", "carbonMonoxide", "battery", "power", "thermostatMode", "thermostatFanMode", "heatingSetpoint", "coolingSetpoint", "thermostatOperatingState", "temperature"]
     deleteSubscription()
     
     // Configure subscriptions to devices
@@ -2315,19 +2163,10 @@ void deleteSubscription() {
     unsubscribe()
 }
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End of Publishing Functions
-//**************
-//*******************************************************************************************************************************************************************************************
+//*******************************************************  End of Publishing Functions  *********************************************************
 
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Utility Functions
-//**************
-//*******************************************************************************************************************************************************************************************
-
+//*******************************************************************  Utility Functions  ***************************************************************
 //Returns a string containing the var if it is not null. Used for the controls.
 static String bold2(s, var) {
     if (var == null) return "<b>$s (N/A)</b>"
@@ -2401,13 +2240,6 @@ def getAttributeList (thisDevice){
      }     
 }
 
-//Convert <HTML> tags to (HTML) for storage.
-def unHTML(HTML){
-    myHTML = HTML.replace("<", "[")
-    myHTML = myHTML.replace(">", "]")
-    return myHTML
-}
-
 //Convert (HTML) tags to <HTML> for display.
 def toHTML(HTML){    
     if (HTML == null) return ""
@@ -2416,14 +2248,4 @@ def toHTML(HTML){
     return myHTML
 }
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End Utility Functions
-//**************
-//*******************************************************************************************************************************************************************************************
-
-
-
-
-   
-
+//*******************************************************************  End Utility Functions  ***********************************************************************************************

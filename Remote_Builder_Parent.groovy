@@ -4,25 +4,20 @@
 *  Download: See importUrl in definition
 *  Description: Used in conjunction with child apps to generate tabular reports on device data and publishes them to a dashboard.
 *
-*  Copyright 2022 Gary J. Milne  
-*  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
-*  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
-*  for the specific language governing permissions and limitations under the License.
+*  Copyright 2025 Gary J. Milne  
+*  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+*  See the License for the specific language governing permissions and limitations under the License.
 
 *  License:
-*  You are free to use this software in an un-modified form. Software cannot be modified or redistributed.
-*  You may use the code for educational purposes or for use within other applications as long as they are unrelated to the 
-*  production of tabular data in HTML form, unless you have the prior consent of the author.
-*  You are granted a license to use Remote Builder in its standard configuration without limits.
-*  Use of Remote Builder in it's Advanced requires a license key that must be issued to you by the original developer. TileBuilderApp@gmail.com
+*  You are free to use this software in an un-modified form. Software cannot be modified or redistributed.  You may use the code for educational purposes or for use within other applications as long as they are unrelated to the 
+*  production of tabular data in HTML form, unless you have the prior consent of the author. You are granted a license to use Remote Builder in its standard configuration without limits.
+*  Use of Remote Builder Advanced (which includes SmartGrid) requires a license key that must be issued to you by the original developer. TileBuilderApp@gmail.com
+*  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
 *
-*  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-*  implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
-
 *  Authors Notes:
 *  For more information on Remote Builder check out these resources.
-*  Original posting on Hubitat Community forum: TBD
-*  Remote Builder Documentation: TBD
+*  Original posting on Hubitat Community forum: https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices-7-remotes-available/142060
+*  Remote Builder Documentation: https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote_Builder_Help.pdf
 *
 *  Remote Builder Parent App - ChangeLog
 *  Version 1.0.0 - Limited Release
@@ -37,14 +32,15 @@
 *  				 - Add sub-group sorting to the SmartGrid JS template. Added color coding for some numeric values to the template. SmartGrid Template changes.
 *  Version 2.0.1 - JS template modifications for SmartGrid
 *  Version 2.0.2 - JS template modifications for SmartGrid improvements
+*  Version 2.3.2- JS template changes to support version 6 of SmartGrid
 *
-*  Gary Milne - 07/11/26 @ 1:36 PM
+*  Gary Milne - 07/30/26 @ 4:18 PM
 *
 **/
 
 import groovy.transform.Field
-@Field static final codeDescription = "<b>Remote Builder Parent v2.0.2 (07/11/26)</b>"
-@Field static final codeVersion = 202
+@Field static final codeDescription = "<b>Remote Builder Parent v2.3.2(07/30/26)</b>"
+@Field static final codeVersion = 232
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -308,7 +304,6 @@ def mainPage() {
         }
         
     }
-        
         //Refresh the UI - neccessary for controls located on the same page.
         //log.info ("Refresh again")
         //refreshUI()
@@ -338,16 +333,7 @@ def getStorageLongName(){
     return state.myStorageDeviceDNI.toString()
 }
 
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//**************
-//**************  Setup and UI Functions
-//**************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-
+//**************************************************************  Setup and UI Functions  *************************************************************
 //Show the selected section and hide all the others.
 def showSection(section, override){
     //if (state.inSetup == true && override == false) return
@@ -466,16 +452,7 @@ void refreshUI() {
     }
 }
 
-
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//**************
-//**************  Storage Device Functions
-//**************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
+//************************************************************  Storage Device Functions  *************************************************************
 
 //Called by the child apps. Returns an open handle to the childDevice
 def getStorageDevice() {
@@ -653,10 +630,7 @@ def checkLicense() {
 }
 
 
-//*****************************************************************************************************
-//Utility Functions
-//*****************************************************************************************************
-
+//*********************************** Utility Functions ***********************************************************
 //Get the license type the user has selected.
 def isAdvLicense(){
     if (isLogInfo) ("License:" + isAdvLicense)
@@ -744,15 +718,7 @@ def getID(){
 }
 
 
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//**************
-//**************  Button Related Functions
-//**************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
+//************************************************************  Button Related Functions  *************************************************************
 
 String buttonLink(String btnName, String linkText, int buttonNumber) {
     font = chooseButtonFont(buttonNumber)
@@ -774,16 +740,7 @@ def chooseButtonText(buttonNumber, buttonText) {
 }
 
 
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//**************
-//**************  Installation and Update Functions
-//**************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-//************************************************************************************************************************************************************************************************************************
-
+//***********************************************************  Installation and Update Functions  ************************************************************
 def installed() {
     if (isLogTrace) log.trace ('installed: Entering installed')
     if (isLogInfo) log.info "Installed with settings: ${settings}"
@@ -853,17 +810,19 @@ def isSelectedDeviceChanged() {
 }
 
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  Remote Control APP-let Code
-//**************
-//*******************************************************************************************************************************************************************************************
+//****************************************************************  Remote Control APP-let Code  ****************************************************************************************
 
-//This contains the whole HTML\CSS\SVG\SCRIPT file equivalent. Placing it in a function makes it easy to collapse.
 def buildSmartGridTemplate() {
     def now = new Date()
+    state.smartGridTemplateTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
+    state.smartGridTemplate = buildTemplateHTML() + buildTemplateJS()
+}
+
+//This contains the whole HTML\CSS\SVG\SCRIPT file equivalent. Placing it in a function makes it easy to collapse.
+def buildTemplateHTML() {
+    def now = new Date()
 	state.smartGridTemplateTime = now.format("EEEE, MMMM d, yyyy '@' h:mm a")
-	def HTML = '''
+	return '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -885,7 +844,7 @@ def buildSmartGridTemplate() {
 	html { display: flex; flex-direction: column; align-items: #ha#; height: 100%; margin: 0px; margin-top:#tmt#px; font-family: 'Arial', 'Helvetica', sans-serif; box-sizing: border-box; border:0px solid red;}
 	body { display: flex; flex-direction: column; align-items: center; flex-grow: 1; overflow: hidden; height: 100%; cursor: auto; box-sizing: border-box; margin:0px;}
 	//mark { #markTag# } ; m1 { #m1Tag# } ; m2 { #m2Tag# } ; 	m3 { #m3Tag# } ; m4 { #m4Tag# } ; m5 { #m5Tag# }
-	mark { #markTag# } m1 { #m1Tag# display:inline-block; } m2 { #m2Tag# display:inline-block; } m3 { #m3Tag# display:inline-block; } m4 { #m4Tag# display:inline-block; } m5 { #m5Tag# display:inline-block; }
+	mark { #markTag# } m1 { #m1Tag# display:inline-block; } m2 { #m2Tag# display:inline-block; } m3 { #m3Tag# display:inline-block; } m4 { #m4Tag# display:inline-block; } m5 { #m5Tag# display:inline-block; } u1 { #u1Tag# display:inline-block; } u2 { #u2Tag# display:inline-block; }
 	.container {max-width: #maxWidth#px; align-items: center; width:100%; height: 100%; margin: 0px; overflow:auto; box-sizing: border-box; padding: #tpad#px;}
 	
 	/* Mobile Screens  */
@@ -944,6 +903,7 @@ def buildSmartGridTemplate() {
 	th:nth-child(10), td:nth-child(10) { width:calc(var(--control) * 2); display:#hideColumn10#; }
 	th:nth-child(11), td:nth-child(11) { display:#hideColumn11#; }
 	th:nth-child(12), td:nth-child(12) { display:#hideColumn12#; }
+	#AlternateRowHTML#
 	
 	/* START OF CONTROLS CLASSES */			
 	/* Column 1 Checkboxes */
@@ -969,7 +929,7 @@ def buildSmartGridTemplate() {
 	.control-container {display:flex;position: relative; width: 95%; justify-content: center; align-items: center; background-color:#rbc#; margin:auto; }
 	.CT-slider, .level-slider, .blinds-slider, .shades-slider, .volume-slider, .tilt-slider { width: 90%; opacity:0.75; border-radius:0px; height:var(--control); outline: 2px solid #888; cursor: pointer;}
 	.CT-value, .level-value, .blinds-value, .shades-value, .volume-value, .tilt-value, .state-value {position:absolute; top:50%; transform:translateY(-50%); font-size:#rts#%; pointer-events:none; text-align:center; cursor:pointer; font-weight:bold; background:#fff8; padding:0px;color: #rtc#;}
-	.state-text {font-size:#rts#%; pointer-events:none; cursor:pointer;}
+	.state-text {font-size:#rts#%; pointer-events:none; cursor:pointer; font-weight:#sfw#}
 
 	/* Custom properties for WebKit-based browsers (Chrome, Safari) */
 	.CT-slider::-webkit-slider-runnable-track { background: var(--CT); height: 100% }
@@ -1016,23 +976,28 @@ def buildSmartGridTemplate() {
 	.blinking { animation: blink 1s infinite; }
 	.blinking_orange { animation: blink 1s infinite; background-color: rgba(255, 140, 0, 0.7); }
 
-	.button-group { display: flex; justify-content: space-between; align-items: center; margin: 0 auto; text-align: center;}
-	.button { flex:1;  max-height: var(--control); padding: 4px 8px; margin: 0 2px; border-radius: var(--control); background-color: #555555; text-align: center; transition: background-color 0.3s, border-color 0.3s, outline 0.3s; 
-			display: flex; align-items: center; justify-content: center; color: #FFF; font-size: calc(2 + var(--control) / 1.5); cursor: pointer; }
-	.button:hover { background-color: #3CB371;}
-	.button:active { background-color: #1C86EE;}
-	.button.selected { background-color: #1E90FF;}
-	.button-group.disabled { opacity: 0.75; pointer-events: none; cursor: not-allowed; }
-
 	@keyframes spin { from {transform: rotate(0deg);} to {transform: rotate(360deg);} }
-	.spin-low {animation: spin 3s linear infinite;}
-	.spin-medium {animation: spin 1.5s linear infinite;}
-	.spin-high {animation: spin 0.75s linear infinite;}
+    .spin-low          { animation: spin 3s    linear infinite; }
+    .spin-medium-low   { animation: spin 2s    linear infinite; }
+    .spin-medium       { animation: spin 1.25s linear infinite; }
+    .spin-medium-high  { animation: spin 0.85s linear infinite; }
+    .spin-high         { animation: spin 0.6s  linear infinite; }
+	.fan-speed-select { width: 100%; height: calc(var(--control) * 1.3); font-size: #rts#%; cursor: pointer; border: 1px solid #888; border-radius: 4px; padding: 0px 8px; box-sizing: border-box; background: rgba(255, 255, 255, 0.5); text-align:center; }
+
+    /* Thermostat */
+	.therm-state { display:inline-flex; align-items:center; justify-content:center; gap:3px; cursor:pointer; border:1px solid #888; border-radius:4px; padding:0px 4px; font-size:#rts#%; width:100%; height:calc(var(--control) * 1.3); box-sizing:border-box; background:rgba(255,255,255,0.5); white-space:nowrap; }
+	.therm-dot { font-size:1em; opacity:0.8; margin:0 -1px;}
+    .therm-heat { color:#FF4500; border-color:#FF4500; }
+    .therm-cool { color:#1E90FF; border-color:#1E90FF; }
+    .therm-idle { border-color:#888; }
+    .therm-off  { border-color:#888; }
+	.therm-icon-emergency { background-color:rgba(255,0,0,0.3); color:#FF0000; }
+	.therm-icon-heat { background-color:rgba(255,69,0,0.2); color:#FF4500; }
+	.therm-icon-cool { background-color:rgba(30,144,255,0.2); color:#1E90FF; }
 
     .modal {display:none; position:fixed; z-index:1000; left:0; top:0; width:100%;height:100%; background-color:rgba(0,0,0,0.5);overflow: auto;}
-	.modal-content {background-color:white; margin:20px auto; padding:20px; border-radius:8px; width:300px; text-align:left;overflow-y: auto;}
-	.modal-content select, .modal-content input { margin-bottom: 10px; font-size: 16px; }
-    .close {cursor:pointer; float:right; font-size: 24px}
+	.modal-content {margin:20px auto; padding:20px; border-radius:8px; width:300px; text-align:left;overflow-y: auto; background:rgba(255,255,255,0.7); backdrop-filter:blur(6px);}
+	.modal-content select, .modal-content input { margin-bottom: 10px; font-size: 16px;}
 	.group-icon-active { transform: rotate(0deg); transition: transform 0.3s ease;}
 	.group-icon-inactive { transform: rotate(90deg); background-color: #F0F0F0; border-radius: 50%; padding: 2px; transition: transform 0.5s ease, background-color 0.5s ease; }
 
@@ -1042,9 +1007,7 @@ def buildSmartGridTemplate() {
 </style>
 </head>
 
-//***********************************************  HTML Block  *************************************************************************
-//**************************************************************************************************************************************
-
+//****************************************************  HTML Block  *************************************************************************
 <body>
 <div class="container">
 	<div class="title" id="title">#tt#</div>
@@ -1096,19 +1059,86 @@ def buildSmartGridTemplate() {
     </div>
 </div>
 
+<!-- Thermostat Modal -->
+<div id="thermModal" class="modal">
+    <div class="modal-content" style="width:240px; padding:24px;">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+            <div>
+				<div id="thermModalName" style="font-size:1.2rem; font-weight:700;"></div>
+                <div style="font-size:0.9rem; color:#222;"><span id="thermModalTemp" style="font-weight:600;"></span><span id="thermModalHumidSep" style="display:none;"> • </span><span id="thermModalHumid" style="font-weight:600;"></span></div>
+            </div>
+            <div id="thermModalState" style="font-size:0.8rem; font-weight:600; padding:3px 10px; border-radius:12px; white-space:nowrap; margin-top:2px;"></div>
+        </div>
+        <hr style="border:none; border-top:1px solid #e0e0e0; margin:12px 0;">
+        <!-- Heat Setpoint -->
+        <div id="thermHeatRow" style="display:flex; align-items:center; margin-bottom:14px;">
+            <span style="width:60px; color:#444; font-size:0.95rem;">Heat</span>
+            <div style="display:flex; align-items:center; justify-content:center; width:180px;">
+                <button onclick="thermAdjust('heat',-1)" style="width:36px; height:36px; border-radius:50%; border:1px solid #ccc; background:#fff; font-size:1rem; cursor:pointer;">▼</button>
+                <span id="thermHeatVal" style="width:72px; text-align:center; font-size:1.2rem; font-weight:700; color:#CC3300;"></span>
+                <button onclick="thermAdjust('heat',+1)" style="width:36px; height:36px; border-radius:50%; border:1px solid #ccc; background:#fff; font-size:1rem; cursor:pointer;">▲</button>
+            </div>
+        </div>
+        <!-- Cool Setpoint -->
+        <div id="thermCoolRow" style="display:flex; align-items:center; margin-bottom:14px;">
+            <span style="width:60px; color:#444; font-size:0.95rem;">Cool</span>
+            <div style="display:flex; align-items:center; justify-content:center; width:180px;">
+                <button onclick="thermAdjust('cool',-1)" style="width:36px; height:36px; border-radius:50%; border:1px solid #ccc; background:#fff; font-size:1rem; cursor:pointer;">▼</button>
+                <span id="thermCoolVal" style="width:72px; text-align:center; font-size:1.2rem; font-weight:700; color:#1E90FF;"></span>
+                <button onclick="thermAdjust('cool',+1)" style="width:36px; height:36px; border-radius:50%; border:1px solid #ccc; background:#fff; font-size:1rem; cursor:pointer;">▲</button>
+            </div>
+        </div>
+        <!-- Mode -->
+        <div style="display:flex; align-items:center; margin-bottom:14px;">
+            <span style="width:60px; color:#444; font-size:0.95rem;">Mode</span>
+            <select id="thermModeSelect" class="fan-speed-select" style="flex:1;">
+                <option value="heat">Heat</option> <option value="cool">Cool</option> <option value="auto">Auto</option> <option value="emergency heat">Emergency Heat</option>
+                <option value="off">Off</option>
+            </select>
+        </div>
+        <!-- Fan -->
+        <div style="display:flex; align-items:center; margin-bottom:14px;">
+            <span style="width:60px; color:#444; font-size:0.95rem;">Fan</span>
+            <select id="thermFanSelect" class="fan-speed-select" style="flex:1;">
+                <option value="auto">Auto</option> <option value="on">On</option> <option value="circulate">Circulate</option>
+            </select>
+        </div>
+        <hr style="border:none; border-top:1px solid #e0e0e0; margin:12px 0;">
+        <!-- Cancel / Apply -->
+        <div style="display:flex; gap:12px; margin-top:4px;">
+            <button id="thermModalCloseBtn" onclick="closeThermModal()" style="flex:1; padding:10px; font-size:1rem; border:1px solid #ccc; border-radius:6px; background:#fff; cursor:pointer;"><b>Cancel</b></button>
+            <button id="thermModalApplyBtn" onclick="thermApply()" style="flex:1; padding:10px; font-size:1rem; border:none; border-radius:6px; background:#1E5FA8; color:#fff; cursor:pointer;"><b>Apply</b></button>
+        </div>
+    </div>
+</div>
+
+'''   // End before the JS script begins
+}
+
+def buildTemplateJS(){
+return '''
 <script>
-//alert ("Updated V1");
 
 // Global variables to track resources that need cleanup
 let pollingInterval;
 let pressTimer;					// Used to determine when to pop up the modal screen
 let currentFetchController;		//Used for the fetch operation
 let pollingTimeoutID = null;	//Handle for the Polling Timeout
+let thermRow = null;
 const groupRow = 51;
 const deviceRow = 52;
 const iFrameRow = 53;
 const stateMap = #deviceStateMap#;
 const intraGroupSortState = {};
+const colorRules = [
+    { type: 32, highThreshold: #maxTemp#, lowThreshold: #minTemp#, highColor: "#maxTempColor#", lowColor: "#minTempColor#", midColor: "#normalTempColor#" },
+    { type: 38, highThreshold: #maxHumidity#, lowThreshold: #minHumidity#, highColor: "#maxHumidityColor#", lowColor: "#minHumidityColor#", midColor: "#normalHumidityColor#" }
+];
+const thermDisplay = #thermDisplay#;
+const tempUnits = "#tempUnits#";
+const invalidAttribute = "#invalidAttribute#";
+const thermTempDisplay = #thermTempDisplay#
 
 // Ensure each iframe has a unique window.name to scope storage keys
 // The iFrame preview in the composer has a window.name of "AppID" followed by a "-P" (Preview) so it looks like "4912-P".  An Applet loaded elsewhere will have have either a "-A" or "-B" suffix depending on which link is being used.
@@ -1218,6 +1248,106 @@ function removeHeaderEventListeners() {
 // Initialize event listeners
 setupHeaderEventListeners();
 
+
+//********************************************  Thermostat Functions  *********************************************************
+function thermUpdateSetpointVisibility(mode) {
+    const showHeat = (mode === "heat" || mode === "auto" || mode === "emergency heat");
+    const showCool = (mode === "cool" || mode === "auto");
+    document.getElementById("thermHeatRow").style.display = showHeat ? "flex" : "none";
+    document.getElementById("thermCoolRow").style.display = showCool ? "flex" : "none";
+}
+
+function thermAdjust(which, delta) {
+    const elId  = which === "heat" ? "thermHeatVal" : "thermCoolVal";
+    const el    = document.getElementById(elId);
+    const current = parseFloat(el.textContent) || (which === "heat" ? 68 : 76);
+	//Hardcode the generally accepted limits for thermostat heat and cool settings.
+    const min = tempUnits === "°C" ? 4 : 40;
+    const max = tempUnits === "°C" ? 37 : 99;
+    const newVal = Math.min(Math.max(current + delta, min), max);
+    el.textContent = newVal + tempUnits;
+}
+
+function thermApply() {
+	if (!thermRow) return;
+    const mode   = document.getElementById("thermModeSelect").value;
+    const fan    = document.getElementById("thermFanSelect").value;
+    const heatSP = parseFloat(document.getElementById("thermHeatVal").textContent) || 68;
+    const coolSP = parseFloat(document.getElementById("thermCoolVal").textContent) || 76;
+
+    // Write back to the row dataset
+    thermRow.dataset.thermostatMode    = mode;
+    thermRow.dataset.thermostatFanMode = fan;
+    thermRow.dataset.heatingSetpoint   = heatSP;
+    thermRow.dataset.coolingSetpoint   = coolSP;
+
+    // Build a single payload for just this thermostat row
+    const payload = [{
+        ID:   thermRow.dataset.ID,
+        type: thermRow.dataset.type,
+        thermostatMode:    mode,
+        thermostatFanMode: fan,
+        heatingSetpoint:   heatSP,
+        coolingSetpoint:   coolSP
+    }];
+
+	//Send the data and then close the modal dialog
+	sendData(JSON.stringify(payload));
+    document.getElementById("thermModal").style.display = "none";
+    thermRow = null;
+}
+
+function openThermModal(id, name) {
+    // Find the row by device ID
+    thermRow = [...document.querySelectorAll("#sortableTable tbody tr")].find(r => r.dataset.ID === String(id));
+    if (!thermRow) return;
+
+    const mode     = (thermRow.dataset.thermostatMode || "off").toLowerCase();
+    const opState  = (thermRow.dataset.operatingState || "idle").toLowerCase();
+    const heatSP   = parseFloat(thermRow.dataset.heatingSetpoint) || 68;
+    const coolSP   = parseFloat(thermRow.dataset.coolingSetpoint) || 76;
+    const fanMode  = (thermRow.dataset.thermostatFanMode || "auto").toLowerCase();
+	const temp = (thermRow.dataset.temperature || thermRow.cells[3]?.textContent?.trim() || invalidAttribute).toString().replace(/°F|°C|°/gi, "").trim();
+	
+    document.getElementById("thermModalName").textContent = name;
+    document.getElementById("thermModalTemp").textContent = "Currently " + temp + tempUnits;
+    document.getElementById("thermModalTemp").style.color = opState.includes("heat") ? "#CC3300" : opState.includes("cool") ? "#1E90FF" : "#555";
+    const humidity = thermRow.dataset.humidity;
+    if (humidity != null && humidity !== "" && humidity !== "undefined") {
+        document.getElementById("thermModalHumid").textContent = humidity + '%';
+        document.getElementById("thermModalHumidSep").style.display = 'inline';
+    } else {
+        document.getElementById("thermModalHumid").textContent = '';
+        document.getElementById("thermModalHumidSep").style.display = 'none';
+    }
+
+    // State badge
+    const badge = document.getElementById("thermModalState");
+    const opLabel = opState.charAt(0).toUpperCase() + opState.slice(1);
+    badge.textContent = opLabel;
+    badge.style.backgroundColor = opState.includes("heat") ? "rgba(204,51,0,0.12)" : opState.includes("cool") ? "rgba(30,144,255,0.12)" : "#f0f0f0";
+    badge.style.color = opState.includes("heat") ? "#CC3300" : opState.includes("cool") ? "#1E90FF" : "#444";
+
+    // Setpoint values
+	document.getElementById("thermHeatVal").textContent = heatSP + tempUnits;
+	document.getElementById("thermCoolVal").textContent = coolSP + tempUnits;
+
+    // Show/hide setpoint rows based on mode
+    thermUpdateSetpointVisibility(mode);
+
+    // Dropdowns
+    document.getElementById("thermModeSelect").value  = mode;
+    document.getElementById("thermFanSelect").value   = fanMode;
+
+    // Update visibility when mode dropdown changes
+    document.getElementById("thermModeSelect").onchange = function() { thermUpdateSetpointVisibility(this.value); };
+    document.getElementById("thermModal").style.display = "block";
+}
+
+function closeThermModal() { document.getElementById("thermModal").style.display = "none";  thermRow = null; }
+document.getElementById("thermModalCloseBtn").addEventListener("click", () => { document.getElementById("thermModal").style.display = "none"; });
+
+//*************************************************  Settings Modal  *******************************************************************
 // Modal control functions
 function openModal() { modal.style.display = "block"; document.getElementById("isPolling").value = isPolling; document.getElementById("isLogging").value = isLogging; document.getElementById("pollInterval").value = pollInterval;}
 function closeModal() { modal.style.display = "none"; refreshPage(50);}
@@ -1225,10 +1355,7 @@ function startPress(event) { if (pressTimer) clearTimeout(pressTimer); pressTime
 function cancelPress() { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } }
 document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
 
-
 //***********************************************  Table Body  *************************************************************************
-//**************************************************************************************************************************************
-
 function showVariables(){
 	console.log("Session Storage Variables:");
 	for (let i = 0; i < sessionStorage.length; i++) {
@@ -1243,7 +1370,6 @@ function loadTableFromJSON(data) {
     let icon = "";
     tbody.innerHTML = "";
     const saved = JSON.parse(sessionStorage.getItem(storageKey("checkboxStates"))) || {};
-
     data.forEach((d, i) => {
         // Type 99 is a sentinel entry carrying refreshed header/title values — update the spans and skip row creation.
         if (d.type === 99) {
@@ -1253,8 +1379,7 @@ function loadTableFromJSON(data) {
             });
             return;
         }
-
-		//Process all of the regular device entries.
+        // Process all of the regular device entries.
         let show = true;
         if (filterValues["filterSwitch"] === "onlyOn" && d.type >= 1 && d.type <= 5 && d.switch !== "on") show = false;
         if (filterValues["filterLock"] === "onlyUnlocked" && d.type === 11 && d.switch !== "off") show = false;
@@ -1265,40 +1390,24 @@ function loadTableFromJSON(data) {
         const row = document.createElement('tr');
         row.draggable = #isDragDrop#;
         Object.assign(row.dataset, {
-            ID: d.ID, name: d.name, type: d.type, speed: d.speed, level: d.level,
-            position: d.position, tilt: d.tilt, volume: d.volume, colorMode: d.colorMode || "None",
-            info1: d.i1, info2: d.i2, info3: d.i3, icon: d.icon, class: d.cl, row: d.row, group: d.group
+            ID: d.ID, name: d.name, type: d.type, speed: d.speed, level: d.level, position: d.position, tilt: d.tilt, volume: d.volume, colorMode: d.colorMode || "None", info1: d.i1, info2: d.i2, info3: d.i3, icon: d.icon, 
+            class: d.cl, row: d.row, group: d.group, thermostatMode: d.thermostatMode, thermostatFanMode: d.thermostatFanMode, heatingSetpoint: d.heatingSetpoint, coolingSetpoint: d.coolingSetpoint, operatingState: d.operatingState, temperature: d.temperature, humidity: d.humidity
         });
-
         const col = /^#[0-9A-F]{6}$/i.test(d.color) ? d.color : "#FFF";
         if (d.type === groupRow) icon = `<i class='material-symbols-outlined ${d.cl}' onclick="toggleGroupVisibility(this)">${d.icon}</i>`;
         else icon = `<i class='material-symbols-outlined ${d.cl}'>${d.icon}</i>`;
+		
+        const { c1, c2 } = buildControls(d, i, col);
 
-        const getSlider = (cls, val, min, max, label, disp, extra = "") => `
-            <input type="range" class="${cls}" min="${min}" max="${max}" value="${val}"
-                style="display:${disp}" oninput="updateSliderValue(this, '${label}')" onchange="updateHUB()" ${extra}>
-            <span class="${label}-value" style="display:${disp}">${val}${label === "CT" ? "°K" : "%"}</span>`;
-        let c1 = "", c2 = "";
-        if (d.type <= 5) {
-            c1 += `<div class="control-container">`;
-            if ([2,3,4,5].includes(d.type)) c1 += getSlider("level-slider", d.level, 0, 100, "level", showSlider === 'A' ? 'block' : 'none');
-            if ([3,5].includes(d.type)) c1 += getSlider(`CT-slider ${d.colorMode === 'CT' ? 'glow-EffectCT' : ''}`, d.CT, 2000, 6500, "CT", showSlider === 'B' ? 'block' : 'none');
-            c1 += `</div>`;
-        }
-        if (d.type === 12) c1 = `
-            <div class="button-group ${d.switch === 'off' ? 'disabled' : ''}">
-                ${["low","medium","high"].map(s => `<div class="button ${d.speed === s ? 'selected' : ''} ${d.switch === 'off' ? 'disabled' : ''}" data-speed="${s}" onclick="speed(this); updateHUB(); toggleChecked(this)">${s[0].toUpperCase()}</div>`).join("")}
-            </div>`;
-        if ([14,15].includes(d.type)) c1 = `<div class="control-container"><input type="range" class="shades-slider" min="0" max="100" value="${d.position}" oninput="updateSliderValue(this, 'position')" onchange="updateHUB()"><span class="shades-value"><b>${d.position}%</b></span></div>`;
-        if (d.type === 15) c2 = `<div style="display:flex;align-items:center;"><div class="control-container"><input type="range" class="tilt-slider" min="0" max="90" value="${d.tilt}" oninput="updateSliderValue(this,'tilt')" onchange="updateHUB()"><span class="tilt-value">${d.tilt}°</span></div><div id="tilt-indicator" class="tilt-indicator" style="margin-left:20px;margin-right:10px;">|</div></div>`;
-        if (d.type === 16) c1 = `<div class="control-container"><input type="range" class="volume-slider" min="0" max="100" value="${d.volume}" oninput="updateSliderValue(this, 'volume')" onchange="updateHUB()"><span class="volume-value">${d.volume}%</span></div>`;
-        if ([4,5].includes(d.type)) c2 = `<input type="color" class="colorPicker ${d.colorMode === 'RGB' ? 'glow-EffectRGB' : ''}" id="colorInput${i}" value="${col}" onchange="updateColor(this); updateHUB()">`;
+        // Type 19: Thermostat
+        if (d.type === 19) { row.innerHTML = buildThermRow(d, saved); fragment.appendChild(row); return; }
+
         const state = d.type <= 30
             ? `<div class="toggle-switch ${d.switch === 'on' ? 'on' : ''}" data-state="${d.switch}" onclick="toggleSwitch(this); updateHUB()"></div>`
             : `<div class="state-text">${d.switch}</div>`;
-        if (d.type === groupRow || d.type === deviceRow) {c1 = d.level; c2 = d.CT};
-        if ([1,10,11,13].includes(d.type)) c1 = "";
-        if (d.type === 53) {
+
+		//Type 53: Group Row
+        if (d.type === 53) {  
             row.innerHTML = `<td colspan="1"></td><td colspan="1">${icon}</td><td colspan="#iFrameColspan#">${state}</td><td style="display:#hideColumn11#;">${d.row}</td><td style="display:#hideColumn12#;">${d.group}</td>`;
         } else {
             row.innerHTML = `
@@ -1311,7 +1420,6 @@ function loadTableFromJSON(data) {
         }
         fragment.appendChild(row);
     });
-
     tbody.appendChild(fragment);
     if (isDragDrop) {
         tbody.querySelectorAll("tr").forEach(r => {
@@ -1335,15 +1443,101 @@ function loadTableFromJSON(data) {
     updateAllTiltIndicators();
     updateRows();
     updateState();
-    colorizeNumericSensors([
-        { type: 32, highThreshold: #maxTemp#, lowThreshold: #minTemp#, highColor: "#maxTempColor#", lowColor: "#minTempColor#", midColor: "#normalTempColor#" },
-        { type: 38, highThreshold: #maxHumidity#, lowThreshold: #minHumidity#, highColor: "#maxHumidityColor#", lowColor: "#minHumidityColor#", midColor: "#normalHumidityColor#" }
-    ]);
+	colorizeNumericSensors(colorRules);
+}
+
+function getSlider(cls, val, min, max, label, disp, extra = "") {
+    return `<input type="range" class="${cls}" min="${min}" max="${max}" value="${val}"
+        style="display:${disp}" oninput="updateSliderValue(this, '${label}')" onchange="updateHUB()" ${extra}>
+        <span class="${label}-value" style="display:${disp}">${val}${label === "CT" ? "°K" : "%"}</span>`;
+}
+
+function buildControls(d, i, col) {
+    let c1 = "", c2 = "";    
+    // Type 19: Thermostat — handled separately by buildThermRow()
+    if (d.type === 19) return { c1, c2 };
+    
+    // Types 1-5: Switches, Dimmers, RGB, CT, RGBW
+    if (d.type <= 5) {
+        c1 = `<div class="control-container">`;
+        if ([2,3,4,5].includes(d.type)) c1 += getSlider("level-slider", d.level, 0, 100, "level", showSlider === 'A' ? 'block' : 'none');
+        if ([3,5].includes(d.type))     c1 += getSlider(`CT-slider ${d.colorMode === 'CT' ? 'glow-EffectCT' : ''}`, d.CT, 2000, 6500, "CT", showSlider === 'B' ? 'block' : 'none');
+        c1 += `</div>`;
+    }
+    // Type 17: 3-speed fan
+    if (d.type === 17) c1 = `
+        <select class="fan-speed-select" onchange="speed(this); updateHUB()">
+            ${[["low","Low"],["medium","Medium"],["high","High"]].map(([s,l]) =>
+                `<option value="${s}" ${d.speed === s ? 'selected' : ''}>${l}</option>`).join("")}
+        </select>`;
+    // Type 18: 5-speed fan
+    if (d.type === 18) c1 = `
+        <select class="fan-speed-select" onchange="speed(this); updateHUB()">
+            ${[["low","Low"],["medium-low","Med-Low"],["medium","Medium"],["medium-high","Med-High"],["high","High"]].map(([s,l]) =>
+                `<option value="${s}" ${d.speed === s ? 'selected' : ''}>${l}</option>`).join("")}
+        </select>`;
+    // Types 14 & 15: Shades and Blinds
+    if ([14,15].includes(d.type)) c1 = `<div class="control-container"><input type="range" class="shades-slider" min="0" max="100" value="${d.position}" oninput="updateSliderValue(this, 'position')" onchange="updateHUB()"><span class="shades-value"><b>${d.position}%</b></span></div>`;
+    // Type 15: Blinds tilt
+    if (d.type === 15) c2 = `<div style="display:flex;align-items:center;"><div class="control-container"><input type="range" class="tilt-slider" min="0" max="90" value="${d.tilt}" oninput="updateSliderValue(this,'tilt')" onchange="updateHUB()"><span class="tilt-value">${d.tilt}°</span></div><div id="tilt-indicator" class="tilt-indicator" style="margin-left:20px;margin-right:10px;">|</div></div>`;
+    // Type 16: Volume
+    if (d.type === 16) c1 = `<div class="control-container"><input type="range" class="volume-slider" min="0" max="100" value="${d.volume}" oninput="updateSliderValue(this, 'volume')" onchange="updateHUB()"><span class="volume-value">${d.volume}%</span></div>`;
+    // Types 4 & 5: Color picker
+    if ([4,5].includes(d.type)) c2 = `<input type="color" class="colorPicker ${d.colorMode === 'RGB' ? 'glow-EffectRGB' : ''}" id="colorInput${i}" value="${col}" onchange="updateColor(this); updateHUB()">`;
+    // Custom rows use level and CT fields for text content
+    if (d.type === groupRow || d.type === deviceRow) { c1 = d.level; c2 = d.CT; }
+    // These types have no Control A
+    if ([1,10,11,13].includes(d.type)) c1 = "";
+    
+    return { c1, c2 };
+}
+
+//Add a Thermostat row. Broken out for easier maintenance.
+function buildThermRow(d, saved) {
+	const opState = (d.operatingState || "idle").toLowerCase();
+    const mode    = (d.thermostatMode  || "off").toLowerCase();
+	const temp = d.temperature != null ? d.temperature.toString().replace(/°F|°C|°/gi, "").trim() : invalidAttribute;
+	const humidity = d.humidity != null ? d.humidity : invalidAttribute;
+
+    const thermClass = opState.includes("heat") ? "therm-heat" : opState.includes("cool") ? "therm-cool"  : opState.includes("emergency") ? "therm-heat" 
+        : (opState === "idle" || opState === "off") ? "therm-idle"   // idle takes priority 
+        : mode.includes("heat") ? "therm-heat" : mode.includes("cool") ? "therm-cool" : "therm-idle";
+
+    const heatSP = d.heatingSetpoint != null ? d.heatingSetpoint : "--";
+    const coolSP = d.coolingSetpoint != null ? d.coolingSetpoint : "--";
+	const setpointLabel = mode.includes("emergency") || mode.includes("heat") ? ` ${heatSP}${tempUnits}` :  mode.includes("cool") ? ` ${coolSP}${tempUnits}` : mode === "auto" ? ` ${heatSP}${tempUnits}/${coolSP}${tempUnits}` : "";
+
+    const iconClass = opState.includes("heat") ? "therm-icon-heat" : opState.includes("cool") ? "therm-icon-cool"  : opState.includes("emergency") ? "therm-icon-emergency"
+        : (opState === "idle") ? "therm-icon-idle"    // ← idle always neutral, stops mode bleed
+        : mode.includes("emergency") ? "therm-icon-emergency" : mode.includes("heat") ? "therm-icon-heat" 
+        : mode.includes("cool") ? "therm-icon-cool" : (opState === "off" || mode === "off") ? "therm-icon-off" : "therm-icon-idle";
+
+	const stateCell = thermTempDisplay === 1 ? '<div class="state-text ' + thermClass + '">' + temp + tempUnits + '</div>' : 
+					'<div class="state-text ' + thermClass + '" style="display:flex; align-items:center; justify-content:center; gap:4px; white-space:nowrap;">' + temp + tempUnits + (humidity !== invalidAttribute ? '<span class="therm-dot">•</span>' + humidity + '%' : '') + '</div>';
+
+    const opLabel   = opState.charAt(0).toUpperCase() + opState.slice(1);
+    const modeLabel = mode === "emergency heat" ? "Em. Heat" : mode.charAt(0).toUpperCase() + mode.slice(1);
+    const icon      = `<i class='material-symbols-outlined ${iconClass}'>${d.icon}</i>`;
+    const c1 = thermDisplay === 1
+        ? `<div class="therm-state ${thermClass}" onclick="openThermModal('${d.ID}','${d.name}')"><span>${modeLabel}</span>${setpointLabel ? `<span class="therm-dot">•</span><span>${setpointLabel}</span>` : ''}<span class="therm-dot">•</span><span>${opLabel}</span></div>`
+        : thermDisplay === 2
+        ? `<div class="therm-state ${thermClass}" onclick="openThermModal('${d.ID}','${d.name}')"><span>${modeLabel}</span>${setpointLabel ? `<span class="therm-dot">•</span><span>${setpointLabel}</span>` : ''}</div>`
+        : thermDisplay === 3
+        ? `<div class="therm-state ${thermClass}" onclick="openThermModal('${d.ID}','${d.name}')"><span>${modeLabel}</span><span class="therm-dot">•</span><span>${opLabel}</span></div>`
+        : thermDisplay === 4
+        ? `<div class="therm-state ${thermClass}" onclick="openThermModal('${d.ID}','${d.name}')"><span>${opLabel}</span></div>`
+        : `<div class="therm-state ${thermClass}" onclick="openThermModal('${d.ID}','${d.name}')"><span>${opLabel}</span>${setpointLabel ? `<span class="therm-dot">•</span><span>${setpointLabel}</span>` : ''}</div>`;
+
+	return `<td><input type="checkbox" class="option-checkbox" ${saved[d.ID] ? "checked" : ""} onchange="toggleRowSelection(this)"></td>
+        <td>${icon}</td><td>${d.name}</td><td>${stateCell}</td>
+        <td>${c1}</td><td></td>
+        <td><div class="info1">${d.i1 ?? ""}</div></td>
+        <td><div class="info2">${d.i2 ?? ""}</div></td>
+        <td><div class="info3">${d.i3 ?? ""}</div></td>
+        <td></td><td>${d.row}</td><td>${d.group}</td>`;
 }
 
 //******************************  Custom Rows, Manual Sort Order and Collapsible Groups ************************************************
-//**************************************************************************************************************************************
-
 //Updates the value of the State field to display a different text, language or formatting.
 function updateState() {
     document.querySelectorAll("#sortableTable tr").forEach(row => {
@@ -1360,16 +1554,22 @@ function updateState() {
 //Formats the appearance of the Custom Rows. 51: Group Row, 52: Device Row, 53: iFrame Row  
 function updateRows() {
     document.querySelectorAll("#sortableTable tr").forEach(row => {
-    if (Number(row.dataset.type) === groupRow) {
-        row.classList.add("custom-row-group");
-        [...row.cells].forEach((cell, i) => {
-            if (!cell) return;
-            if (i === 0) cell.innerHTML = "";
-            cell.style.borderRight = "2px solid transparent";
-        });
-    }
-		//Remove the Selection box for anything of type >= 30, namely sensors or custom rows.
-		if (+row.dataset.type >= 30) {
+        if (Number(row.dataset.type) === groupRow) {
+            row.classList.add("custom-row-group");
+            const cells = [...row.cells];
+            // Find the last visible cell index
+            let lastVisibleIndex = -1;
+            cells.forEach((cell, i) => {
+                if (cell && getComputedStyle(cell).display !== 'none') lastVisibleIndex = i;
+            });
+            cells.forEach((cell, i) => {
+                if (!cell) return;
+                if (i === 0) cell.innerHTML = "";
+                if (i !== lastVisibleIndex) cell.style.borderRight = "2px solid transparent";
+            });
+        }
+        //Remove the Selection box for anything of type >= 30, namely sensors or custom rows.
+        if (+row.dataset.type >= 30) {
             const cell = row.cells[0];
             if (cell) cell.innerHTML = "";
         }
@@ -1407,8 +1607,6 @@ function assignGroupNumbers() {
 
 
 //***********************************************  Collapsible Groups  *****************************************************************
-//**************************************************************************************************************************************
-
 //Add a collapsed group to the local settings
 function addCollapsedGroup(groupNum) {
   const list = JSON.parse(localStorage.getItem(COLLAPSED_GROUPS_KEY) || "[]");
@@ -1473,8 +1671,6 @@ function restoreCollapsedGroups() {
 
 
 //***********************************************  Data Transfer ***********************************************************************
-//**************************************************************************************************************************************
-
 //Update the Tilt angle on ALL tilt indicators
 function updateAllTiltIndicators() {
     // Select all rows in the table then iterate through each row
@@ -1489,30 +1685,33 @@ function updateAllTiltIndicators() {
 }
 
 function updateHUB() {
-	//Update the table border to show activity is pending if the lastCommand is something other than "none".
-	document.querySelector("table").classList.add('glow-EffectPending');
-	const output = [...document.querySelectorAll("#sortableTable tbody tr")].map(row => {
-		const { type, ID } = row.dataset;
-		const t = Number(type);
-		if (t > 30) return null;	//Don't return anything if it is a sensor or custom device.
-
-		const o = { ID, type };
-		const $ = s => row.querySelector(s);
-		const add = (cond, key, valFn) => cond && (o[key] = valFn());
-
-		add(t >= 1 && lastCommand === "switch", "switch", () => $(".toggle-switch")?.dataset.state);
-		add(t >= 2 && t <= 5 && lastCommand === "level", "level", () => +$(".level-slider")?.value || 0);
-		add((t === 3 || t === 5) && lastCommand === "CT", "CT", () => +$(".CT-slider")?.value || 0);
-		add((t === 4 || t === 5) && lastCommand === "color", "color", () => ($('input[type="color"]')?.value || "#000000").toUpperCase());
-		add(t === 12 && lastCommand === "speed", "speed", () => $(".button.selected")?.dataset.speed || "off");
-		add((t === 14 || t === 15) && lastCommand === "position", "position", () => +$(".shades-slider")?.value || 0);
-		add(t === 15 && lastCommand === "tilt", "tilt", () => +$(".tilt-slider")?.value || 0);
-		add(t === 16 && lastCommand === "volume", "volume", () => +$(".volume-slider")?.value || 0);
-		return o;
-	}).filter(Boolean);
-
-	if (isLogging) console.log("Output is:", output);
-	sendData(JSON.stringify(output));
+    // Update the table border to show activity is pending
+    document.querySelector("table").classList.add('glow-EffectPending');
+    const output = [...document.querySelectorAll("#sortableTable tbody tr")].map(row => {
+        const { type, ID } = row.dataset;
+        const t = Number(type);
+        if (t > 30) return null;  // Don't return anything if it is a sensor or custom device.
+        const o = { ID, type };
+        const $ = s => row.querySelector(s);
+        const add = (cond, key, valFn) => cond && (o[key] = valFn());
+        // Standard controls
+        add(t >= 1 && t <= 18 && lastCommand === "switch", "switch", () => $(".toggle-switch")?.dataset.state);
+        add(t >= 2 && t <= 5 && lastCommand === "level", "level", () => +$(".level-slider")?.value || 0);
+        add((t === 3 || t === 5) && lastCommand === "CT", "CT", () => +$(".CT-slider")?.value || 0);
+        add((t === 4 || t === 5) && lastCommand === "color", "color", () => ($('input[type="color"]')?.value || "#000000").toUpperCase());
+        add((t === 14 || t === 15) && lastCommand === "position", "position", () => +$(".shades-slider")?.value || 0);
+        add(t === 15 && lastCommand === "tilt", "tilt", () => +$(".tilt-slider")?.value || 0);
+        add(t === 16 && lastCommand === "volume", "volume", () => +$(".volume-slider")?.value || 0);
+        add((t === 17 || t === 18) && lastCommand === "speed", "speed", () => $(".fan-speed-select")?.value || $(".button.selected")?.dataset.speed || "off");
+        // Thermostat controls
+        add(t === 19 && lastCommand === "thermostatMode",    "thermostatMode",    () => row.dataset.thermostatMode);
+        add(t === 19 && lastCommand === "heatingSetpoint",   "heatingSetpoint",   () => +row.dataset.heatingSetpoint);
+        add(t === 19 && lastCommand === "coolingSetpoint",   "coolingSetpoint",   () => +row.dataset.coolingSetpoint);
+        add(t === 19 && lastCommand === "thermostatFanMode", "thermostatFanMode", () => row.dataset.thermostatFanMode);
+        return o;
+    }).filter(Boolean);
+    if (isLogging) console.log("Output is:", output);
+    sendData(JSON.stringify(output));
 }
 
 //Sends the Data to the Hub
@@ -1556,13 +1755,11 @@ async function fetchData() {
 }
 
 //***********************************************  onUpdate event handling   ***********************************************************
-//**************************************************************************************************************************************
-
-// Fan Speed change - Highlight the selected button
-function speed(button) {
-    const row = button.closest('tr');
+// Fan Speed change
+function speed(element) {
+    const row = element.closest('tr');
     row.querySelectorAll('.button').forEach(btn => btn.classList.remove('selected'));
-    button.classList.add('selected');
+    if (element.classList.contains('button')) element.classList.add('selected');
     lastCommand = "speed";
 }
 
@@ -1592,7 +1789,6 @@ function updateSliderValue(slider, cmd) {
   lastCommand = cmd;
 }
 
-
 // Toggle the first control column between Control A and Control B sliders and hide unused sliders
 function toggleControl() {
     // Toggle the Control Group
@@ -1614,16 +1810,9 @@ function toggleControl() {
         row.querySelectorAll('.CT-slider, .CT-value').forEach(el => { el.style.display = showCT ? 'block' : 'none'; });
     });
 }
-
-
 //***********************************************  Table UI Management  ****************************************************************
-//**************************************************************************************************************************************
-
-
 
 //***********************************************  CheckBox Handling   *****************************************************************
-//**************************************************************************************************************************************
-
 function toggleRowSelection(checkbox) {
     const row = checkbox.closest('tr');
     const ID = row.dataset.ID;
@@ -1725,8 +1914,6 @@ function syncRows(command, value) {
 
 
 //***********************************************  Polling and Transactions  ***********************************************************
-//**************************************************************************************************************************************
-
 //Starts the Polling cycle
 function startPolling(url, pollResult) {
   // If polling is already active, do not start again
@@ -1842,8 +2029,6 @@ function handleTransaction(action, table) {
 }
 
 //***********************************************  Sorting   ***************************************************************************
-//**************************************************************************************************************************************
-
 //Table sort function after condensing with AI.
 function sortTable(i) {
     const tbody = document.querySelector("#sortableTable tbody");
@@ -2013,9 +2198,7 @@ function colorizeNumericSensors(rules) {
 }
 
 
-//***********************************************  Initialization  and Miscellaneous  **************************************************
-//**************************************************************************************************************************************
-
+//***********************************************  Initialization and Miscellaneous  **************************************************
 //Add event listeners for control once the content is loaded
 document.addEventListener("DOMContentLoaded", function() { 
 	setupHeaderEventListeners();
@@ -2071,18 +2254,10 @@ window.addEventListener('beforeunload', function() {
 	//transactions.clear();
 });
 
-//alert ("V3");
-
 </script>
 </body>
 </html>
 '''
-return HTML
 }
 
-//*******************************************************************************************************************************************************************************************
-//**************
-//**************  End Remote Control APplet Code
-//**************
-//*******************************************************************************************************************************************************************************************
-
+//*******************************************************************  End Remote Control APPlet Code  *************************************************************************************
