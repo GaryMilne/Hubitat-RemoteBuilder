@@ -24,17 +24,18 @@
 *  Remote Builder - SmartGrid - ChangeLog - See prior releases for older changelog info
 *  Version 6.0.0 - Adds Thermostats as a supported Control type. Separates Fans into 3 speed and 5 speed. Add several Theme styles. Adds Alternate Row Colors. Adds experimental u1 & u2 tags under experimental for more formatting choices.
 *  Version 6.0.2 - Pre-release fixes
+*  Version 6.0.3 - Fixes race condition that may cause the sort order to become corrupted during Drag and Drop operations. Fixes problem with collapsing the Carbon Monoxide sensor group. Added a device count to sensor group titles.
 *
 *  Native Supported Sensor Types: Battery, CarbonMonoxideDetector, ContactSensor, HumidityMeasurement, MotionSensor, PowerMeter, PresenceSensor, SmokeDetector, TemperatureMeasurement, WaterSensor
 *  Sensors Supported via Variables: AccelerationSensor, AirQuality, CarbonDioxideMeasurement, EnergyMeter, IlluminanceMeasurement, PressureMeasurement, ShockSensor, SignalStrength, SleepSensor, SoundPressureLevel, SoundSensor, UltravioletIndex, VoltageMeasurement
 *  Known Issues: Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
 *  Ideas for future releases: 1) Add Media Control, 2) Remove blank fields from the data payload.
 *
-*  Gary Milne - July 30th, 2026 @ 4:35PM
+*  Gary Milne - August 16th, 2026 @ 8:48 PM
 */
 
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 6.0.2 (7/30/26)</b>"
-@Field static final codeVersion = 602
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 6.0.3 (8/16/26)</b>"
+@Field static final codeVersion = 603
 @Field static final moduleName = "SmartGrid"
 
 import groovy.json.JsonSlurper
@@ -101,7 +102,6 @@ def sensorSectionConfig() {
         Water: [icon: "&#128167;", stateVar: "myLeaks", cap: "capability.waterSensor", typeCode: 33, onlyReportLabel: "Only Report Wet Sensors" ]
     ]
 }
-							   
 
 definition(
 	    name: "Remote Builder - SmartGrid",
@@ -196,7 +196,10 @@ def mainPage(){
                         autoAssignDevicesToGroup(settings[assignKey].toInteger(), sensorVar, cfg.typeCode)
                         app.updateSetting(assignKey, [value: "None", type: "enum"])
                     }
-                    paragraph buttonLink("btnHide${sectionName}", (state.hidden?."${sectionName}" ? "${cfg.icon} ${sectionName} &#9654;" : "${cfg.icon} ${sectionName} &#9660;"), 0)
+                    def sectionKey = sectionName.replaceAll(" ", "")
+					def deviceCount = this."${cfg.stateVar}"?.size() ?: 0
+					paragraph buttonLink("btnHide${sectionKey}", (state.hidden?."${sectionName}" ? "${cfg.icon} ${sectionName} (${deviceCount}) &#9654;" : "${cfg.icon} ${sectionName} (${deviceCount}) &#9660;"), 0)
+                    
                     if (!state.hidden?."${sectionName}") {
                         input cfg.stateVar, cfg.cap, title: "<b>Select ${sectionName} Devices</b>", multiple: true, submitOnChange: true, width: 2, newLine: false, style:"margin-right: 50px"
                         input(name: "onlyReportOutsideRange${sectionName}", type: "enum", title: bold(cfg.onlyReportLabel), options: ["True", "False"], required: false, defaultValue: "False", submitOnChange: true, width: 2, style:"margin-right:50px")
@@ -1167,12 +1170,12 @@ def getJSON() {
         def uidMap = list2.collectEntries { [(it.UID?.toString()): it.row] }
         // Find any UIDs not yet in the sort order and append them
         def maxRow = list2 ? list2.max { it.row }?.row ?: 0 : 0
-        def newEntries = []
+		def newEntries = []
         list1.each { item ->
             def uid = "${item.ID}-${item.type}".toString()
             if (!uidMap.containsKey(uid)) {
                 maxRow++
-                newEntries << [UID: uid, row: maxRow]
+                newEntries << [ID: item.ID.toString(), UID: uid, row: maxRow]  // ← added ID field
                 uidMap[uid] = maxRow
                 if (isLogDebug) log.debug("getJSON: Auto-appending unrecognized UID to sort order: $uid at row $maxRow")
             }
@@ -1297,23 +1300,23 @@ def getDeviceInfo(device, type){
         }
     }
     def hasSource = { String s -> activeSources.contains(s) }
-    if (hasSource("roomName")) roomName = device?.getRoomName()
-    if (hasSource("colorName")) colorName = device?.currentValue("colorName")
-    if (hasSource("colorMode")) colorMode = device?.currentValue("colorMode")
-    if (hasSource("power")) power = device?.currentValue("power")
-    if (hasSource("healthStatus")) healthStatus = device?.currentValue("healthStatus")
-    if (hasSource("energy")) energy = device?.currentValue("energy")
-    if (hasSource("network")) network = getNetworkType(device?.getDeviceNetworkId())
-    if (hasSource("deviceTypeName")) deviceTypeName = getDeviceTypeInfo(type)
-    if (hasSource("battery") && device.hasCapability("Battery")) battery = device?.currentValue("battery") + "%"
-    if (hasSource("colorTemperature") && device.hasCapability("ColorTemperature")) colorTemperature = device?.currentValue("colorTemperature") + "°K"
+    if (hasSource("roomName")) roomName = (device?.getRoomName() != null) ? device?.getRoomName() : invalidAttribute.toString()
+    if (hasSource("colorName")) colorName = (device?.currentValue("colorName") != null) ? device?.currentValue("colorName") : invalidAttribute.toString()
+    if (hasSource("colorMode")) colorMode = (device?.currentValue("colorMode") != null) ? device?.currentValue("colorMode") : invalidAttribute.toString()
+    if (hasSource("power")) power = (device?.currentValue("power") != null) ? device?.currentValue("power") : invalidAttribute.toString()
+    if (hasSource("healthStatus")) healthStatus = (device?.currentValue("healthStatus") != null) ? device?.currentValue("healthStatus") : invalidAttribute.toString()
+    if (hasSource("energy")) energy = (device?.currentValue("energy") != null) ? device?.currentValue("energy") : invalidAttribute.toString()
+    if (hasSource("network")) network = (device?.getDeviceNetworkId() != null) ? getNetworkType(device?.getDeviceNetworkId()) : invalidAttribute.toString()
+    if (hasSource("deviceTypeName")) deviceTypeName = (type != null) ? getDeviceTypeInfo(type) : invalidAttribute.toString()
+    if (hasSource("battery") && device.hasCapability("Battery")) { def myBattery = device?.currentValue("battery"); battery = (myBattery != null) ? myBattery + "%" : invalidAttribute.toString() }
+    if (hasSource("colorTemperature") && device.hasCapability("ColorTemperature")) { def myColorTemp = device?.currentValue("colorTemperature"); colorTemperature = (myColorTemp != null) ? myColorTemp + "°K" : invalidAttribute.toString() }
     if (hasSource("temperature") && device.hasCapability("TemperatureMeasurement")) {
         def myTemp = device?.currentValue("temperature")
-        temperature = Math.round(myTemp).toInteger().toString() + tempUnits
+        temperature = (myTemp != null) ? Math.round(myTemp as double).toInteger().toString() + tempUnits : invalidAttribute.toString()
     }
     if (hasSource("humidity") && device.hasCapability("RelativeHumidityMeasurement")) {
         def myHumid = device?.currentValue("humidity")
-        humidity = Math.round(myHumid).toInteger().toString() + "%"
+        humidity = (myHumid != null) ? Math.round(myHumid as double).toInteger().toString() + "%" : invalidAttribute.toString()
     }
     if (hasSource("lastActive") || hasSource("lastActiveDuration") || hasSource("lastInactive") || hasSource("lastInactiveDuration")) {
         def ec = [ 1:["switch","on","off"], 2:["switch","on","off"], 3:["switch","on","off"], 4:["switch","on","off"], 5:["switch","on","off"], 10:["valve","open","closed"], 11:["lock","locked","unlocked"], 13:["door","!closed","closed"], 
@@ -1846,82 +1849,59 @@ def disabledEndpointHTML(){
 
 // Allows the client to send the changed Device List and JSON to the Hub.
 def toHub() {
-	def sessionID = params.sessionID
-	if (isLogTrace) log.trace ("<b>Entering toHub:</b> Session ID: $sessionID")
-    // Extract the body field
+    def sessionID = params.sessionID
+    if (isLogTrace) log.trace ("<b>Entering toHub:</b> Session ID: $sessionID")
     def bodyJson = request.body
     if (isLogDeviceInfo) log.info ("<b>Uploading device data via toHub():</b> ${bodyJson}")
-	
-	//Get the latest JSON for the most up to date data
-	getJSON()
 
-    // Parse JSON
     def slurper = new JsonSlurper()
-    def group1 = slurper.parseText(state.JSON)  // This is the state of all of the devices as currerntly known on the Hub
-    def group2 = slurper.parseText(bodyJson)   // This is the state of all of the devices as known to the App. It may alternately contain the customSortOrder.
-	
+    def group2 = slurper.parseText(bodyJson)
+
+    // Handle sort order save BEFORE calling getJSON() to prevent getJSON() from corrupting the incoming sort order
+    if (group2 instanceof Map && group2.customSortOrder instanceof List) {
+        if (isLogDebug) log.debug(dodgerBlue("Received Updated Sort Order"))
+        if (isLogDebug) log.debug(dodgerBlue("Existing Sort Order is: $state.customSortOrder"))
+        state.customSortOrder = JsonOutput.toJson(group2.customSortOrder)
+        if (isLogDebug) log.debug(dodgerBlue("New Sort Order is: $state.customSortOrder"))
+        return
+    }
+
+    // Only call getJSON() for device state changes
+    getJSON()
+    def group1 = slurper.parseText(state.JSON)
+
     if (isLogDebug) log.debug ("Hub data (state.JSON): $group1")
     if (isLogDebug) log.debug ("App data: $group2")
-	
-	// Test to see whether we are receiving a customSortOrder. If so, we save it in state.customSortOrder as a JSON string.
-	if (group2 instanceof Map && group2.customSortOrder instanceof List) {
-		if (isLogDebug) log.debug(dodgerBlue("Received Updated Sort Order"))
-        if (isLogDebug) log.debug(dodgerBlue("Existing Sort Order is: $state.customSortOrder"))
-		def myCustomSortOrder = group2.customSortOrder
 
-		// Convert the updated object back to a JSON string for storage into the state variable.
-		state.customSortOrder = JsonOutput.toJson(myCustomSortOrder)
-		if (isLogDebug) log.debug(dodgerBlue("New Sort Order is: $state.customSortOrder"))
-		return
-	}
-	
-	//If the app is reporting a device state change if will now be processed. Map the second group by 'ID' for easier comparison
-	def group2Map = group2.findAll { it instanceof Map && it.ID != null } .collectEntries { [(it.ID): it] }
-    
-    // Find changes
+    def group2Map = group2.findAll { it instanceof Map && it.ID != null }
+        .collectEntries { [(it.ID): it] }
+
     def changes = []
-
-    // Compare devices using ID as the constant
     group1.each { item1 ->
         def item2 = group2Map[item1.ID]
-        if (item2) {  // If a matching ID is found
+        if (item2) {
             def diff = [:]
-            
-            // Compare each key except for the ID and type (which are constants)
             item1.each { key, value ->
-                // Only compare if the key exists in both group1 and group2
                 if (item2.containsKey(key) && key != "ID" && key != "type") {
                     if (key == "CT") {
-                        // Calculate the percentage difference
                         def oldTemp = item1.CT ?: 0
                         def newTemp = item2.CT ?: 0
                         def tempDifference = Math.abs(oldTemp - newTemp)
-                        // Only consider it a change if the difference is greater than 50 Kelvin. Sometimes the values on the returned controls vary by 1-5 Kelvin for no known reason.
-                        if (tempDifference > 50) {
-                            diff[key] = [oldTemp, newTemp]
-                        }
+                        if (tempDifference > 50) { diff[key] = [oldTemp, newTemp] }
                     } else if (item2[key] != value) {
-                        // For all other keys, check if there's a difference
-                        diff[key] = [item1[key], item2[key]]  // Capture both old and new values
+                        diff[key] = [item1[key], item2[key]]
                     }
                 }
-            }	
-					
-            // If there are differences, add them to the changes array
-            if (!diff.isEmpty()) {
-                changes << [ID: item1.ID, type: item1.type, changes: diff]  // Include ID and changes
             }
+            if (!diff.isEmpty()) { changes << [ID: item1.ID, type: item1.type, changes: diff] }
         }
     }
-    
-    log.info ("Changes are: $changes")
 
-	// Print changes for each device one at a time
+    log.info ("Changes are: $changes")
     changes.each { change ->
         if (change.type == 19 && change.changes.containsKey("thermostatMode")) {
             def device = findDeviceById(change.ID)
             if (device) {
-                //Always send the setPoint even if it has not changed because this is evaluated by the thermostat to determine the mode if Auto is selected.
                 def heatSP = device.currentValue("heatingSetpoint")
                 def coolSP = device.currentValue("coolingSetpoint")
                 if (heatSP != null) change.changes["heatingSetpoint"] = [heatSP, heatSP]
@@ -1929,8 +1909,6 @@ def toHub() {
             }
         }
     }
-
-    // Apply all the changes to the devices.
     applyChangesToDevices(changes)
     result = render contentType: "application/json", data: "OK", status: 200
     return result
@@ -2021,7 +1999,7 @@ def appButtonHandler(btn) {
         case "btnHidePresence":     state.hidden.Presence     = !state.hidden?.Presence;     break
         case "btnHideWater":        state.hidden.Water        = !state.hidden?.Water;        break
         case "btnHideSmoke":        state.hidden.Smoke        = !state.hidden?.Smoke;        break
-        case "btnHideCarbonMonoxide": state.hidden.CarbonMonoxide = !state.hidden?.CarbonMonoxide; break
+        case "btnHideCarbonMonoxide": state.hidden."Carbon Monoxide" = !state.hidden?."Carbon Monoxide"; break
         case "btnHideMotion":       state.hidden.Motion       = !state.hidden?.Motion;       break
         case "btnHideHumidity":     state.hidden.Humidity     = !state.hidden?.Humidity;     break
         case "btnHidePower":        state.hidden.Power        = !state.hidden?.Power;        break
