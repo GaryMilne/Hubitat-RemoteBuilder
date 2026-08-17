@@ -4,7 +4,7 @@
   "version": "133",
   "minimumHEVersion": "2.3.4.132",
   "dateReleased": "2026-8-16",
-  "releaseNotes": "Package-132: Updates SmartGrid to version 6.0.2\nPackage-131: Updates SmartGrid to version 5.2.0",
+  "releaseNotes": "Package-132: Fixes bug that may affect save order after Drag and Drop. Adds device count to Sensor Types\nPackage-132: Updates SmartGrid to version 6.0.2\nPackage-131: Updates SmartGrid to version 5.2.0",
   "documentationLink": "https://github.com/GaryMilne/Hubitat-RemoteBuilder/blob/main/Remote%20Builder%20Help.pdf",
   "communityLink": "https://community.hubitat.com/t/release-remote-builder-a-new-way-to-control-devices-7-remotes-available/142060",
   "apps": [
@@ -86,7 +86,7 @@
       "required": false,
       "oauth": true,
       "primary": false,
-      "version": "6.0.2"
+      "version": "6.0.3"
     }
   ],
   "drivers": [
