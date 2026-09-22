@@ -25,17 +25,20 @@
 *  Version 6.0.0 - Adds Thermostats as a supported Control type. Separates Fans into 3 speed and 5 speed. Add several Theme styles. Adds Alternate Row Colors. Adds experimental u1 & u2 tags under experimental for more formatting choices.
 *  Version 6.0.2 - Pre-release fixes
 *  Version 6.0.3 - Fixes race condition that may cause the sort order to become corrupted during Drag and Drop operations. Fixes problem with collapsing the Carbon Monoxide sensor group. Added a device count to sensor group titles.
+*  Version 6.0.4 - Adds better descriptions to the Group & Sort -- Display Group\Row drop down selection box. Adds name field to the iFrame rows for better navigation.
+*  Version 6.0.5 - Add handling for support of supportedThermostatModes and supportedThermostatFanModes - non released version
+*  Version 6.0.6 - Improved handling of thermostat modes
 *
 *  Native Supported Sensor Types: Battery, CarbonMonoxideDetector, ContactSensor, HumidityMeasurement, MotionSensor, PowerMeter, PresenceSensor, SmokeDetector, TemperatureMeasurement, WaterSensor
 *  Sensors Supported via Variables: AccelerationSensor, AirQuality, CarbonDioxideMeasurement, EnergyMeter, IlluminanceMeasurement, PressureMeasurement, ShockSensor, SignalStrength, SleepSensor, SoundPressureLevel, SoundSensor, UltravioletIndex, VoltageMeasurement
 *  Known Issues: Sometimes a Shade Slider will show the value Null briefly when the slider is changed until it picks up the new value.
 *  Ideas for future releases: 1) Add Media Control, 2) Remove blank fields from the data payload.
 *
-*  Gary Milne - August 16th, 2026 @ 8:48 PM
+*  Gary Milne - September 22nd, 2026 @ 9:35AM
 */
 
-@Field static final codeDescription = "<b>Remote Builder - SmartGrid 6.0.3 (8/16/26)</b>"
-@Field static final codeVersion = 603
+@Field static final codeDescription = "<b>Remote Builder - SmartGrid 6.0.6 (9/22/26)</b>"
+@Field static final codeVersion = 606
 @Field static final moduleName = "SmartGrid"
 
 import groovy.json.JsonSlurper
@@ -345,13 +348,13 @@ def mainPage(){
                     if (customRowCount.toInteger() > 0) {
                         def slurper = new groovy.json.JsonSlurper()
                         def sortOrder = slurper.parseText(state.customSortOrder ?: "[]")
-                        def separators = sortOrder.findAll { it.containsKey("UID") && it.UID?.toString().endsWith("-51") }.sort { it.row }
+                        def separators = sortOrder.findAll { it.containsKey("UID") && it.UID?.toString().tokenize("-").last() in ["51", "52", "53"] }.sort { it.row }																																		   
                         def rowOptions = ["All": "All"]
                         (1..customRowCount.toInteger()).each { i ->
-                            def nameText = settings["myNameText${i}"]?.toString() ?.replaceAll(/\[.*?\]/, "")?.trim() ?: "Row ${i}"
-                            def rowType   = settings["customRowType${i}"]?.toString() ?: "Unknown"
+                            def nameText = settings["myNameText${i}"]?.toString()?.replaceAll(/\[.*?\]/, "")?.trim() ?: "Row ${i}"
+                            def rowType  = settings["customRowType${i}"]?.toString() ?: "Unknown"
                             def visualPos = separators.findIndexOf { it.UID.toString().tokenize("-")[0].toInteger() == i }
-                            def posLabel  = visualPos >= 0 ? " [pos:${visualPos + 1}]" : ""
+                            def posLabel  = visualPos >= 0 ? " [pos:${visualPos + 1} -- ${rowType}]" : (rowType == "Disabled" ? " [Disabled]" : "")
                             rowOptions["${i}"] = "${i} - ${nameText}${posLabel}"
                         }
                         input (name: "displayCustomRow", title: "<b>Display Group\\Row</b>", type: "enum", options: rowOptions, submitOnChange: true, width: 2, defaultValue: "All")
@@ -386,6 +389,7 @@ def mainPage(){
                             }
                         }
                         if (settings["customRowType${i}"] == "iFrame Row") {
+							input "myNameText${i}", "string", title: "<b>iFrame Row Name</b>", defaultValue: "[b]My iFrame[/b]", submitOnChange: false, width: 2, newLine: false, style: "margin-right: 25px"																																																			 
                             input "myStateText${i}", "string", title: "<b>iFrame URL in form http://www.example.com</b>", defaultValue: "[b]Your Text Here (%var%)[/b]", submitOnChange: false, width: 5, newLine: false, style: "margin-right: 45px"
                             input "myIFrameHeight${i}", "string", title: "<b>iFrame Height (px)</b>", defaultValue: "200", submitOnChange: false, width: 1, newLine: false, style: "margin-right: 25px"
                         }
@@ -1038,27 +1042,36 @@ def getJSON() {
             17: { d, dd -> def sp = d.currentValue("speed"); def s = (sp == "off") ? "off" : "on"; def ic = getIcon(17, sp); dd.speed = sp; dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class; dd.speeds = 3 },
             18: { d, dd -> def sp = d.currentValue("speed"); def s = (sp == "off") ? "off" : "on"; def ic = getIcon(18, sp); dd.speed = sp; dd.switch = s; dd.icon = ic?.icon; dd.cl = ic?.class; dd.speeds = 5 },
             19: { d, dd ->
-                    def m           = (d.currentValue("thermostatMode") ?: "off").toLowerCase()
-                    def os          = (d.currentValue("thermostatOperatingState") ?: "idle").toLowerCase()
-                    def iconState   = (os == "idle" && m == "off") ? "off" : (os == "idle" && m == "emergency heat") ? "emergency heat" : os
-                    def ic          = getIcon(19, iconState)
-                    def rawTemp     = d.currentValue("temperature")
+                    def m  = (d.currentValue("thermostatMode") ?: "off").toLowerCase()
+                    def os = (d.currentValue("thermostatOperatingState") ?: "idle").toLowerCase()
+
+                    // Recognized thermostat modes
+                    def validModes = ["off", "heat", "cool", "auto", "emergency heat"]
+
+                    // Determine which state should be used for the icon
+                    def iconState = !validModes.contains(m) ? "unknown" : (os == "idle" && m == "off") ? "off" : (os == "idle" && m == "emergency heat") ? "emergency" : os
+                    def ic = getIcon(19, iconState)
+                    def rawTemp = d.currentValue("temperature")
                     def formattedTemp = rawTemp != null ? (tempDecimalPlaces == "0 Decimal Places" ? (rawTemp as float).round(0).toInteger().toString() + tempUnits : (rawTemp as float).round(1).toString() + tempUnits) : invalidAttribute.toString()
-                    dd.thermostatMode    = m
-                    dd.thermostatFanMode = d.currentValue("thermostatFanMode") ?: "auto" ; dd.heatingSetpoint = d.currentValue("heatingSetpoint") ; dd.coolingSetpoint = d.currentValue("coolingSetpoint")
-                	dd.temperature = formattedTemp ; dd.operatingState = os ; dd.switch = m ; dd.icon = ic?.icon ; dd.cl = ic?.class
-                	if (d.hasCapability("RelativeHumidityMeasurement")) dd.humidity = d.currentValue("humidity")
+
+                    dd.thermostatMode = m ; dd.thermostatFanMode = d.currentValue("thermostatFanMode") ?: "auto" ; dd.heatingSetpoint = d.currentValue("heatingSetpoint") ; dd.coolingSetpoint = d.currentValue("coolingSetpoint") ;
+                    dd.temperature = formattedTemp ; dd.operatingState = os ; dd.switch = m ; dd.icon = ic?.icon ; dd.cl = ic?.class ; 
+                    dd.supportedThermostatModes = d.currentValue("supportedThermostatModes") ? new groovy.json.JsonSlurper().parseText(d.currentValue("supportedThermostatModes")) : ["off", "heat", "cool", "auto", "emergency heat"]
+                    dd.supportedThermostatFanModes = d.currentValue("supportedThermostatFanModes") ? new groovy.json.JsonSlurper().parseText(d.currentValue("supportedThermostatFanModes")) : ["auto", "on"]
+                    if (d.hasCapability("RelativeHumidityMeasurement")) dd.humidity = d.currentValue("humidity")
                 },
-        ]
-        def handler = deviceTypeHandlers[deviceType]
-        if (handler) { handler(device, deviceData) }
-        def deviceDetails = getDeviceInfo(device, deviceData.get("type"))
-        def deviceUID = "${device.getId()}-${deviceType}".toString()
-        if (hideColumn7 == false) { def src = getGroupInfoSource(deviceUID, 1); deviceData.put("i1", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
-        if (hideColumn8 == false) { def src = getGroupInfoSource(deviceUID, 2); deviceData.put("i2", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
-        if (hideColumn9 == false) { def src = getGroupInfoSource(deviceUID, 3); deviceData.put("i3", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
-        deviceAttributesList << deviceData
-    }
+			]
+        
+            def handler = deviceTypeHandlers[deviceType]
+            if (handler) { handler(device, deviceData) }
+            def deviceDetails = getDeviceInfo(device, deviceData.get("type"))
+            def deviceUID = "${device.getId()}-${deviceType}".toString()
+            if (hideColumn7 == false) { def src = getGroupInfoSource(deviceUID, 1); deviceData.put("i1", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
+            if (hideColumn8 == false) { def src = getGroupInfoSource(deviceUID, 2); deviceData.put("i2", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
+            if (hideColumn9 == false) { def src = getGroupInfoSource(deviceUID, 3); deviceData.put("i3", src == "blank" ? invalidAttribute.toString() : deviceDetails."${src}") }
+            deviceAttributesList << deviceData
+		}
+
     def sensorConfigs = [
         31: [list: myContacts, attr: "contact", iconAttrVal: { it -> it }, condition: { val -> if (isDragDrop == true) return true; if (onlyReportOutsideRangeContacts == "False") return true; return val == "open" }],
         32: [list: myTemps, attr: "temperature", iconAttrVal: { "temp" },
@@ -1123,18 +1136,21 @@ def getJSON() {
             def deviceID = (0 - i)
             def myType
             deviceData.put("ID", "$deviceID")
+							  
             if (rowType == "Group Row") {
                 myType = 51
                 def ic = getIcon(myType, "groupRow")
                 deviceData.put("icon", ic?.icon); deviceData.put("cl", ic?.class)
             } else if (rowType == "Device Row") {
+								  
                 myType = 52
                 def ic = getIcon(myType, "deviceRow")
                 deviceData.put("icon", ic?.icon); deviceData.put("cl", ic?.class)
             } else if (rowType == "iFrame Row") {
+								  
                 myType = 53
                 def ic = getIcon(myType, "iFrameRow")
-                deviceData.put("icon", ic?.icon); deviceData.put("cl", ic?.class)
+                deviceData.put("icon", ic?.icon); deviceData.put("cl", ic?.class)			 
             }
             deviceData.put("type", myType)
             deviceData.put("name", toHTML(replaceVarsInString(settings["myNameText$i"]?.toString())))
@@ -1156,10 +1172,11 @@ def getJSON() {
     }
     // Strip nulls and empty strings from device rows only
     def cleanedList = deviceAttributesList.collect { device ->
-        def type = device.type as Integer
-        if (type >= 51) return device
-        device.findAll { k, v -> v != null && v != "" }
-    }
+    	def type = device.type as Integer
+    	if (type >= 51) return device
+    	device.findAll { k, v -> v != null && v != "" || v instanceof List }
+	}
+        
     // Save compact JSON
     state.JSON = JsonOutput.toJson(cleanedList)
     // Apply custom sort order if needed
@@ -1253,8 +1270,8 @@ def getIcon(type, deviceState) {
         16 : [on: [icon: "volume_up", class: "on"], off: [icon: "volume_off", class: "off"]],
         17 : [on: [icon: "mode_fan", class: "on"], off: [icon: "mode_fan_off", class: "off"], low: [icon: "mode_fan", class: "spin-low"], medium: [icon: "mode_fan", class: "spin-medium"], high: [icon: "mode_fan", class: "spin-high"]],
 		18 : [on: [icon: "mode_fan", class: "on"], off: [icon: "mode_fan_off", class: "off"], low: [icon: "mode_fan", class: "spin-low"], "medium-low": [icon: "mode_fan", class: "spin-medium-low"], medium: [icon: "mode_fan", class: "spin-medium"], "medium-high": [icon: "mode_fan", class: "spin-medium-high"], high: [icon: "mode_fan", class: "spin-high"]],
-        19 : [cooling: [icon: "mode_cool", class: "cooling"], heating: [icon: "mode_heat", class: "heating"], 'fan only': [icon: "mode_fan", class: "spin-medium"], idle: [icon: "thermostat_auto", class: "inactive"], off: [icon: "power_off", class: "inactive"], 'pending cool': [icon: "mode_cool", class: "cooling"], 'pending heat': [icon: "mode_heat", class: "heating"], 'emergency': [icon: "emergency_heat", class: "bad"]],
-        
+        19 : [cooling: [icon: "mode_cool", class: "cooling"], heating: [icon: "mode_heat", class: "heating"], 'fan only': [icon: "mode_fan", class: "spin-medium"], idle: [icon: "thermostat_auto", class: "inactive"], off: [icon: "power_off", class: "inactive"], 
+              	'pending cool': [icon: "mode_cool", class: "cooling"], 'pending heat': [icon: "mode_heat", class: "heating"], 'emergency': [icon: "emergency_heat", class: "bad"], default: [icon: "device_thermostat", class: "inactive"]],     
         // Sensors start at 31
         31 : [open: [icon: "expand_content", class: "warn"], closed: [icon: "collapse_content", class: "off"]],
 		32 : [temp: [icon: "device_thermostat", class: "off"]],
@@ -1273,14 +1290,19 @@ def getIcon(type, deviceState) {
 		52 : [deviceRow: [icon: "info", class: "off"] ],
         53 : [iFrameRow: [icon: "iframe", class: "off"] ]
     ]
-
+    
     // Retrieve the entry for the given type and deviceState
     def result = icons[type]?.get(deviceState)
-    
-    // Return the result if found, otherwise return a default structure
-	//log.info ("Returning: $result")
+
+    // For thermostat type 19, use its default entry for any unrecognized mode
+    if (type == 19 && result == null) {
+        result = icons[type]?.get("default")
+    }
+
+    // All other types with an unrecognized state get the general error icon
     return result ?: [icon: "error", class: "warn"]
 }
+
 
 def getDeviceInfo(device, type){
     def lastActiveEvent, lastInactiveEvent, lastActive, lastInactive, lastActiveInstant, lastInactiveInstant, lastActiveDuration, lastSeen, lastSeenElapsed
@@ -1391,7 +1413,7 @@ def getDeviceTypeInfo(input) {
 // Takes a JSON list of devices and changes, and applies them.
 def applyChangesToDevices(changes) {
     if (isLogTrace) log.trace("<b>Entering: applyChangesToDevices</b>")
-    if (isLogDeviceInfo) log.debug("Changes are: $changes")
+    if (isLogDeviceInfo) log.debug("applyChanges(): $changes")
 
     // Define a map of actions Note: 'speed' handles all fan types (17=3-speed, 18=5-speed) generically via setSpeed()
     def commandMap = [ 'switch' : { ID, type, newValue -> handleSwitch(ID, type, newValue) }, 'level' : { ID, _, newValue -> ID.setLevel(newValue, 0.4) }, 'volume' : { ID, _, newValue -> ID.setVolume(newValue) }, 'position': { ID, _, newValue -> ID.setPosition(newValue) }, 
@@ -1897,15 +1919,16 @@ def toHub() {
         }
     }
 
-    log.info ("Changes are: $changes")
+    log.info ("Detected changes: $changes")
     changes.each { change ->
-        if (change.type == 19 && change.changes.containsKey("thermostatMode")) {
+        if (change == null) return
+        if (change.type?.toString() == "19" && change.changes.containsKey("thermostatMode")) {
             def device = findDeviceById(change.ID)
             if (device) {
                 def heatSP = device.currentValue("heatingSetpoint")
                 def coolSP = device.currentValue("coolingSetpoint")
-                if (heatSP != null) change.changes["heatingSetpoint"] = [heatSP, heatSP]
-                if (coolSP != null) change.changes["coolingSetpoint"] = [coolSP, coolSP]
+                if (heatSP != null && !change.changes.containsKey("heatingSetpoint")) change.changes["heatingSetpoint"] = [heatSP, heatSP]
+                if (coolSP != null && !change.changes.containsKey("coolingSetpoint")) change.changes["coolingSetpoint"] = [coolSP, coolSP]
             }
         }
     }
@@ -2031,7 +2054,7 @@ void publishSubscribe() {
     
     // List of attributes you want to subscribe to
     def attributesToSubscribe = ["switch", "hue", "saturation", "level", "colorTemperature", "valve", "lock", "speed", "door", "windowShade", "position", "tilt", "mute", "volume", "contact", "water", "motion", 
-                                 "presence", "smoke", "carbonMonoxide", "battery", "power", "thermostatMode", "thermostatFanMode", "heatingSetpoint", "coolingSetpoint", "thermostatOperatingState", "temperature"]
+                                 "presence", "smoke", "carbonMonoxide", "battery", "power", "thermostatMode", "thermostatFanMode", "heatingSetpoint", "coolingSetpoint", "thermostatOperatingState", "temperature","supportedThermostatModes","supportedThermostatFanModes"]
     deleteSubscription()
     
     // Configure subscriptions to devices

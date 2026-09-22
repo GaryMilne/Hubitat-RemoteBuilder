@@ -33,14 +33,16 @@
 *  Version 2.0.1 - JS template modifications for SmartGrid
 *  Version 2.0.2 - JS template modifications for SmartGrid improvements
 *  Version 2.3.2- JS template changes to support version 6 of SmartGrid
+*  Version 2.3.3- JS template changes to support dynamic thermostat and fan modes
+*  Version 2.3.4- JS template updates for dynamic thermostat and fan modes
 *
-*  Gary Milne - 07/30/26 @ 4:18 PM
+*  Gary Milne - 09/22/26 @ 9:38 AM
 *
 **/
 
 import groovy.transform.Field
-@Field static final codeDescription = "<b>Remote Builder Parent v2.3.2(07/30/26)</b>"
-@Field static final codeVersion = 232
+@Field static final codeDescription = "<b>Remote Builder Parent v2.3.4(09/22/26)</b>"
+@Field static final codeVersion = 234
 
 //These are the data for the pickers used on the child forms.
 def storageDevices() { return ['Remote Builder Storage Device 1', 'Remote Builder Storage Device 2', 'Remote Builder Storage Device 3'] }
@@ -1065,8 +1067,12 @@ def buildTemplateHTML() {
         <!-- Header -->
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
             <div>
-				<div id="thermModalName" style="font-size:1.2rem; font-weight:700;"></div>
-                <div style="font-size:0.9rem; color:#222;"><span id="thermModalTemp" style="font-weight:600;"></span><span id="thermModalHumidSep" style="display:none;"> • </span><span id="thermModalHumid" style="font-weight:600;"></span></div>
+                <div id="thermModalName" style="font-size:1.2rem; font-weight:700;"></div>
+                <div style="font-size:0.9rem; color:#222;">
+                    <span id="thermModalTemp" style="font-weight:600;"></span>
+                    <span id="thermModalHumidSep" style="display:none;"> • </span>
+                    <span id="thermModalHumid" style="font-weight:600;"></span>
+                </div>
             </div>
             <div id="thermModalState" style="font-size:0.8rem; font-weight:600; padding:3px 10px; border-radius:12px; white-space:nowrap; margin-top:2px;"></div>
         </div>
@@ -1092,17 +1098,12 @@ def buildTemplateHTML() {
         <!-- Mode -->
         <div style="display:flex; align-items:center; margin-bottom:14px;">
             <span style="width:60px; color:#444; font-size:0.95rem;">Mode</span>
-            <select id="thermModeSelect" class="fan-speed-select" style="flex:1;">
-                <option value="heat">Heat</option> <option value="cool">Cool</option> <option value="auto">Auto</option> <option value="emergency heat">Emergency Heat</option>
-                <option value="off">Off</option>
-            </select>
+            <select id="thermModeSelect" class="fan-speed-select" style="flex:1;"></select>
         </div>
         <!-- Fan -->
         <div style="display:flex; align-items:center; margin-bottom:14px;">
             <span style="width:60px; color:#444; font-size:0.95rem;">Fan</span>
-            <select id="thermFanSelect" class="fan-speed-select" style="flex:1;">
-                <option value="auto">Auto</option> <option value="on">On</option> <option value="circulate">Circulate</option>
-            </select>
+            <select id="thermFanSelect" class="fan-speed-select" style="flex:1;"></select>
         </div>
         <hr style="border:none; border-top:1px solid #e0e0e0; margin:12px 0;">
         <!-- Cancel / Apply -->
@@ -1298,20 +1299,29 @@ function thermApply() {
 }
 
 function openThermModal(id, name) {
-    // Find the row by device ID
     thermRow = [...document.querySelectorAll("#sortableTable tbody tr")].find(r => r.dataset.ID === String(id));
     if (!thermRow) return;
+    //console.log("thermRow dataset:", JSON.stringify(thermRow.dataset));
 
-    const mode     = (thermRow.dataset.thermostatMode || "off").toLowerCase();
-    const opState  = (thermRow.dataset.operatingState || "idle").toLowerCase();
-    const heatSP   = parseFloat(thermRow.dataset.heatingSetpoint) || 68;
-    const coolSP   = parseFloat(thermRow.dataset.coolingSetpoint) || 76;
-    const fanMode  = (thermRow.dataset.thermostatFanMode || "auto").toLowerCase();
-	const temp = (thermRow.dataset.temperature || thermRow.cells[3]?.textContent?.trim() || invalidAttribute).toString().replace(/°F|°C|°/gi, "").trim();
+	const mode    = (thermRow.dataset.thermostatMode || "off").toLowerCase();
+    const opState = (thermRow.dataset.operatingState || "idle").toLowerCase();
+    const heatSP  = parseFloat(thermRow.dataset.heatingSetpoint) || 68;
+    const coolSP  = parseFloat(thermRow.dataset.coolingSetpoint) || 76;
+    const fanMode = (thermRow.dataset.thermostatFanMode || "auto").toLowerCase();
+    const temp    = (thermRow.dataset.temperature || thermRow.cells[3]?.textContent?.trim() || invalidAttribute).toString().replace(/°F|°C|°/gi, "").trim();
+    const modeSelect = document.getElementById("thermModeSelect");
+    const fanSelect  = document.getElementById("thermFanSelect");
 	
-    document.getElementById("thermModalName").textContent = name;
+	modeSelect.innerHTML = JSON.parse(thermRow.dataset.supportedThermostatModes || '["off","heat","cool","auto","emergency heat"]') .map(m => `<option value="${m}">${thermFormatLabel(m)}</option>`) .join('');
+	fanSelect.innerHTML = JSON.parse(thermRow.dataset.supportedThermostatFanModes || '["auto","on"]') .map(m => `<option value="${m}">${thermFormatLabel(m)}</option>`) .join('');
+
+    modeSelect.value = mode;
+    fanSelect.value  = fanMode;
+
+    document.getElementById("thermModalName").textContent = thermRow.dataset.name.split("<" + "/")[0].replace(/<[^>]*>/g, '').trim();
     document.getElementById("thermModalTemp").textContent = "Currently " + temp + tempUnits;
     document.getElementById("thermModalTemp").style.color = opState.includes("heat") ? "#CC3300" : opState.includes("cool") ? "#1E90FF" : "#555";
+
     const humidity = thermRow.dataset.humidity;
     if (humidity != null && humidity !== "" && humidity !== "undefined") {
         document.getElementById("thermModalHumid").textContent = humidity + '%';
@@ -1321,29 +1331,22 @@ function openThermModal(id, name) {
         document.getElementById("thermModalHumidSep").style.display = 'none';
     }
 
-    // State badge
-    const badge = document.getElementById("thermModalState");
+    const badge   = document.getElementById("thermModalState");
     const opLabel = opState.charAt(0).toUpperCase() + opState.slice(1);
-    badge.textContent = opLabel;
+    badge.textContent           = opLabel;
     badge.style.backgroundColor = opState.includes("heat") ? "rgba(204,51,0,0.12)" : opState.includes("cool") ? "rgba(30,144,255,0.12)" : "#f0f0f0";
-    badge.style.color = opState.includes("heat") ? "#CC3300" : opState.includes("cool") ? "#1E90FF" : "#444";
+    badge.style.color           = opState.includes("heat") ? "#CC3300"              : opState.includes("cool") ? "#1E90FF"              : "#444";
 
-    // Setpoint values
-	document.getElementById("thermHeatVal").textContent = heatSP + tempUnits;
-	document.getElementById("thermCoolVal").textContent = coolSP + tempUnits;
+    document.getElementById("thermHeatVal").textContent = heatSP + tempUnits;
+    document.getElementById("thermCoolVal").textContent = coolSP + tempUnits;
 
-    // Show/hide setpoint rows based on mode
     thermUpdateSetpointVisibility(mode);
+    modeSelect.onchange = function() { thermUpdateSetpointVisibility(this.value); };
 
-    // Dropdowns
-    document.getElementById("thermModeSelect").value  = mode;
-    document.getElementById("thermFanSelect").value   = fanMode;
-
-    // Update visibility when mode dropdown changes
-    document.getElementById("thermModeSelect").onchange = function() { thermUpdateSetpointVisibility(this.value); };
     document.getElementById("thermModal").style.display = "block";
 }
 
+function thermFormatLabel(m) { return m.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
 function closeThermModal() { document.getElementById("thermModal").style.display = "none";  thermRow = null; }
 document.getElementById("thermModalCloseBtn").addEventListener("click", () => { document.getElementById("thermModal").style.display = "none"; });
 
@@ -1391,7 +1394,8 @@ function loadTableFromJSON(data) {
         row.draggable = #isDragDrop#;
         Object.assign(row.dataset, {
             ID: d.ID, name: d.name, type: d.type, speed: d.speed, level: d.level, position: d.position, tilt: d.tilt, volume: d.volume, colorMode: d.colorMode || "None", info1: d.i1, info2: d.i2, info3: d.i3, icon: d.icon, 
-            class: d.cl, row: d.row, group: d.group, thermostatMode: d.thermostatMode, thermostatFanMode: d.thermostatFanMode, heatingSetpoint: d.heatingSetpoint, coolingSetpoint: d.coolingSetpoint, operatingState: d.operatingState, temperature: d.temperature, humidity: d.humidity
+            class: d.cl, row: d.row, group: d.group, thermostatMode: d.thermostatMode, thermostatFanMode: d.thermostatFanMode, heatingSetpoint: d.heatingSetpoint, coolingSetpoint: d.coolingSetpoint, operatingState: d.operatingState, temperature: d.temperature, humidity: d.humidity,
+    		supportedThermostatModes: d.supportedThermostatModes ? JSON.stringify(d.supportedThermostatModes) : '["off","heat","cool","auto","emergency heat"]', supportedThermostatFanModes: d.supportedThermostatFanModes ? JSON.stringify(d.supportedThermostatFanModes) : '["auto","on"]'
         });
         const col = /^#[0-9A-F]{6}$/i.test(d.color) ? d.color : "#FFF";
         if (d.type === groupRow) icon = `<i class='material-symbols-outlined ${d.cl}' onclick="toggleGroupVisibility(this)">${d.icon}</i>`;
